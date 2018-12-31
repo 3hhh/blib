@@ -20,7 +20,9 @@ FIXTURES_DIR="$TESTS_DIR/fixtures"
 #if that file doesn't exist or could not be loaded (USER_DATA_AVAILABLE != 0), these tests should skip
 USER_DATA_FILE="$TESTS_DIR/user_test_data.bash"
 USER_DATA_AVAILABLE=1
-load "$USER_DATA_FILE" &> /dev/null && USER_DATA_AVAILABLE=0
+if [ -f "$USER_DATA_FILE" ] ; then
+	load "$USER_DATA_FILE" &> /dev/null && USER_DATA_AVAILABLE=0
+fi
 
 #for the time measurement functions
 TIMER_START=""
