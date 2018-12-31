@@ -1,0 +1,42 @@
+#!/bin/bash
+#
+#+Collection of string related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.1
+
+#+### Functions ###
+
+#+b_str_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_str_getDeps {
+echo ""
+}
+
+#+b_str_stripQuotes [string]
+#+Remove any single or double quotes around the given string.
+#+[string]: string which might be enclosed in single or double quotes (' or ")
+#+returns: \[string\] without the enclosed single or double quotes, if there were any; if none were found the original string is returned; the exit code is always zero
+function b_str_stripQuotes {
+local str="$1"
+local singleQuoteEnclosed='^[[:blank:]]*'"'"'(.*)'"'"'[[:blank:]]*$'
+local doubleQuoteEnclosed='^[[:blank:]]*"(.*)"[[:blank:]]*$'
+
+if [[ "$str" =~ $singleQuoteEnclosed ]] || [[ "$str" =~ $doubleQuoteEnclosed ]] ; then
+	echo "${BASH_REMATCH[1]}"
+else
+	echo "$str"
+fi
+return 0
+}
+
+#+b_str_trim [string]
+#+remove any whitespace from around a string
+#+[string]: string to trim
+#+returns: \[string\] beginning and ending without whitespace; the exit code is always zero
+function b_str_trim {
+local str="$1"
+local re='^[[:space:]]*(.*[^[:space:]]+)[[:space:]]*$'
+[[ "$str" =~ $re ]] && echo "${BASH_REMATCH[1]}" || echo ""
+}

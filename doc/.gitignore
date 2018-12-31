@@ -1,0 +1,4 @@
+#ignore everything in this dir, but keep the dir itself in the repo
+#(this directory is for generated documentation)
+*
+!.gitignore

@@ -1,0 +1,121 @@
+body {
+	border-left: 1px solid black;
+	border-right: 1px solid black;
+	padding-right: 1em;
+	padding-left: 1em;
+	font-family: Verdana, sans-serif;
+	font-size: 100%;
+	line-height: 140%;
+	position: relative;
+	top: 0;
+	left: 300px;
+	width: calc(97% - 311px);
+	margin-left: 11px;
+	z-index: -1;
+}
+
+pre {
+	border: 1px dotted gray;
+	background-color: #ececec;
+	padding: 0.5em;
+}
+
+code {
+	font-family: monospace;
+}
+
+a:link, a:visited, a:hover, a:active {
+	text-decoration-style: dotted;
+	color: #9000ff; 
+}
+
+h4, h5, h6 {
+	margin-bottom: 0;
+	padding-bottom: 0;
+}
+
+h4+p, h5+p, h6+p {
+	margin-top:0;
+	padding-top: 0;
+}
+
+h1 a, h2 a, h3 a, h4 a, h5 a, h6 a { 
+	text-decoration: none;
+	color: #7a5ada; 
+}
+
+h1, h2, h3, h4, h5, h6 { 
+	font-weight: bold;
+	border-bottom: 1px dotted black;
+	color: #7a5ada;
+}
+
+h1, h2 {
+	font-size: 130%;
+}
+
+h3 {
+	font-size: 110%;
+}
+
+h4 {
+	font-size: 95%;
+}
+
+h5 {
+	font-size: 90%;
+	font-style: italic;
+}
+
+h6 {
+	font-size: 85%;
+	font-style: italic;
+}
+
+h1.title {
+	font-size: 200%;
+	font-weight: bold;
+	padding-top: 0.2em;
+	padding-bottom: 0.2em;
+	text-align: left;
+	border: none;
+}
+
+dt code {
+	font-weight: bold;
+}
+
+dd p {
+	margin-top: 0;
+}
+
+#reflist {
+	margin-left: 0;
+	padding-left:10px;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 300px;
+	height: 100%;
+	overflow: auto;
+	z-index: 1;
+	background-color: white;
+}
+
+#reflist p {
+	margin: 0;
+	font-size: 80%;
+}
+
+.author {
+	display: none;
+}
+
+.par, .ann, .ret {
+	display: block;
+}
+
+.par {
+	margin-left: 2em;
+	background-color: #ebf5fb;
+}

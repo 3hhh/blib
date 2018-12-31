@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+#+Collection of date and time related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.2
+
+#+### Functions ###
+
+#+b_date_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_date_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+date
+EOF
+
+echo -n "$deps"
+}
+
+#+b_date_addDays [date] [days] [format] [utc flag]
+#+Add the given number of days to the given date.
+#+[date]: date to add days to; the format must be understood by the Unix date utility
+#+[days]: number of days to add
+#+[format]: output format of the date, in Unix date notation (default: use the localized output)
+#+[utc flag]: if set to 0, use UTC as time zone if not specified for the input _and_ use it for the output (default: 1 = local time zone)
+#+returns: The input date with the given number of days added, in the requested format; returns a non-zero exit code on errors.
+#+@B_E
+function b_date_addDays {
+local date="$1"
+local days="$2"
+local format="$3"
+[ -n "$format" ] && format="+$format"
+local utcFlag="${4:-1}"
+local addParams=""
+[ $utcFlag -eq 0 ] && addParams="-u"
+local unixResult=""
+
+unixResult="$(date $addParams --date="$date" +%s)" || { B_ERR="Failed to parse the date $date." ; B_E }
+unixResult=$(( $unixResult + $days * (60*60*24) ))
+#use the exit code as return exit code:
+date $addParams --date="@$unixResult" "$format"
+}
+
+#+b_date_diffSeconds [date 1] [date 2]
+#+Get the number of seconds between the two dates, i.e. [date 2] - [date 1].
+#+[date 2], \[date 1\]: the two dates to subtract; the time one is assumed to be identical if not specified within the dates
+#+returns: The number of seconds between the given two dates \[date 2\] - \[date 1\]; returns a non-zero exit code on errors.
+#+@B_E
+function b_date_diffSeconds {
+local date1="$1"
+local date2="$2"
+local unix1=""
+local unix2=""
+unix1=$(date --date="$date1" +%s) || { B_ERR="Failed to parse the date $date1." ; B_E }
+unix2=$(date --date="$2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E }
+echo $(( $unix2 - $unix1 ))
+}

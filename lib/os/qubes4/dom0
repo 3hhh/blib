@@ -1,0 +1,732 @@
+#!/bin/bash
+#
+#+ Collection of functions supporting scripting in Qubes OS 4.x dom0.
+#+
+#+ **Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.3
+
+b_import fs
+b_import proc
+b_import types
+
+#private vars
+BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E }
+
+#+### Functions ###
+
+#+b_dom0_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_dom0_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+qvm-run
+qvm-block
+qvm-ls
+qvm-copy-to-vm
+qvm-prefs
+qvm-shutdown
+qvm-check
+qubes-prefs
+dirname
+basename
+mktemp
+ps
+sleep
+cat
+timeout
+dd
+tee
+xxd
+EOF
+
+echo -n "$deps"
+}
+
+#+b_dom0_qvmRun [parameter 1] ... [parameter n]
+#+A wrapper for qvm-run which sets reasonable defaults for shell scripting and applies various fixes.
+#+
+#+Most calls to qvm-run should be made via this function rather than interacting with qvm-run directly as the Qubes OS qvm-run was designed with interactive shell usage in mind whereas this wrapper is intended for bash developers.
+#+
+#+Particular features:
+#+
+#+   * a certain set of reasonable default parameters is used: -p -q -n -u root
+#+   * -n was set as auto-starting VMs during Bash scripting can heavily influence the user experience (imagine the VM being shut down manually by the user whilst a bash script is running --> constant restarts)
+#+   * stdin is redirected to /dev/null by default to avoid potential security implications (accidental reads from dom0 stdin passed to a VM); this can be overriden using --stdin
+#+   * stdout has the VM output and the exit code is the one of the VM
+#+   * distinguished exit conditions (executed command failed vs. qvm-run failed)
+#+   * workarounds for known Qubes bugs wrt qvm-run may be implemented here (e.g. qubes issues #3083, #4476, #4633 in the past)
+#+
+#+Please note that calling this function will make your script wait for the execution of the commands in the client VM.
+#+
+#+Wherever possible, this function should be combined with [b_silence](#b_silence) as the VM output shouldn't be trusted. Otherwise please keep in mind that **both** stdout *and* stderr may have untrusted output which may even contain binary data. In order to validate against binary data you can e.g. use [b_types_parseString](#b_types_parseString).
+#+
+#+[parameters]: Any parameters supported by qvm-run. If you pass -a, the default -n will be overriden. If you pass -u, the default root user is overriden. If you pass -v, -q will be overriden. If you pass --stdin, even stdin is passed to qvm-run. -p can be overriden by using /dev/null redirection. Only the short parameter versions are supported.
+#+returns: Sets the exit code of qvm-run and prints its output. May error out using [B_E](#B_E) if qvm-run itself fails.
+#+@B_E
+function b_dom0_qvmRun {
+#parse params
+local opts=()
+local userSpecified=1
+local autostart=1
+local verbose=1
+local passStdin=1
+local i=
+local par=""
+
+while [ $# -gt 2 ] ; do
+	par="$1"
+
+	if [[ "$par" == "-u" ]] ; then
+		userSpecified=0
+	elif [[ "$par" == "-v" ]] ; then
+		verbose=0
+	elif [[ "$par" == "-a" ]] ; then
+		autostart=0
+	elif [[ "$par" == "--stdin" ]] ; then
+		passStdin=0
+		shift
+		continue
+	fi
+
+	opts+=("$par")
+	shift
+done
+local vm="$1"
+local cmd="$2"
+
+local addParams="-p"
+[ $userSpecified -ne 0 ] && addParams="$addParams -u root"
+[ $autostart -ne 0 ] && addParams="$addParams -n"
+[ $verbose -ne 0 ] && addParams="$addParams -q" || addParams="$addParams -v"
+
+#execute
+#NOTE:
+# * we add a special 8 byte prefix to see whether we had success executing the command using qvm-run or not (distinguish a generic qvm-run failure from the command returning an exit code of 1)
+# * this doesn't work with ASCII characters as bash's string removal doesn't really work for binary data
+# * we could also use mkfifo instead of mktemp, but the performance advantage seems to be irrelevant & things get more messy
+local prefix="\x12\x13\x14\x12\x13\x14\x66\x66"
+local tPrefix="$(mktemp)"
+cmd="printf \"%b\" \"$prefix\" ; $cmd"
+local ret=5
+local oldOpts=""
+[[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
+{	if [ $passStdin -eq 0 ] ; then
+		qvm-run $addParams "${opts[@]}" "$vm" "$cmd"
+	else
+		qvm-run $addParams "${opts[@]}" "$vm" "$cmd" < /dev/null
+	fi
+#directly remove the prefix and write to stdout (we don't want to save the potentially large output in a temp variable)
+} | tee >(dd bs=8 count=1 2> /dev/null | xxd -p > "$tPrefix" ; cat - &> /dev/null) | dd bs=8 skip=1 2> /dev/null
+ret=$?
+eval "$oldOpts"
+
+#check for correct prefix (did the command actually execute?)
+local prefixFound="$(cat "$tPrefix")"
+rm -f "$tPrefix" &> /dev/null
+[[ "$prefixFound" != "1213141213146666" ]] && B_ERR="Failed to execute qvm-run. Incorrect parameters passed?" && B_E
+
+return $ret
+}
+
+#+b_dom0_getDispVMs
+#+Get a list of all currently existing disposable VMs.
+#+[returns]: The currently existing disposable VMs as newline-separated list.
+#+@B_E
+function b_dom0_getDispVMs {
+local all=""
+local line=""
+all="$(qvm-ls -O NAME,CLASS --raw-data)" || { B_ERR="Failed to run qvm-ls." ; B_E }
+
+while IFS= read -r line ; do
+	[[ "$line" =~ ^(disp[0-9]+)\|DispVM$ ]] && echo "${BASH_REMATCH[1]}"
+done <<< "$all"
+
+return 0
+}
+
+#+b_dom0_startDispVM [template]
+#+Start a dispVM from the given template in the background and return its name.
+#+The disposable VM will remain started until it is shut down. If you only wish to execute a single command, please use [b_dom0_qvmRun](#b_dom0_qvmRun) with the --dispVM parameter.
+#+It may take a while for this function to obtain the name of the dispVM.
+#+[template]: The template to use for the dispVM. If no template is specified, use the default Qubes template.
+#+returns: Name of the dispVM that was started and sets a zero exit code on success. This function may error out.
+#+@B_E
+function b_dom0_startDispVM {
+local template="${1:---}"
+
+#create the disposable VM and keep it running in the background
+#fd3 is explicitly closed for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs
+qvm-run --dispvm "$template" 'bash -c "while :; do sleep 100000; done"' < /dev/null &> /dev/null 3>&- &
+disown
+local pid=$!
+
+#try to find the name from the child pid that Qubes creates
+#it'll be of the form [..] qrexec-client [..] -d dispXYZ [..]
+#NOTE: we must **not** ask the VM itself for its name as that VM should be totally untrusted --> we try to find the name ourselves
+local re='^.*qrexec-client.* -d (disp[0-9]+) .*$'
+local i=0
+local ret=""
+local cmds=""
+local cmd=""
+local interval=1
+
+#wait a bit for qvm-run to get the VM name
+sleep 0.1
+
+while [ $i -lt ${BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]} ] ; do
+	! b_proc_pidExists "$pid" && B_ERR="The disposable VM failed to start." && B_E
+
+	cmds="$(ps --no-headers -o cmd --ppid $pid)"
+
+	while IFS= read -r cmd ; do
+		[[ "$cmd" =~ $re ]] && echo "${BASH_REMATCH[1]}" && return 0
+	done <<< "$cmds"
+
+	sleep $interval
+	i=$(( $i + $interval ))
+done
+
+B_ERR="Failed to identify the name of the disposable VM that was just started." ; B_E
+}
+
+#+b_dom0_execIn [vm] [file] [user]
+#+Execute the file as bash code in the given VM and wait for it to finish.
+#+
+#+See [b_dom0_qvmRun](#b_dom0_qvmRun) for various notes and words of caution.
+#+[vm]: Name of the VM where to execute the given string. The VM is assumed to be started.
+#+[file]: Bash file to execute in the given VM.
+#+[user]: user as which to execute the bash file (default: root)
+#+returns: Whatever the executed Bash code prints in the VM to stderr or stdout; the status code is set to the one of the executed Bash code on success (0). Non-zero exit codes and error messages may come from both this function as well as the code executed in the given VM.
+#+@B_E
+function b_dom0_execIn {
+local vm="$1"
+local bFile="$2"
+local user="${3:-root}"
+local out=""
+local ret=""
+
+[ ! -f "$bFile" ] && B_ERR="Failed to open $bFile. It doesn't seem to exist?" && B_E
+
+#NOTES:
+# - direct piping to bash sometimes fails for files of a few kb (e.g. b_dom0_execFuncIn) for some reason (source process closing pipe too early or bash starting before the pipe is closed?) --> we need to use a temp file in the target VM
+# - qvm-run sometimes also has problems with newlines (maybe they get filtered sometimes?) --> we need to avoid them if possible
+# - as of Qubes 4 qvm-run uses bash as its shell (no need for bash -c)
+local cmds='tmpFile="$(mktemp)" || { echo "Failed to create a temp file." ; exit 1 ; } ; cat - > "$tmpFile" || { echo "Failed to write to a temp file." ; exit 1 ; } ; bash "$tmpFile" ; ret=$? ; rm -f "$tmpFile" &> /dev/null ; exit $ret'
+
+b_dom0_qvmRun -u "$user" --stdin "$vm" "$cmds" < "$bFile"
+}
+
+#+b_dom0_execStrIn [vm] [string] [user]
+#+Execute the String as bash code in the given VM and wait for it to finish.
+#+
+#+Convenience wrapper for [b_dom0_execIn](#b_dom0_execIn).
+#+
+#+See [b_dom0_qvmRun](#b_dom0_qvmRun) for various notes and words of caution.
+#+[vm]: see [b_dom0_execIn](#b_dom0_execIn)
+#+[string]: Bash String to execute in the given VM.
+#+[user]: see [b_dom0_execIn](#b_dom0_execIn)
+#+returns: see [b_dom0_execIn](#b_dom0_execIn); [B_E](#B_E) is *not* called if the executed command returns an error
+#+@B_E
+function b_dom0_execStrIn {
+local str="$2"
+local ret=""
+
+local bFile=""
+bFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+echo "$str" > "$bFile"
+
+b_dom0_execIn "$1" "$bFile" "$3"
+ret=$?
+
+rm -f "$bFile" &> /dev/null
+return $ret
+}
+
+#+b_dom0_execFuncIn [vm] [user] [function] [param 1] .. [param p] - [module dep 1] .. [module dep n] - [function dep 1] .. [function dep d]
+#+Execute the Bash function in the given VM and wait for it to finish.
+#+
+#+Convenience wrapper for [b_dom0_execIn](#b_dom0_execIn).
+#+
+#+See [b_dom0_qvmRun](#b_dom0_qvmRun) for various notes and words of caution.
+#+[vm]: see [b_dom0_execIn](#b_dom0_execIn)
+#+[user]: see [b_dom0_execIn](#b_dom0_execIn)
+#+[function]: Name of the function as it is declared in the current scope.
+#+[param p]: An arbitrary number of function parameters.
+#+[-]: A dash as separator character between the various parameters.
+#+[module dep i]: Names of the modules required by the function. They do not need to be imported by the function itself.
+#+[function dep j]: An arbitrary number of functions that need to be added in order to satisfy the dependencies of the function to call (e.g. if function A is meant to be called, but uses function B internally, you'll have to pass B as one of its dependencies). Dependencies that can be found in added modules must *not* be added.
+#+returns: see [b_dom0_execIn](#b_dom0_execIn); [B_E](#B_E) is *not* called if the executed command returns an error
+#+@B_E
+function b_dom0_execFuncIn {
+local vm="$1"
+local user="$2"
+local func="$3"
+shift
+shift
+shift
+
+local toExec=""
+toExec="$(b_generateStandalone "$func" "$@")" || { B_ERR="Failed to generate a standalone file for the function $func." ; B_E }
+
+b_dom0_execStrIn "$vm" "$toExec" "$user"
+}
+
+#+b_dom0_waitForFileIn [vm] [file] [maximum time]
+#+Convenience wrapper for [b_fs_waitForFile](#b_fs_waitForFile).
+#+[vm]: VM where to execute.
+#+@B_E
+function b_dom0_waitForFileIn {
+local vm="$1"
+local file="$2"
+local maxTime="$3"
+
+b_silence "b_dom0_execFuncIn" "$vm" "" "b_fs_waitForFile" "$file" "$maxTime" - "fs" -
+}
+
+#+b_dom0_isMountedIn [vm] [device]
+#+Check whether the device is mounted in the given VM.
+#+[vm]: VM where to execute.
+#+[device]: Full path to the device (incl. /dev/) to check.
+#+returns: Sets a zero exit code if the device is mounted in the VM; a non-zero exit code means that it's either not mounted or some other error occurred.
+#+@B_E
+function b_dom0_isMountedIn {
+local vm="$1"
+local dev="$2"
+
+b_silence "b_dom0_execFuncIn" "$vm" "" "b_fs_getMountpoints" "$dev" "-" "fs" "-"
+}
+
+#+b_dom0_mountIfNecessary [vm] [device] [mount point]
+#+Mount the given device in the target VM if it isn't already mounted there. Actually a wrapper for [b_fs_mountIfNecessary](#b_fs_mountIfNecessary).
+#+[vm]: VM where to execute.
+#+[device]: Full path to the device (incl. /dev/) to mount.
+#+[mount point]: Full path where to mount the device. If no mount point is specified, a /tmp/ mount point is chosen. Non-existing directories are created. Is ignored if another mount point already exists.
+#+returns: The chosen mount point or a newline-separated list of existing mount points on success; sets a non-zero exit code on failure. As these strings are returned from the VM, extra care must be taken when parsing them.
+#+@B_E
+function b_dom0_mountIfNecessary {
+local vm="$1"
+local dev="$2"
+local mp="$3"
+local out=""
+
+out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "$dev" "$mp" - "fs" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E }
+
+#make sure the untrusted VM output is not binary (otherwise bash will run into big trouble)
+out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
+
+#shortcut without below sanity check if the desired mount point could be achieved
+[[ "$out" == "$mp" ]] && echo "$mp" && return 0
+
+#apply some sanity checks to the VM output otherwise as it is entirely untrusted
+#WARNING: a-zA-Z also allows utf-8 characters on many systems --> that's why this more restrictive explicit version was used here --> it may be too restrictive for some users though
+local line=""
+local pathRe='^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/~\.\+\-]+$'
+while IFS= read -r line ; do
+	[[ "$line" =~ $pathRe ]] || { B_ERR="The sanity check for the output of VM $vm failed. Original output: $out" ; B_E }
+done <<< "$out"
+
+echo "$out"
+return 0
+}
+
+#+b_dom0_createLoopDeviceIfNecessary [vm] [file]
+#+Create a loop device for the file in the given VM if no old one exists. Actually a wrapper for [b_fs_createLoopDeviceIfNecessary](#b_fs_createLoopDeviceIfNecessary).
+#+
+#+This usually requires root privileges.
+#+[vm]: VM where to execute.
+#+[file]: File for which to create a loop device.
+#+returns: Created loop device or previously used one (incl. /dev/). Sets a non-zero exit code, if no device could be created.
+#+@B_E
+function b_dom0_createLoopDeviceIfNecessary {
+local vm="$1"
+local file="$2"
+
+out="$(b_dom0_execFuncIn "$vm" "" "b_fs_createLoopDeviceIfNecessary" "$file" - "fs" - 2> /dev/null)" || { B_ERR="Failed to create a loop device for the file $file in the VM $vm." ; B_E }
+
+#make sure the untrusted VM output is not binary (otherwise bash will run into big trouble)
+out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
+
+#sanity checks as the VM output is untrusted
+local re='^/dev/loop[0-9]+$'
+if [[ "$out" =~ $re ]] ; then
+	echo "$out"
+	return 0
+fi
+
+B_ERR="The sanity check for the output of VM $vm failed." ; B_E
+}
+
+#blib_dom0_copyPrepareTarget [source file name] [target VM] [target directory] [overwrite]
+#Do all preparations of the target VM necessary for b_dom0_copy and b_dom0_crossCopy.
+#[source file name]: _file name_ (!= path) of the file or directory to copy to the target directory
+#returns: Sets a non-zero exit code on errors. In particular a non-zero exit code is returned if the target file already exists and overwrite is false (!= 0).
+#@B_E
+function blib_dom0_copyPrepareTarget {
+local srcFileName="$1"
+[ -z "$srcFileName" ] && return 1
+local targetVM="$2"
+local targetDir="$3"
+local overwrite=${4:-0}
+local targetPath="$targetDir/$srcFileName"
+
+#escape
+printf -v targetPath '%q' "$targetPath"
+printf -v targetDir '%q' "$targetDir"
+
+#remove existing targets, if needed & make parent directories
+#important: must work for both files & dirs!
+local cmd="[ $overwrite -eq 0 ] && rm -rf $targetPath ; mkdir -p $targetDir || exit 1 ; [ ! -e $targetPath ]"
+b_silence "b_dom0_qvmRun" "$targetVM" "$cmd"
+}
+
+#+b_dom0_copy [dom0 file] [target VM] [target VM dir] [overwrite]
+#+Grab a file or directory in dom0 and push it to the given file path in the target VM.
+#+[dom0 file]: location of the dom0 file or directory to read from, assumed to exist
+#+[target VM]: VM to write to, assumed to exist. Must be started.
+#+[target VM dir]: full path to the parent directory in the target VM to copy the file or directory to; non-existing parent directories are created; the name is taken from the name of the file/directory in dom0
+#+[overwrite]: Whether or not to overwrite an existing [destination file] (default: 0 = overwrite).
+#+returns: Sets an exit code of 0, if everything went fine, and a non-zero exit code otherwise.
+#+@B_E
+function b_dom0_copy {
+local dom0Path="$1"
+local dom0FileName=""
+local vm="$2"
+local vmUser=""
+local vmDir="$3"
+local overwrite=${4:-0}
+
+#qvm-copy-to-vm will display nasty GUI errors otherwise...
+[ ! -e "$dom0Path" ] && B_ERR="Failed to find $dom0Path in dom0." && B_E
+
+#NOTE: we need basename here as it should also work for directories
+dom0FileName="$(basename "$dom0Path")" || { B_ERR="Failed to compute the basename for $dom0Path." ; B_E }
+vmUser="$(qvm-prefs "$vm" "default_user")" || { B_ERR="Failed to run qvm-prefs." ; B_E }
+
+#prep
+blib_dom0_copyPrepareTarget "$dom0FileName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
+
+#make sure the file does not exist in ~/QubesIncoming/dom0
+local qubesInc="/home/$vmUser/QubesIncoming/dom0/$dom0FileName"
+printf -v qubesInc '%q' "$qubesInc"
+local cmd="rm -rf $qubesInc"
+b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to remove $qubesInc in the VM $vm." ; B_E }
+
+#copy to ~/QubesIncoming/dom0
+qvm-copy-to-vm "$vm" "$dom0Path" || { B_ERR="Failed to run qvm-copy-to-vm for the VM $vm." ; B_E }
+
+#move it to the right place
+printf -v vmDir '%q' "$vmDir"
+local cmd="[ -d $vmDir ] && mv $qubesInc $vmDir"
+b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to move the data in ~/QubesIncoming/ to the right place." ; B_E }
+
+return 0
+}
+
+#+b_dom0_crossCopy [source VM] [source file] [target VM] [target VM dir] [overwrite]
+#+Cross copy a file or directory from one VM to another, initiated by dom0. No user prompt is displayed.
+#+[source VM]: Where to copy the source file from. Must be started.
+#+[source file]: The file or directory to copy.
+#+[target VM]: Where to copy the file to. Must be started.
+#+[target VM dir]: full path to the parent directory in the target VM to copy the file or directory to; non-existing parent directories are created; the name is taken from the name of the file/directory in dom0
+#+[overwrite]: Whether or not to overwrite an existing [destination file] (default: 0 = overwrite).
+#+returns: Sets an exit code of 0, if everything went fine, and a non-zero exit code otherwise.
+#+@B_E
+function b_dom0_crossCopy {
+local srcVM="$1"
+local srcFile="$2"
+local srcVMDir=""
+local srcFileName=""
+local dstVM="$3"
+local dstVMDir="$4"
+local overwrite=${5:-0}
+local ret=5
+
+srcFileName="$(basename "$srcFile")" || { B_ERR="Failed to compute the basename for $srcFile." ; B_E }
+srcVMDir="$(dirname "$srcFile")" || { B_ERR="Failed to compute the dirname for $srcFile." ; B_E }
+
+#prep
+blib_dom0_copyPrepareTarget "$srcFileName" "$dstVM" "$dstVMDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
+
+#escape
+printf -v srcVMDir '%q' "$srcVMDir"
+printf -v dstVMDir '%q' "$dstVMDir"
+printf -v srcFileName '%q' "$srcFileName"
+
+#copy
+#basic idea: tar file or directory, pipe it via qvm-run / b_dom0_qvmRun to the destination VM and untar there
+#tar -f - means: write to stdout/read from stdin
+b_setBE 1
+local oldOpts=""
+[[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
+b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -cz -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -xz -f -"
+ret=$?
+eval "$oldOpts"
+b_resetErrorHandler
+B_E
+
+[ $ret -ne 0 ] && B_ERR="Failed to run the copy operation." && B_E
+
+return $ret
+}
+
+#blib_dom0_checkRunning [vm] [start]
+#Helper function for b_dom0_ensureRunning & b_dom0_isRunning
+#[start]: if set to 0, start the VM if needed
+#+returns: Sets a zero exit code, if the VM was successfully started or was running and a non-zero exit code otherwise. [B_E](#B_E) will only be called for internal errors.
+#@B_E
+function blib_dom0_checkRunning {
+local vm="$1"
+local toStart="$2"
+local addParams=""
+local out=""
+local maxWait=""
+
+	if [ $toStart -eq 0 ] ; then
+		maxWait=${BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]}
+	else
+		maxWait=5
+		addParams="-n"
+	fi
+
+#don't wait forever as it may be hanging
+out="$(timeout $maxWait qvm-run -p $addParams -u root "$vm" 'echo "succ"' < /dev/null 2>&1)" 
+[ $? -eq 124 ] && B_ERR="Failed to check the run status of the VM $vm (request timed out)." && B_E
+[[ "$out" == "succ" ]]
+}
+
+#+b_dom0_ensureRunning [vm]
+#+Start the given VM if needed.
+#+[vm]: The VM to start.
+#+returns: Sets a zero exit code, if the VM was successfully started or was running and a non-zero exit code otherwise. [B_E](#B_E) will only be called for internal errors.
+#+@B_E
+function b_dom0_ensureRunning {
+local vm="$1"
+blib_dom0_checkRunning "$vm" 0
+}
+
+#+b_dom0_isRunning [vm]
+#+Check whether the given VM is running _and_ fully operational / not hanging / not booting.
+#+In contrast e.g. qvm-check --running [vm] appears to return true for VMs which are currently booting; qvm-ls doesn't check whether the OS of a VM is hanging.
+#+This should _not_ be checked too often as it may be expensive.
+#+[vm]: The VM to check.
+#+returns: Sets a zero exit code, if the VM is running and a non-zero exit code otherwise. A non-zero exit code may e.g. also indicate that the VM doesn't exist. [B_E](#B_E) will only be called for internal errors.
+#+@B_E
+function b_dom0_isRunning {
+local vm="$1"
+blib_dom0_checkRunning "$vm" 1
+}
+
+#+b_dom0_exists [vm]
+#+Check whether the given VM exists.
+#+[vm]: The VM to check.
+#+returns: Sets a zero exit code, if the VM exists a non-zero exit code otherwise.
+function b_dom0_exists {
+local vm="$1"
+qvm-check "$vm" &> /dev/null
+}
+
+#+b_dom0_openLuks [vm] [device] [luks name] [rw flag] [mount point] [optional: key file]
+#+In the given VM, open the given luks device and mount it to the mount point.
+#+[vm]: The VM where to open the luks device.
+#+[device]: Full path to the device (incl. /dev/) to check.
+#+[luks name]: The name to assign to the decrypted version of the luks block device. The created decrypted device will be found at */dev/mapper/\[luks name\]*.
+#+[rw flag]: 0=open read-write (for luks), 1=open read-only (default: 0)
+#+[mount point]: Where to mount the luks device to. Non-existing directories will be created. If no mount point is specified, it will not be mounted (default).
+#+[key file]: Full vm path to the key to use for decryption. If none is specified, password-based decryption is assumed and stdin will be read to obtain the password.
+#+returns: nothing (except for user interaction prompts if no key file is provided), but sets a non-zero exit code on errors
+#+@B_E
+function b_dom0_openLuks {
+local vm="$1"
+local dev="$2"
+local luksName="$3"
+local rwFlag="${4:-0}"
+local mp="$5"
+local keyFile="$6"
+
+#escape
+local keyFileEsc=""
+local mpEsc=""
+printf -v keyFileEsc '%q' "$keyFile"
+printf -v mpEsc '%q' "$mp"
+
+#set cryptsetup options
+local copt=""
+[ $rwFlag -ne 0 ] && copt="$copt -r"
+[ -n "$keyFile" ] && copt="$copt --key-file $keyFileEsc"
+
+#run
+if [ -n "$mp" ] ; then
+	local cmd="cryptsetup open --type luks $copt \"${dev}\" \"$luksName\" || exit 1 ; mkdir -p $mpEsc && mount \"/dev/mapper/$luksName\" $mpEsc"
+else
+	local cmd="cryptsetup open --type luks $copt \"${dev}\" \"$luksName\""
+fi
+
+if [ -n "$keyFile" ] ; then
+	b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to decrypt using the keyfile $keyFile." ; B_E }
+else
+	#we need stdin & stdout for the password prompt
+	#NOTE: that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
+	b_dom0_qvmRun --stdin "$vm" "$cmd" || { B_ERR="Failed to decrypt." ; B_E }
+fi
+#we use the b_dom0_qvmRun exit code as ours
+}
+
+#blib_dom0_parseAttachedList [retrieve index] [check index 1] [check value 1] [check index 2] [check value 2]
+#See implementation.
+#[check index 1 & 2]: capture indices to match, only the first is required
+#[check value 1 & 2]: check equality for the [check index i] with this one
+#[retrieve index]: index to retrieve for the matched value
+#returns: The retrieved value or sets a non-zero exit code.
+#@B_E
+function blib_dom0_parseAttachedList {
+local retInd="$1"
+local checkInd1="$2"
+local checkValue1="$3"
+local checkInd2="$4"
+local checkValue2="$5"
+
+#sample qvm-block l output:
+#sys-usb:loop0  /home/user/test.dd  surfing (read-only=no, frontend-dev=xvdi)
+#matches:
+#(   1        )(      2          ) (  3   )                             ( 4 )
+local regex='^([^[:blank:]]+)[[:blank:]]+(.*)[[:blank:]]+([^[:blank:]]+)[[:blank:]]+\(.*frontend\-dev=([a-z0-9]+).*\)$'
+
+local list=""
+list="$(qvm-block l)" || { B_ERR="Failed to run qvm-block l" ; B_E }
+
+local line=""
+while IFS= read -r line ; do
+	if [[ "$line" =~ $regex ]] ; then
+		if [[ "${BASH_REMATCH[$checkInd1]}" == "$checkValue1" ]] ; then
+			if [ -z "$checkInd2" ] || [[ "${BASH_REMATCH[$checkInd2]}" == "$checkValue2" ]] ; then
+				echo "${BASH_REMATCH[$retInd]}"
+				return 0
+			fi
+		fi
+	fi
+done <<< "$list"
+
+B_ERR="Failed to find the requested data in the Qube list." ; B_E
+}
+
+#+b_dom0_attachFile [dom0 file] [target VM] [rw flag]
+#+Attach the given file from dom0 (!) as block device to the target VM.
+#+
+#+The function may attempt to acquire root privileges (and thus display a password prompt).
+#+[dom0 file]: Full path to the file *in dom0* to attach.
+#+[target VM]: VM to attach the file to. Must be started.
+#+[rw flag]: If set to 0, attaches the dom0 file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
+#+@B_E
+function b_dom0_attachFile {
+local dom0File="$1"
+local targetVM="$2"
+local rwFlag="${3:-1}"
+local addOptions=""
+local loDevice=""
+local loDeviceName=""
+[ $rwFlag -ne 0 ] && addOptions="$addOptions --ro"
+
+#unfortunately qvm-block l has issues for files, so we create a loop device first and use that one
+#also see: R3.0: qvm-block doesn't work well on files (https://groups.google.com/forum/#!msg/qubes-users/IotETu-gsm4/FO2GOu5pBwAJ)
+#for 4.0rc1 I'm not even sure whether it supports files...
+loDevice="$(b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$dom0File" - "fs")" || { B_ERR="Failed to create a loop device from $dom0File" ; B_E }
+loDeviceName="${loDevice##*/}"
+[ -z "$loDeviceName" ] && B_ERR="Failed to extract the device name from $loDevice." && B_E
+
+#run qvm-block
+qvm-block a $addOptions "$targetVM" "dom0:${loDeviceName}" || { B_ERR="Failed to attach the loop device $loDeviceName to the VM $targetVM." ; B_E }
+
+#set the return values
+echo -n "/dev/"
+blib_dom0_parseAttachedList 4 1 "dom0:$loDeviceName"
+}
+
+#+b_dom0_attachVMDisk [source VM] [target VM] [dom0 working folder] [rw flag]
+#+Attach the entire private disk image (private.img) of the source VM to the target VM.
+#+**Warning**: This is contradictory to all Qubes principles and should only be done if you know exactly what you're doing. Qubes OS even has some countermeasures to prevent accidental use of this feature which are bypassed here.
+#+[source VM]: Name of the VM whose private disk to attach to the target VM. *All data* of that VM will be shared with the target VM. Will be shut down as part of this function and must remain shut down as long as the disk is attached.
+#+[target VM]: VM where to attach the disk as block device to. Must be started.
+#+[dom0 working folder]: Path to a folder that this function may use at will to create or delete temporary data. Must be on the same drive as /var/lib/qubes (for example /tmp/ does *not* work) and should **exclusively** be used for calls to this function. Can safely be removed once your program finishes and the target VM is shut down.
+#+[rw flag]: If set to 0, attaches the disk file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
+#+@B_E
+function b_dom0_attachVMDisk {
+local sourceVM="$1"
+local targetVM="$2"
+local workFolder="$3"
+local rwFlag="${4:-1}"
+
+mkdir -p "$workFolder" || { B_ERR="The folder $workFolder could not be created." ; B_E }
+
+local sourceVMPrivate="/var/lib/qubes/appvms/$sourceVM/private.img"
+[ ! -f "$sourceVMPrivate" ] && B_ERR="Couldn't find $sourceVMPrivate. Maybe it's a disposable VM?" && B_E
+
+#make sure the source VM is shut down (strange things may happen otherwise)
+#NOTE: Qubes 4 returns an exit code of 0 for already shut down VMs
+qvm-shutdown --wait --timeout 10 "$sourceVM" &> /dev/null || { B_ERR="Failed to shut down the VM $sourceVM." ; B_E }
+
+#we need to create a pseudo file as Qubes 4.0rc1 will attempt to prevent qvm-block usage for its private.img files
+#hard links work to bypass that, but need to be on the same drive (/tmp doesn't work)
+#we re-use old hard links found in that folder (which may be dangerous if we are not the only ones using that folder)
+local pfile="$workFolder/${sourceVMPrivate//\//_}"
+if [ ! -f "$pfile" ] ; then
+	ln "$sourceVMPrivate" "$pfile" || { B_ERR="Failed to implement the hard link bypass." ; B_E }
+fi
+
+b_dom0_attachFile "$pfile" "$targetVM" "$rwFlag"
+}
+
+#+b_dom0_crossAttachFile [source VM] [source file] [target VM] [rw flag]
+#+Attach the given file from the source VM as block device to the target VM.
+#+[source VM]: VM where the source file can be found.
+#+[source file]: File to attach as block device.
+#+[target VM]: VM to attach the file to. Must be started.
+#+[rw flag]: If set to 0, attaches the dom0 file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
+#+@B_E
+function b_dom0_crossAttachFile {
+local sourceVM="$1"
+local sourceFile="$2"
+local targetVM="$3"
+local rwFlag="${4:-1}"
+local addOptions=""
+local loDevice=""
+local loDeviceName=""
+[ $rwFlag -ne 0 ] && addOptions="$addOptions --ro" || addOptions="$addOptions -o read-only=no"
+
+#same as in b_dom0_attachFile
+loDevice="$(b_dom0_createLoopDeviceIfNecessary "$sourceVM" "$sourceFile")" || { B_ERR="Failed to create a loop device for the file $sourceFile in the VM $sourceVM." ; B_E }
+loDeviceName="${loDevice##*/}"
+[ -z "$loDeviceName" ] && B_ERR="Failed to extract the device name from $loDevice." && B_E
+
+#run qvm-block
+qvm-block a $addOptions "$targetVM" "${sourceVM}:${loDeviceName}" || { B_ERR="Failed to run qvm-block successfully." ; B_E }
+
+#set the return values
+echo -n "/dev/"
+blib_dom0_parseAttachedList 4 1 "${sourceVM}:$loDeviceName"
+}
+
+#+b_dom0_detachDevice [vm] [device]
+#+Attempts to detach the given device from the VM. This may fail if the VM is using the device and thus it is usually a better idea to just shut the VM down.
+#+[vm]: VM from which to detach the device.
+#+[device]: Full path to the device in the VM. E.g. the return values of [b_dom0_crossAttachFile](#b_dom0_crossAttachFile), [b_dom0_attachFile](#b_dom0_attachFile) or [b_dom0_attachVMDisk](#b_dom0_attachVMDisk).
+#+returns: nothing, but sets a zero exit code on success
+#+@B_E
+function b_dom0_detachDevice {
+local vm="$1"
+local dev="$2"
+local devName="${dev##*/}"
+[ -z "$devName" ] && B_ERR="Failed to extract the device name from $dev." && B_E
+
+#get the backend ID
+local bid=""
+bid="$(blib_dom0_parseAttachedList 1 3 "$vm" 4 "$devName")" || { B_ERR="Failed to obtain the list of currently attached devices." ; B_E }
+
+#detach & set exit code
+qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
+}

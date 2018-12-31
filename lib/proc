@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+#+Collection of process and thread related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.1
+
+#+### Functions ###
+
+#+b_proc_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_proc_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+tail
+timeout
+EOF
+
+echo -n "$deps"
+}
+
+#+b_proc_pidExists [pid]
+#+Check whether the given process ID exists on the system.
+#+[pid]: process ID to check for existence (process exists)
+#+returns: A zero exit code, if it exists and a non-zero exit code if it doesn't; this function attempts to check the existence of the given process across _all_ users, but it cannot guarantee correctness if the user running this script has very low privileges.
+function b_proc_pidExists {
+#NOTE: kill -0 tends to fail with insufficient privileges, ps -p is rather platform specific --> use /proc/
+local pid="$1"
+[ -n "$pid" ] && [ -d "/proc/$pid" ]
+}
+
+#+b_proc_waitForPid [pid] [maximum time]
+#+Wait for the given process to exit. If it doesn't exist, exit immediately.
+#+[pid]: process ID of the process to wait for
+#+[maximum time]: maximum time in seconds to wait for the process to exit (default: 0 = indefinitely)
+#+returns: Nothing, always sets a zero exit code. Use [b_proc_pidExists](#b_proc_pidExists) if you need to know whether the process finished.
+function b_proc_waitForPid {
+local pid="$1"
+local maxTime="${2:-0}"
+
+#tail does the trick on all Linux systems, polling kill -0 doesn't
+local cmd="tail -f /dev/null --pid $pid"
+[ $maxTime -gt 0 ] && cmd="timeout $maxTime $cmd"
+
+$cmd &> /dev/null
+return 0
+}

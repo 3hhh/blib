@@ -1,0 +1,28 @@
+#DOC HEADER
+
+##test01
+
+ THIS IS *THE HOLY GRAIL* of _all_ documentation!!!! ^^
+ you may believe me... or not...
+
+Bla bla bla Mr Freeman!  
+
+###_we_ need to test this stuff first though.
+
+##test02
+
+some more comments?! but *this* _will_ be parsed as markdown
+
+some space above
+
+and some
+ foobar? maybe ütf8
+hähäö
+
+
+and additional empty line above?
++this should also show up
+
+or doesnt it?
+DOC FOOTER LINE 1
+DOC FOOTER LINE 2

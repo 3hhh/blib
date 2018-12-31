@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+#+Collection of array related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.2
+
+#+### Functions ###
+
+#+b_arr_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_arr_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+printf
+EOF
+
+echo -n "$deps"
+}
+
+#+b_arr_join [delimiter] [array]
+#+Join the given array; elements are separated with the given delimiter. The array is not checked to exist.
+#+[delimiter]: String to use as delimiter.
+#+[array]: expanded array to join, e.g. "${arr\[@\]}"
+#+returns: Joined version of the array. The exit code is always zero.
+function b_arr_join {
+local d=$1
+shift
+echo -n "$1"
+shift
+printf "%s" "${@/#/"$d"}"
+return 0
+}
+
+#+b_arr_contains [element] [array]
+#+Check whether an array contains an element.
+#+[element]: element to check for its existence in the array
+#+[array]: expanded array to check, e.g. "${arr\[@\]}"
+#+returns: an exit code of 0, if the element was found and 1 otherwise
+function b_arr_contains {
+local e
+for e in "${@:2}"; do [ "$e" == "$1" ] && return 0; done
+return 1
+}

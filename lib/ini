@@ -1,0 +1,143 @@
+#!/bin/bash
+#
+#+Stateful ini reader for bash.
+#+
+#+Currently only a single file per instance of this library/thread is kept in memory, but you can read multiple files one after another or in multiple threads.
+#+
+#+Implementation Specifics:
+#+
+#+ * names/keys & values are case sensitive
+#+ * comment lines may start with ; or #
+#+ * whitespace lines are ignored
+#+ * duplicate names may result in undefined behaviour (usually the second will override the first)
+#+ * all characters following the = are considered part of the value (incl. whitespace); whitespace before and after the value may be trimmed by the getters though (check their description)
+#+ * values are not interpreted (e.g. quotes, escape characters, ...)
+#+ * whitespace around keys and around section qualifiers is ignored
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.5
+
+#internal state corresponding to the ini file last read
+#key syntax: [section.name]
+declare -gA BLIB_INI_FILE
+
+#+### Functions ###
+
+#+b_ini_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_ini_getDeps {
+echo ""
+}
+
+#+b_ini_read [ini file]
+#+read the given ini file and keep it in thread-local memory so that subsequent calls to the b_ini_get functions will return the values from the ini file; subsequent calls to this function will update the internal state to represent the file last read in this thread
+#+[ini file]: path to the ini file to read
+#+returns: an error message on errors and sets a non-zero exit code on errors
+#+@StateChanging
+#+@B_E
+function b_ini_read {
+local iniFile="$1"
+
+#clear the internal state
+unset BLIB_INI_FILE
+declare -gA BLIB_INI_FILE
+
+#make sure the file exists
+[ ! -f "$iniFile" ] && B_ERR="Could not open the ini file $iniFile for reading." && B_E
+
+#read
+local lastSection=""
+local emptyRegex='^[[:blank:]]*$'
+local commentRegex='^[[:blank:]]*[;#].*$'
+local sectionRegex='^[[:blank:]]*\[(.*)\][[:blank:]]*$'
+local keyValRegex='^[[:blank:]]*([^=]+[^[:blank:]]+)[[:blank:]]*=(.*)$'
+while IFS= read -r line ; do
+	#skip empty lines
+	[[ "$line" =~ $emptyRegex ]] && continue
+
+	#skip comments
+	[[ "$line" =~ $commentRegex ]] && continue
+
+	if [[ "$line" =~ $sectionRegex ]] ; then
+		#section header
+		lastSection="${BASH_REMATCH[1]}"
+	elif [[ "$line" =~ $keyValRegex ]] ; then
+		#key, value pair
+		local id="$lastSection.${BASH_REMATCH[1]}"
+		BLIB_INI_FILE["$id"]="${BASH_REMATCH[2]}"
+	else
+		B_ERR="The ini file $iniFile seems to be malformed. Line: $line" ; B_E
+	fi
+done < "$iniFile"
+
+return 0
+}
+
+#+b_ini_get [name] [section]
+#+get the value for the ini entry with the given name as String in raw format
+#+[name]: name/key of the ini entry to retrieve
+#+[section]: section where to look for the entry with the given name (default: without section)
+#+returns: value of the ini entry matching exactly the given section and name incl. any whitespace; a non-zero exit code is set if such an entry wasn't found or another error occurred
+function b_ini_get {
+local name="$1"
+local section="$2"
+local id="$section.$name"
+
+echo "${BLIB_INI_FILE["$id"]}"
+
+#set the exit value according to the existence of the id
+[[ "${BLIB_INI_FILE["$id"]+exists}" == "exists" ]]
+}
+
+#+b_ini_getString [name] [section]
+#+get the value for the ini entry with the given name as String and remove all whitespace around the returned String
+#+[name]: name/key of the ini entry to retrieve
+#+[section]: section where to look for the entry with the given name (default: without section)
+#+returns: value of the ini entry matching exactly the given section and name excl. any whitespace around; a non-zero exit code is set if such an entry wasn't found or another error occurred
+function b_ini_getString {
+local ret=""
+ret="$(b_ini_get "$1" "$2")"
+[ $? -ne 0 ] && return 1
+
+local re='^[[:blank:]]*(.*[^[:blank:]]+)[[:blank:]]*$'
+[[ "$ret" =~ $re ]] && echo "${BASH_REMATCH[1]}" || echo ""
+}
+
+#+b_ini_getInt [name] [section]
+#+get the value for the ini entry with the given name as integer
+#+[name]: see [b_ini_get](#b_ini_get)
+#+[section]: see [b_ini_get](#b_ini_get)
+#+returns: see [b_ini_get](#b_ini_get); additionally it is checked whether the return value is an integer (if not, a non-zero exit code is set and the return value is undefined)
+function b_ini_getInt {
+local retStr=""
+retStr="$(b_ini_get "$1" "$2")"
+[ $? -ne 0 ] && return 1
+
+[[ "$retStr" =~ ^([0-9]+)[[:blank:]]*$ ]] && echo "${BASH_REMATCH[1]}" || return 1
+
+return 0
+}
+
+#+b_ini_getBool [name] [section]
+#+get the value for the ini entry with the given name as boolean
+#+[name]: see [b_ini_get](#b_ini_get)
+#+[section]: see [b_ini_get](#b_ini_get)
+#+returns: see [b_ini_get](#b_ini_get); 0 is returned via echo for true, 1 for false; the exit code indicates a potential error during parsing or a missing entry (and *not* true/false)
+function b_ini_getBool {
+local retStr=""
+retStr="$(b_ini_get "$1" "$2")"
+[ $? -ne 0 ] && return 1
+
+local trueRegex='^[[:blank:]]*[tT][rR][uU][eE][[:blank:]]*$'
+local falseRegex='^[[:blank:]]*[fF][aA][lL][sS][eE][[:blank:]]*$'
+if [[ "$retStr" =~ $trueRegex ]] ; then
+	echo 0
+	return 0
+elif [[ "$retStr" =~ $falseRegex ]] ; then
+	echo 1
+	return 0
+else
+	return 1
+fi
+}

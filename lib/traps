@@ -1,0 +1,95 @@
+#!/bin/bash
+#
+#+Collection of trap related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.2
+
+#+### Functions ###
+
+#+b_traps_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_traps_getDeps {
+echo ""
+}
+
+#+b_traps_getCodeFor [signal]
+#+Retrieve the current trap code / commands for the given signal.
+#+returns: The current code and sets a zero exit code on success.
+#+@B_E
+function b_traps_getCodeFor {
+local signal="$1"
+local cur=""
+cur="$(trap -p "$signal" 2> /dev/null)" || { B_ERR="Failed to retrieve the current trap code for the signal $signal." ; B_E }
+cur="${cur#"trap -- '"}"
+echo "${cur%"' $signal"}"
+}
+
+#+b_traps_add [code] [signal] [tag]
+#+Add the given commands to the given trap signal.
+#+[code]: Whatever should be added to the trap.
+#+[signal]: Name of the signal to add the commands to.
+#+[tag]: An optional *unique* marker for these commands so that they can be removed with [b_traps_remove](#b_traps_remove) later on.
+#+returns: Whatever the internal call to *trap* to set the new trap returns.
+#+@B_E
+function b_traps_add {
+local cmds="$1"
+local signal="$2"
+local tag="$3"
+local toAdd=""
+local old=""
+#Note: traps support newlines and ; as line separators as well as bash comments
+
+if [ -n "$tag" ] ; then
+	toAdd="#begin: $tag"$'\n'"$cmds"$'\n'"#end: $tag"
+else
+	toAdd="$cmds"
+fi
+
+old="$(b_traps_getCodeFor "$signal")" || B_E
+
+[ -n "$old" ] && old="$old"$'\n'
+
+trap "${old}${toAdd}" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E }
+}
+
+#+b_traps_remove [signal] [tag]
+#+Remove the commands tagged with the given tag from the signal trap.
+#+[signal]: Name of the signal to remove the commands from.
+#+[tag]: The *unique* marker to identify the commands to be removed.
+#+returns: Nothing, but sets a zero exit code on success. May error out if the tag isn't found or the internal trap call failed.
+#+@B_E
+function b_traps_remove {
+local signal="$1"
+local tag="$2"
+local beginMarker="#begin: $tag"
+local endMarker="#end: $tag"
+local line=""
+local old=""
+local new=""
+
+old="$(b_traps_getCodeFor "$signal")" || B_E
+
+#try to find the commands
+local inRemoveTag=1
+local linesRemoved=1
+while IFS= read -r line ; do
+	if [[ "$line" == "$beginMarker" ]] ; then
+		inRemoveTag=0
+	elif [[ "$line" == "$endMarker" ]] ; then
+		inRemoveTag=1
+	else
+		if [ $inRemoveTag -eq 0 ] ; then
+			linesRemoved=0
+		else
+			[ -z "$new" ] && new="$line" || new="$new"$'\n'"$line"
+		fi
+	fi
+done <<< "$old"
+
+[ $linesRemoved -ne 0 ] && B_ERR="Didn't find any tag named $tag." && B_E
+[ $inRemoveTag -ne 1 ] && B_ERR="Failed to find the closing line for the tag $tag." && B_E
+
+trap "$new" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E }
+}

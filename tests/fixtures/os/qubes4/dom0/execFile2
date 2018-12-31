@@ -1,0 +1,17 @@
+#!/bin/bash
+
+function func {
+	echo "func called"
+}
+
+#some random comment
+echo "hello world!"
+
+if [ 1 -eq 2 ] ; then
+	echo "WTF?!"
+else
+	#another comment
+	func
+fi
+
+[ 3 -eq 3 ] && [ 1 -ne 3 ]

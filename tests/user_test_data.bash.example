@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+#+Example of a user_test_data file.
+#+That file is meant for static bash varibles that must be set _by the user_ (as they may e.g. be OS specific) in order for some tests to work.
+#+If that file doesn't exist or could not be loaded, these tests may be skipped by blib.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.5
+#+
+
+#+### Global Variables ###
+
+#+UTD_OS
+#+Specify your operating system here, currently supported values:
+#+debian|fedora|red hat|centos|ubuntu|opensuse|qubes dom0|other
+#+Qubes VMs should be specified with their OS.
+UTD_OS="debian"
+
+#+UTD_QUBES
+#+Specify whether you are running Qubes OS and in what environment here, possible values:
+#+no|vm|dom0
+UTD_QUBES="no"
+
+#+UTD_QUBES_TESTVM
+#+If you're using Qubes OS, please specify a *disposable* virtual machine with a static name to be used for testing here. This test VM may crash, be destroyed or whatever - so please don't use a production VM!
+#+Apart from that, the tests will be conducted with disposable VMs with dynamic names using your default template.
+#+
+#+Example command to create such a test VM:
+#+```bash
+#+qvm-create --class DispVM --prop netvm='' --template nonet-dvm -l red d-testing
+#+```
+#+
+#+Can safely be ignored if you don't run Qubes OS-related tests.
+UTD_QUBES_TESTVM="d-testing"
+
+#+UTD_QUBES_TESTVM_PERSISTENT
+#+If you're using Qubes OS, please specify a *persistent/non-disposable* virtual machine with a static name to be used for testing here. This test VM may crash, be destroyed or whatever - so please don't use a production VM!
+#+
+#+Example command to create such a test VM:
+#+```bash
+#+qvm-create -l red --prop netvm='' testing-pers
+#+```
+#+
+#+Can safely be ignored if you don't run Qubes OS-related tests.
+UTD_QUBES_TESTVM_PERSISTENT="testing-pers"
+
+#+UTD_QUBES_DOM0_WD
+#+Full path to a folder in Qubes dom0 that can be created and deleted at will (working directory). Do **not** use an existing folder here!
+#+
+#+Can safely be ignored if you don't run Qubes OS-related tests.
+UTD_QUBES_DOM0_WD=~/blib_dom0_testing-wd
+
+#+UTD_PW_FREE_USER
+#+A user that allows password-less logons with sudo or su for testing.
+#+
+#+If you run bats as root, neither sudo nor su should ask for a password.
+#+Tests requiring admin privileges (e.g. mounting devices) may require this to be root or skip otherwise.
+UTD_PW_FREE_USER="root"

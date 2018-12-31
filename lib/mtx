@@ -1,0 +1,287 @@
+#!/bin/bash
+#
+#+Collection of mutex related functions.
+#+
+#+Mutex: Only a single process may have it at any point in time.
+#+Lock: A specific maximum number of processes may have it at any point in time.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.3
+
+b_import proc
+
+#time in ms to sleep between active polling requests
+BLIB_STORE["BLIB_MTX_SLEEP_TIME"]=500
+
+#+### Functions ###
+
+#+b_mtx_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_mtx_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+mkdir
+touch
+sleep
+rm
+rmdir
+cat
+mktemp
+EOF
+
+echo -n "$deps"
+}
+
+#+b_mtx_setSleepTime [ms]
+#+Sets the time to sleep for this module whenever active polling is done (default: 500).
+#+[ms]: time in miliseconds between active polling requests for e.g. mutexes done by this module; must be an integer
+#+returns: Nothing, always sets a zero exit code.
+function b_mtx_setSleepTime {
+BLIB_STORE["BLIB_MTX_SLEEP_TIME"]=$1
+return 0
+}
+
+#+b_mtx_getSleepTime
+#+Gets the time to sleep for this module whenever active polling is done.
+#+returns: The currently set time to sleep in ms.
+function b_mtx_getSleepTime {
+echo "${BLIB_STORE["BLIB_MTX_SLEEP_TIME"]}"
+}
+
+#+b_mtx_create [base dir]
+#+Allocate a new mutex without claiming it (use b_mtx_try for that).
+#+[base dir]: Path to an _existing_ directory where to store the mutex (default: not specified). By default this module will pick a temporary location. If you need a mutex that persists across reboots, please set a directory that persists across reboots here. The path should point to a local, non-network file system destination. The module must be able to create remove files or directories there at will.
+#+returns: A string identifying the mutex (mutex ID). Sets a non-zero exit code on errors.
+#+@B_E
+function b_mtx_create {
+local baseDir="$1"
+
+#use mktemp & its return value
+if [ -n "$baseDir" ] ; then
+	mktemp -p "$baseDir" -d -u || { B_ERR="Failed to create a temp dir." ; B_E }
+else
+	mktemp -d -u || { B_ERR="Failed to create a temp dir." ; B_E }
+fi
+}
+
+#+b_mtx_release [mutex] [block ID]
+#+Release the given mutex so that it can be used by other block IDs/threads.
+#+[mutex]: A mutex obtained via b_mtx_create.
+#+[block ID]: The block ID for which to release the mutex (default: $$).
+#+returns: Sets a non-zero exit code if the mutex could not be removed as another process is blocking it and a zero exit code on successful removal.
+function b_mtx_release {
+local mutex="$1"
+local blockId="${2:-$$}"
+local blockFile="$mutex/$blockId"
+
+#remove the block file
+rm "$blockFile" &> /dev/null
+#try to remove the mutex regardless of whether this was successful or not
+
+#remove the mutex dir and thus the mutex
+#NOTE: I _assume_ that rmdir provides atomicity between the empty check and the directory removal. If that is not given, other mutexes might be removed if the block ID changed in the meantime when we don't have the mutex as e.g. during stale mutex removal. If we have the mutex, this is safe anyway.
+rmdir "$mutex" &> /dev/null
+#use the rmdir exit code as ours
+}
+
+#+b_mtx_forceRelease [mutex]
+#+Release the given mutex so that it can be used by other blockIDs/threads. Warning: This function can remove mutexes from other threads and should generally *only* be used for the removal of mutexes which are known to be stale by the calling application.
+#+[mutex]: A mutex obtained via b_mtx_create.
+#+returns: Nothing and sets a zero exit code.
+function b_mtx_forceRelease {
+local mutex="$1"
+[ -d "$mutex" ] && rm -rf "$mutex" &> /dev/null
+return 0
+}
+
+#blib_mtx_getBlockIdFor [mutex]
+#Retrieve the block ID of the process blocking the given mutex (if any). The function is _not_ thread safe.
+#[mutex]: A mutex obtained via b_mtx_create.
+#returns: The block ID of the process blocking the given mutex and sets an exit code of 0. If no process is blocking the given mutex, an exit code of 1 is set. On errors an exit code of 2 is set.
+function blib_mtx_getBlockIdFor {
+local mutex="$1"
+
+#any process blocking?
+[ ! -d "$mutex" ] && return 1
+
+#try to read
+local cnt=0
+for file in "$mutex/"* ; do
+	local bn="${file##*/}"
+	[ -z "$bn" ] && return 2
+	[[ "$bn" == "*" ]] && return 2
+	echo "$bn"
+	cnt=$(( $cnt +1 ))
+	[ $cnt -gt 1 ] && return 2
+done
+
+return 0
+}
+
+#+b_mtx_try [mutex] [block ID] [claim stale] [claim own]
+#+Attempt to obtain the given mutex. Return immediately even if it cannot be obtained.
+#+[mutex]: A mutex obtained via b_mtx_create.
+#+[block ID]: The ID to use by which to block (default: running (sub)shell process id $$). This should be the process ID of the process attempting to obtain the mutex or you should know what you're doing. If you're in a subshell that should have a mutex with other subshells, store their $BASHPID and call the function with that.
+#+[claim stale]: If set to 0, claim the mutex even if it is still blocked by some other process, but that process isn't running anymore. If set to 1 (default), the function returns without obtaining the mutex. In general this should only be used in situations where a mutex has a high probability of being stale (e.g. application start).
+#+[claim own]: If set to 0 (default), claim the mutex if it appears to be blocked by the provided block ID. If set to 1, consider it blocked even then.
+#+returns: The function incl. parameters to execute to remove the mutex if it was obtained and an error message stating the reason otherwise. The provided function _should_ be called as part of an exit trap of the calling script or via eval. Sets an exit code of 0, if the mutex was obtained. An exit code of 1 is set, if the mutex was blocked and another non-zero exit code if some other error occurred (the mutex might be blocked even then). 
+#+
+#+Example code:
+#+```bash
+#+ local mutex=""
+#+ local mutexRet=""
+#+ mutex="$(b_mtx_create)" || { B_ERR="Failed to create a mutex." ; B_E }
+#+ mutexRet="$(b_mtx_try "$mutex")" \
+#+ || { B_ERR="Failed to obtain the mutex $mutex. Reason: $mutexRet" ; B_E }
+#+ #assuming the mutex is only meant to be removed after full
+#+ #execution of the script:
+#+ trap "$mutexRet" EXIT
+#+ #direct removal:
+#+ #b_mtx_release "$mutex"
+#+```
+function b_mtx_try {
+#ideas: http://wiki.bash-hackers.org/howto/mutex
+#options for atomic operations: https://rcrowley.org/2010/01/06/things-unix-can-do-atomically.html
+local mutex="$1"
+#NOTE: even in subshells, $$ resolves to the process ID of the running bash script, $BASHPID resolves to the one of the subshell we're in
+local blockId="${2:-$$}"
+local claimStale="${3:-1}"
+local claimOwn="${4:-0}"
+local blockFile="$mutex/$blockId"
+local ret=""
+
+#generate escaped versions
+local mutexEsc=""
+local blockIdEsc=""
+printf -v mutexEsc '%q' "$mutex"
+printf -v blockIdEsc '%q' "$blockId"
+
+local mutexRemoveCall="b_mtx_release ${mutexEsc} ${blockIdEsc}"
+
+#we use the presumably atomic mkdir --> $mutex is a directory
+#attempt to lock
+if mkdir "$mutex" &> /dev/null ; then
+	#successful lock
+
+	#write block id
+	touch "$blockFile" &> /dev/null
+
+	#did we fail to write the block ID?
+	if [ $? -ne 0 ] ; then
+		#let others try to have success
+		echo "Failed to write the mutex ID to $blockFile. Releasing the mutex and backing off."
+		#echo "$mutex $blockId fail: write mutex ID" >> /tmp/mtx.log
+		b_mtx_forceRelease "$mutex"
+		return 3
+	fi
+
+	#return
+	echo "$mutexRemoveCall"
+	#echo "$mutex $blockId succ: ok" >> /tmp/mtx.log
+	return 0
+else
+	#failed lock
+
+	#read the block id of the other process
+	local otherBlockId=""
+	otherBlockId="$(blib_mtx_getBlockIdFor "$mutex")"
+	#NOTE: the real other block ID may change during _any_ of the below lines and become != $otherBlockID as we don't have the mutex!
+	ret=$?
+
+	#try again after some backup time if it didn't work (maybe the writing didn't finish yet)
+	if [ $ret -ne 0 ] ; then
+		sleep "0.1" && otherBlockId="$(blib_mtx_getBlockIdFor "$mutex")"
+		ret=$?
+	fi
+
+	#we failed to obtain the other process id
+	if [ $ret -ne 0 ] ; then
+		echo "Failed to read the mutex block file ${blockFile}. Another process might be blocking the mutex though."
+		#echo "$mutex $blockId fail: read mutex file" >> /tmp/mtx.log
+		#this may indicate:
+		# a) the user passed an existing, but incorrect mutex directory (i.e. $blockFile doesn't exist)
+		# b) the other process didn't write $blockFile yet (racing condition or failed for another reason)
+		# --> the user should decide what he would like to do himself
+		return 2
+	fi
+
+	#is it ourselves? do we already own the mutex?
+	#NOTE: if multiple threads own that mutex, it might have been released in the meantime (but that could be considered a user's mistake)
+	if [ $claimOwn -eq 0 ] && [[ "$blockId" == "$otherBlockId" ]] ; then
+		echo "$mutexRemoveCall"
+		#echo "$mutex $blockId succ: ourselves" >> /tmp/mtx.log
+		return 0
+	fi
+
+	#check for stale mutex if necessary
+	if [ $claimStale -eq 0 ] ; then
+		if ! b_proc_pidExists "$otherBlockId" ; then
+			#remove stale mutex
+			#NOTE: we don't have the mutex here, i.e. we _must_ only try to remove $otherBlockId and even that may have become active in the meantime again = somewhat dangerous
+			b_mtx_release "$mutex" "$otherBlockId"
+
+			#did we fail to release as a new block ID is blocking it?
+			if [ $? -ne 0 ] ; then
+				echo "Failed to release the only seemingly stale mutex as other processes are writing to it."
+				#echo "$mutex $blockId failed to remove stale $otherBlockId" >> /tmp/mtx.log
+				return 1
+			fi
+
+			#echo "$mutex $blockId removed stale $otherBlockId" >> /tmp/mtx.log
+			#obtain mutex
+			b_mtx_try "$mutex" "$blockId" "$claimStale"
+			return $?
+		fi
+	fi
+
+	#return
+	#echo "$mutex $blockId fail: $otherBlockId blocking" >> /tmp/mtx.log
+	echo "The process $otherBlockId is blocking the mutex."
+	return 1
+fi
+}
+
+#+b_mtx_waitFor [mutex] [block ID] [claim stale] [maximum time]
+#+Wait for the given mutex to become available. This will block script execution.
+#+[mutex]: see [b_mtx_try](#b_mtx_try)
+#+[block ID]: see [b_mtx_try](#b_mtx_try)
+#+[claim stale]: see [b_mtx_try](#b_mtx_try)
+#+[maximum time]: maximum time in ms to wait for the mutex to become available (default: 0 = indefinitely)
+#+returns: see [b_mtx_try](#b_mtx_try)
+function b_mtx_waitFor {
+local mutex="$1"
+local blockId="${2:-$$}"
+local claimStale="${3:-0}"
+local maximumTime="${4:-0}"
+local timeLeft="${4:-1}"
+local ret=""
+local retC=""
+local sleepTimeSec=""
+printf -v sleepTimeSec '%.3f' "${BLIB_STORE["BLIB_MTX_SLEEP_TIME"]}e-3"
+
+while
+	#try to obtain the mutex
+	ret="$(b_mtx_try "$mutex" "$blockId" "$claimStale")"
+	retC=$?
+
+	if [ $retC -eq 0 ] ; then
+		#successfully obtained the mutex
+		echo "$ret"
+		return 0
+	fi
+	#failed, try again
+
+	#set the exit code for the do
+	[ $timeLeft -gt 0 ]
+do
+	#count down the remaining time
+	[ $maximumTime -gt 0 ] && timeLeft=$(( $timeLeft - ${BLIB_STORE["BLIB_MTX_SLEEP_TIME"]} ))
+	
+	sleep "$sleepTimeSec"
+done
+
+#we hit the timeout: set proper return values
+echo "Timed out after $maximumTime ms whilst attempting to obtain the mutex. Last failure reason: $ret"
+return $retC
+}

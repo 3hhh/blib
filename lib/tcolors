@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+#+Defines some tput related constants. In order to change terminal colors you can then use something such as
+#+```bash
+#+echo "$(tput setaf ${B_TCOLORS[red]})This is red, \
+#+$(tput setaf ${B_TCOLORS[blue]})this blue, $(tput sgr0)this normal."
+#+```
+#+
+#+tput can do a lot more than colors, see: man tput & man terminfo.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.1
+
+#+### Global Variables ###
+
+declare -gA B_TCOLORS
+#+B_TCOLORS
+#+Global map for human readable colors to tput style color identifiers.
+#+Currently supported values: black|red|green|yellow|blue|magenta|cyan|white
+#TODO in the future: add more (those not representable by single numbers)
+B_TCOLORS=(
+	["black"]=0
+	["red"]=1
+	["green"]=2
+	["yellow"]=3
+	["blue"]=4
+	["magenta"]=5
+	["cyan"]=6
+	["white"]=7
+	)
+
+#+### Functions ###
+
+#+b_tcolors_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_tcolors_getDeps {
+echo "tput"
+}

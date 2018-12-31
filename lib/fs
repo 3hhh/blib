@@ -1,0 +1,145 @@
+#!/bin/bash
+#
+#+Collection of file and file system related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.3
+
+#+### Functions ###
+
+#+b_fs_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_fs_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+wc
+date
+findmnt
+mktemp
+mount
+EOF
+
+echo -n "$deps"
+}
+
+#+b_fs_isEmptyDir [dir]
+#+Check whether the given directory is empty or non-existing. It is not checked whether the passed parameter is a file preventing a directory from being created.
+#+[dir]: full path to the directory to check
+#+returns: a zero exit code if the directory does not exist or is empty
+function b_fs_isEmptyDir {
+local dir="$1"
+#test returns 0, if a file exists in the dir, 1 if there is no file and 2 if the * was incorrect as there is > 1 file (too many arguments)
+test -e "$dir/"* 2> /dev/null
+	case $? in
+		1)      return 0 ;;
+		*)      return 1 ;;
+	esac
+}
+
+#+b_fs_getLastModifiedInDays [file]
+#+Get the number of days since when a file was last modified.
+#+[file]: Full path to the file to check.
+#+returns: The time in days since the last modification. Sets a non-zero exit code on errors.
+#+@B_E
+function b_fs_getLastModifiedInDays {
+local file="$1"
+local now="$(date +%s)"
+local lastAccess=""
+lastAccess="$(date -r "$file" +%s)" || { B_ERR="Failed to read the timestamps of the file $file. Maybe it doesn't exist?" ; B_E }
+local ret=$(( ( $now - $lastAccess ) / (60*60*24) ))
+echo "$ret"
+}
+
+#+b_fs_getLineCount [file]
+#+Get the number of lines of the given file.
+#+[file]: full path to a file
+#+returns: the number of lines; a non-zero exit code is set on errors
+#+@B_E
+function b_fs_getLineCount {
+local file="$1"
+local cnt=""
+
+#NOTE: unfortunately wc -l includes the file name
+cnt="$(wc -l "$file")" || { B_ERR="Failed to read the file $file." ; B_E }
+[[ "$cnt" =~ ^([0-9]+) ]] && cnt="${BASH_REMATCH[1]}" || { B_ERR="Failed to obtain the line count for the file $file." ; B_E }
+
+echo "$cnt"
+}
+
+#+b_fs_waitForFile [file] [maximum time]
+#+Sleep until the given file appears. The check interval is 1s.
+#+[file]: full path to the file or directory to wait for
+#+[maximum time]: maximum time in s to wait for the file to appear (default: forever)
+#+returns: Sets a zero exit code if the file appeared and a non-zero exit code on a timeout.
+function b_fs_waitForFile {
+local file="$1"
+local maxTime="${2:--1}"
+
+#NOTE: inotify is not much better as it simply fails to wait for non-existing files (and is not always installed)
+local waited=0
+while : ; do
+	[ -e "$file" ] && return 0
+
+	if [ $maxTime -gt 0 ] ; then
+		[ $waited -gt $maxTime ] && return 1
+		waited=$(( $waited +1))
+	fi
+
+	sleep 1
+done
+
+B_ERR="This shouldn't have happened. Programming mistake?!" ; B_E
+}
+
+#+b_fs_getMountpoints [device]
+#+Get all mountpoints for the given device.
+#+[device]: Full path to the device (incl. /dev/) for which to obtain the mountpoints.
+#+returns: A newline-separated list of mountpoints where the given device is mounted to. Sets a non-zero exit code if no such mountpoints were found.
+function b_fs_getMountpoints {
+local dev="$1"
+findmnt -n -o TARGET -S "$dev"
+}
+
+#+b_fs_mountIfNecessary [device] [mount point]
+#+Mount the given device if it isn't already mounted.
+#+[device]: Full path to the device (incl. /dev/) to mount.
+#+[mount point]: Full path where to mount the device. If no mount point is specified, a /tmp/ mount point is chosen. Non-existing directories are created. Is ignored if another mount point already exists.
+#+returns: The chosen mount point or a newline-separated list of existing mount points on success; sets a non-zero exit code on failure.
+#+@B_E
+function b_fs_mountIfNecessary {
+local dev="$1"
+local mp="$2"
+
+b_fs_getMountpoints "$dev" && return 0
+
+if [ -z "$mp" ] ; then
+	mp="$(mktemp -d)" || { B_ERR="Failed to create a temporary directory." ; B_E }
+else
+	mkdir -p "$mp" || { B_ERR="Failed to create the parent directories of $mp." ; B_E }
+fi
+
+mount "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the device $dev to $mp." ; B_E }
+}
+
+#+b_fs_createLoopDeviceIfNecessary [file]
+#+Create a loop device for the given file if no old one exists. May require root access rights.
+#+[file]: File for which to create a loop device.
+#+returns: Created loop device or previously used one (incl. /dev/). Sets a non-zero exit code, if no device could be created.
+#+@B_E
+function b_fs_createLoopDeviceIfNecessary {
+local file="$1"
+
+#do we have a previously used device?
+local oldDev=""
+oldDev="$(losetup -n -O NAME -j "$file")"
+
+if [ $? -eq 0 ] && [ -n "$oldDev" ] ; then
+	echo "$oldDev"
+else
+	#no old device --> create a new one
+	#we use the exit code as ours
+	#usually requires root access rights:
+	losetup -f --show "$file" || { B_ERR="Failed to create a loop device from $file." ; B_E }
+fi
+}

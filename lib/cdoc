@@ -1,0 +1,385 @@
+#!/bin/bash
+#
+#+Generate code documentation in many formats (e.g. html, pdf, manpage, ...) from code comments.
+#+
+#+Lines applicable for the documentation in your code are assumed to match static (configurable) regular expressions. These lines are then fed to [pandoc] in order to generate a single html page (or pdf, manpage, ...) as documentation. If no conversion is required (input format = desired output format), pandoc is bypassed.
+#+
+#+It should be possible to use this way of generating code documentation with most programming languages (incl. bash). The defaults however are set for bash and the blib way of documenting its code, i.e. you'll have to use the getters and setters of this module if you want something different. For instance the default is to check for lines starting with _#+_ (a special bash comment line) and add everything afterwards to the output documentation.
+#+
+#+Various callback functions can be used to add content to the output of b_cdoc_generate. See the documentation of that function for details.
+#+
+#+ [pandoc]: https://pandoc.org/
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.2
+
+#storage for the getter & setters and their defaults
+BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]='^#\+(.*)$'
+BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]='b_cdoc_cbPrintFirstParam'
+BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]='b_nop'
+BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]='b_cdoc_cbPrintFirstParam'
+BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]='b_nop'
+BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]='b_cdoc_cbPrintNewline'
+
+#+### Functions ###
+
+#+b_cdoc_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_cdoc_getDeps {
+#NOTE: pandoc is *not* added here as we might not need it, if the input format equals the output format (e.g. for blib list) and we don't want to create heavy dependencies
+local deps=""
+read -r -d '' deps << 'EOF'
+mv
+rm
+mktemp
+EOF
+
+echo -n "$deps"
+}
+
+#+b_cdoc_setExtractionRegex [regex]
+#+Set the regular expression used to check for matching lines in code files. The first match (${BASH_REMATCH[1]}) is added to the documentation output.
+#+returns: nothing
+#+@StateChanging
+function b_cdoc_setExtractionRegex {
+BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]="$1"
+}
+
+#+b_cdoc_getExtractionRegex
+#+See the setter.
+#+returns: The property that was set.
+function b_cdoc_getExtractionRegex {
+echo "${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]}"
+}
+
+#+b_cdoc_setFileFilterCallback [callback function name]
+#+Set the function to call by b_cdoc_generate exactly once right after it computed the list of applicable source code files.
+#+
+#+The callback function should be declared as follows:
+#+
+#+    callback_function_name [file list]
+#+    [file list]: newline-separated list of files (no directories!)
+#+                 that b_cdoc_generate computed for document generation
+#+                 (in that order)
+#+    returns:     the newline-separated list to use by b_cdoc_generate for
+#+                 document generation (default: the input); a non-zero exit
+#+                 code will abort further processing
+#+
+#+returns: nothing
+#+@StateChanging
+function b_cdoc_setFileFilterCallback {
+BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]="$1"
+}
+
+#+b_cdoc_getFileFilterCallback
+#+See the setter.
+#+returns: The property that was set.
+function b_cdoc_getFileFilterCallback {
+echo "${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]}"
+}
+
+#+b_cdoc_setDocumentBeginCallback [callback function name]
+#+Set the function to call by b_cdoc_generate exactly once right before it starts generating the output document.
+#+
+#+The callback function should be declared as follows:
+#+
+#+    callback_function_name [document output file] [document output format]
+#+    [document output file]: path to the document output file
+#+              (may not exist and should not be written to)
+#+    [document output format]: chosen output format
+#+    returns:  whatever should be added at the beginning of the output document;
+#+              a non-zero exit code will abort further processing
+#+
+#+returns: nothing
+#+@StateChanging
+function b_cdoc_setDocumentBeginCallback {
+BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]="$1"
+}
+
+#+b_cdoc_getDocumentBeginCallback
+#+See the setter.
+#+returns: The property that was set.
+function b_cdoc_getDocumentBeginCallback {
+echo "${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]}"
+}
+
+#+b_cdoc_setPostProcessingCallback [callback function name]
+#+Set the function to call by b_cdoc_generate each time a code file was fully processed.
+#+
+#+The callback function should be declared as follows:
+#+
+#+    callback_function_name [processed input] [input file] [document output format]
+#+    [processed input]: Everything that was found to match the 
+#+                       extraction regex in the [input file] by b_cdoc_generate.
+#+    [input file]:      The original input file.
+#+    [document output format]: chosen output format
+#+    returns:           whatever should be added to the output document for the 
+#+                       given input file (usually the processed input or some filtered
+#+                       version of it); a non-zero exit code will abort further processing
+#+
+#+returns: nothing
+#+@StateChanging
+function b_cdoc_setPostProcessingCallback {
+BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]="$1"
+}
+
+#+b_cdoc_getPostProcessingCallback
+#+See the setter.
+#+returns: The property that was set.
+function b_cdoc_getPostProcessingCallback {
+echo "${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]}"
+}
+
+#+b_cdoc_setDocumentEndCallback [callback function name]
+#+Set the function to call by b_cdoc_generate exactly once right after it generated the output document.
+#+
+#+The callback function should be declared as follows:
+#+
+#+    callback_function_name [document output file] [document output format]
+#+    [document output file]: path to the document output file
+#+                            (may not exist and should not be written to)
+#+    [document output format]: chosen output format
+#+    returns:                whatever should be added to the end of the output
+#+                            document; a non-zero exit code will abort further processing
+#+
+#+returns: nothing
+#+@StateChanging
+function b_cdoc_setDocumentEndCallback {
+BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]="$1"
+}
+
+#+b_cdoc_getDocumentEndCallback
+#+See the setter.
+#+returns: The property that was set.
+function b_cdoc_getDocumentEndCallback {
+echo "${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]}"
+}
+
+#+b_cdoc_setSpaceCallback [callback function name]
+#+Set the function to call by b_cdoc_generate each time it hits "space" (non-matching lines) between two matching lines.
+#+
+#+The callback function should be declared as follows:
+#+
+#+    callback_function_name [matching line] [input file] [previous space count] [document output format]
+#+    [matching line]: The first matching line before which no match was found.
+#+    [input file]:    The original input file.
+#+    [previous space count]: The number of times this function was previously 
+#+                     called for the currently processed file.
+#+    [document output format]: chosen output format
+#+    returns:         whatever should be added in front of the matching line;
+#+                     a non-zero exit code will abort further processing
+#+
+#+returns: nothing
+#+@StateChanging
+function b_cdoc_setSpaceCallback {
+BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]="$1"
+}
+
+#+b_cdoc_getSpaceCallback
+#+See the setter.
+#+returns: The property that was set.
+function b_cdoc_getSpaceCallback {
+echo "${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]}"
+}
+
+#blib_cdoc_normalizeFileList [input list]
+#Make the given list usable for b_cdoc_generate (resolve directories).
+#[input list]: newline-separated list of files and directories as provided to b_cdoc_generate
+#returns: list of files (!= directories) meant to be read by b_cdoc_generate; sets a non-zero exit code on errors & may error out
+#@B_E
+function blib_cdoc_normalizeFileList {
+local inList="$1"
+
+local fname=""
+while IFS= read -r fname ; do
+	if [ -f "$fname" ] ; then
+		echo "$fname"
+	else
+		#recurse dirs
+		if [ -d "$fname" ] ; then
+			for fnew in "$fname/"* ; do
+				[[ "$fnew" == "$fname/*" ]] && continue
+				blib_cdoc_normalizeFileList "$fnew" || return 1
+			done
+		else
+			B_ERR="Failed to read $fname. Maybe it doesn't exist?" ; B_E
+		fi
+	fi
+done <<< "$inList"
+
+return 0
+}
+
+#+b_cdoc_generate [input files] [output file] [output format] [additional pandoc options]
+#+Generate a documentation file from the given list of input files or directories.
+#+
+#+pseudo code description for the document generation:
+#+
+#+   1. call the file filter callback to obtain the final list of input source code files to use for document generation, respect the order (default: use all files passed as input)
+#+   2. call the document begin callback function with the output file path to get user-specific output (default: do nothing)
+#+   3. for all input files:
+#+   	i. for all lines of a file:
+#+   		a) store lines matching b_cdoc_getExtractionRegex in a variable _o_
+#+   		b) between any two matching lines for b_cdoc_getExtractionRegex that had a non-matching line in between them: call the space callback function (default: add an empty line to the output)
+#+   	ii. pass _o_ and the file name to the post processing callback function (default: return the input) - users could add e.g. the file name as section header here
+#+   	iii. add the output of the post processing function to the output document
+#+   4. call the document end callback function with the output file path to get user-specific output (default: do nothing)
+#+   5. do all necessary output conversions using [pandoc]
+#+
+#+[input files]: Newline-separated list of files or directories to generate the documentation from. The given order is respected; directories are recursively searched for files. It is currently assumed that these files are encoded in UTF-8.
+#+[output file]: Path to the documentation file to generate. Should not exist.
+#+[output format]: The target format of the documentation to generate. See [pandoc] for a list of available output formats. If none is specified, [pandoc] is bypassed and the input format is chosen as output format. Passing "pandoc" will let [pandoc] decide based on the extension of the output file.
+#+[additional pandoc options]: All remainining parameters will be directly passed to [pandoc]. If none are provided, -s is implicitly added as default.
+#+returns: Sets a non-zero exit code and exits the script on errors. output from [pandoc] and other calls may be printed. Otherwise nothing is returned.
+#+@B_E
+function b_cdoc_generate {
+local fileList="$1"
+local outFile="$2"
+[ -e "$outFile" ] && B_ERR="The output file $outFile already exists." && B_E
+local outFormat="$3"
+[ -n "$outFormat" ] && ( b_checkDeps "pandoc" || { B_ERR="pandoc is not installed." ; B_E } )
+local internalAddOptions=""
+[ $# -le 3 ] && internalAddOptions="-s"
+local rawOut="$(mktemp)"
+
+#generate the final file list
+fileList="$(blib_cdoc_normalizeFileList "$fileList")" || { B_ERR="Failed to normalize the file list." ; B_E }
+fileList="$(${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]} "$fileList")" || { B_ERR="The file filter callback function ${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]} returned an error." ; B_E }
+[ -z "$fileList" ] && B_ERR="No input files found for b_cdoc_generate." && B_E
+
+#call doc begin callback
+${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document begin callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} returned an error." ; B_E }
+
+#extract the documentation from the code / generate the raw doc
+local fname=""
+while IFS= read -r fname ; do
+	local o=""
+	local matchCnt=0
+	local lastWasMatch=1
+	local spaceCbResult=""
+	local spaceCnt=0
+
+	#read the code
+	local line=""
+	while IFS= read -r line ; do
+		if [[ "$line" =~ ${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]} ]] ; then
+			if [ $matchCnt -gt 0 ] ; then
+				o="$o"$'\n'
+
+				#call the space callback if necessary
+				if [ $lastWasMatch -eq 1 ] ; then
+					#NOTE: we append "x" and remove it afterwards in order to keep trailing newlines
+					spaceCbResult="$(${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]} "$line" "$fname" $spaceCnt "$outFormat" || return 1; printf "x")" || { B_ERR="The space callback function ${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]} returned an error." ; B_E }
+					spaceCbResult="${spaceCbResult%x}"
+					o="${o}${spaceCbResult}"
+					spaceCnt=$(( $spaceCnt +1 ))
+				fi
+			fi
+			o="${o}${BASH_REMATCH[1]}"
+			lastWasMatch=0
+			matchCnt=$(( $matchCnt +1 ))
+		else
+			lastWasMatch=1
+		fi
+	done < "$fname" || { B_ERR="Failed to read the code file $fname." ; B_E }
+
+	#call post processing callback
+	${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} "$o" "$fname" "$outFormat" >> "$rawOut" || { B_ERR="The post processing callback function ${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} returned an error." ; B_E }
+done <<< "$fileList"
+
+#call doc end callback
+${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document end callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} returned an error." ; B_E }
+
+#convert to output format if needed
+if [ -n "$outFormat" ] ; then
+	local formatParam=""
+	[[ "$outFormat" != "pandoc" ]] && formatParam="-t $outFormat"
+	
+	#call pandoc
+	pandoc "${@:4}" $internalAddOptions $formatParam -o "$outFile" "$rawOut" || { B_ERR="Errors detected during the pandoc conversion. Please review the pandoc output for details." ; B_E }
+
+	#cleanup
+	rm -f "$rawOut"
+else
+	#no conversion required --> move raw file to output
+	mv "$rawOut" "$outFile" || { B_ERR="Failed to move the raw output in $rawOut to $outFile." ; B_E }
+fi
+
+return 0
+}
+
+#+b_cdoc_generateBlibStyle [input files] [output file base path] [output format] [delete existing]
+#+A convenience wrapper for b_cdoc_generate which sets various reasonable parameters depending on the output format.
+#+[input files]: see b_cdoc_generate
+#+[output file base path]: path to a directory and base file name where to store the generated output documentation file; the final file name may differ as it is chosen by this function
+#+[output format]: currently one of raw|html|pdf|man is supported (default: raw)
+#+[delete existing]: whether or not to delete previously created output files (default: true/0); if set to false (1), the function will error out if a previously created file was found
+#+returns: full path to the created documentation file on success; otherwise the function may error out
+#+@B_E
+function b_cdoc_generateBlibStyle {
+local fileList="$1"
+local cdocOutput="$2"
+local outFormat="${3:-raw}"
+local deleteExisting="${4:-0}"
+
+local cdocAdditional=("-s" "--toc" "--toc-depth=3" "-f" "markdown+hard_line_breaks" "--section-divs")
+local cdocOutFormat=""
+
+case "$outFormat" in
+	raw)
+	cdocOutput="$cdocOutput.md"
+	cdocOutFormat=""
+	;;
+
+	pdf)
+	cdocOutput="$cdocOutput.pdf"
+	cdocOutFormat="pandoc"
+	;;
+
+	html)
+	cdocOutput="$cdocOutput.html"
+	cdocOutFormat="html5"
+	cdocAdditional+=("--self-contained")
+	cdocAdditional+=("-c")
+	cdocAdditional+=("${BLIB_STORE["BLIB_STATIC_DOC_DIR"]}/html5.css")
+	;;
+
+	man)
+	cdocOutput="$cdocOutput.man"
+	cdocOutFormat="man"
+	;;
+
+	*)
+	B_ERR="Invalid or unsupported format: $outFormat" ; B_E
+	;;
+esac
+
+#remove a previous file if necessary
+[ $deleteExisting -eq 0 ] && rm -f "$cdocOutput" &> /dev/null
+
+#generate the doc
+local out=""
+out="$(b_cdoc_generate "$fileList" "$cdocOutput" "$cdocOutFormat" "${cdocAdditional[@]}")" || { B_ERR="Failed to generate the doc: $out" ; B_E }
+
+#return
+echo "${cdocOutput}"
+return 0
+}
+
+#+##### Callback Functions #####
+
+#+b_cdoc_cbPrintNewline 
+#+Prints a newline character.
+#+returns: nothing
+function b_cdoc_cbPrintNewline {
+echo ""
+}
+
+#+b_cdoc_cbPrintFirstParam [param]
+#+Prints the first parameter.
+#+[param]: The parameter to print.
+#+returns: the first parameter
+function b_cdoc_cbPrintFirstParam {
+echo "$1"
+}

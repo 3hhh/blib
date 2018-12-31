@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+#+Functions for operating system identification.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.2
+
+#whether or not b_osid_init ran
+BLIB_STORE["BLIB_OSID_INITIALIZED"]=1
+
+#relevant identifiers requiring initialization
+BLIB_STORE["BLIB_OSID_NAME"]=""
+
+#+### Functions ###
+
+#+b_osid_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_osid_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+EOF
+
+echo -n "$deps"
+}
+
+#+b_osid_init [force]
+#+[force]: if set to 0, force an init even if it would otherwise not be necessary (default: 1 - only initialize if it didn't happen before)
+#+Initialize the osid module. It should normally *not* be necessary to call this function directly, but it will be called by the osid module internally as needed.
+#+returns: May error out and set a non-zero exit code on failures.
+function b_osid_init {
+local force=${1:-1}
+
+if [ $force -eq 0 ] || [ ${BLIB_STORE["BLIB_OSID_INITIALIZED"]} -ne 0 ] ; then
+	for fl in /etc/*release ; do
+		[[ "$fl" == "/etc/*release" ]] && continue
+
+		while IFS= read -r line ; do
+			[[ "$line" =~ ^NAME=(.*)$ ]] && BLIB_STORE["BLIB_OSID_NAME"]="${BASH_REMATCH[1]}"
+		done < "$fl"
+	done
+
+	#mark as initialized
+	BLIB_STORE["BLIB_OSID_INITIALIZED"]=0
+fi
+
+return 0
+}
+
+#blib_osid_isOSFromName [name]
+function blib_osid_isOSFromName {
+local name="$1"
+
+#.? is for " or '
+local re=".?$name"
+
+b_osid_init
+[[ "${BLIB_STORE["BLIB_OSID_NAME"]}" =~ $re ]]
+}
+
+#+b_osid_isDebian
+#+Check whether the OS running this function is a Debian Linux.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isDebian {
+blib_osid_isOSFromName "Debian"
+}
+
+#+b_osid_isDebianLike
+#+Check whether the OS running this function is a Debian Linux or one of its derivatives (e.g. ubuntu).
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isDebianLike {
+command -v apt &> /dev/null
+}
+
+#+b_osid_isOpenSuse
+#+Check whether the OS running this function is a OpenSUSE.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isOpenSuse {
+blib_osid_isOSFromName "OpenSUSE"
+}
+
+#+b_osid_isFedora
+#+Check whether the OS running this function is a Fedora Linux.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isFedora {
+blib_osid_isOSFromName "Fedora"
+}
+
+#+b_osid_isCentOS
+#+Check whether the OS running this function is a CentOS.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isCentOS {
+blib_osid_isOSFromName "CentOS"
+}
+
+#+b_osid_isRedHat
+#+Check whether the OS running this function is a RedHat Linux.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isRedHat {
+blib_osid_isOSFromName "Red"
+}
+
+#+b_osid_isUbuntu
+#+Check whether the OS running this function is an Ubuntu Linux.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isUbuntu {
+blib_osid_isOSFromName "Ubuntu"
+}
+
+#+b_osid_isFedoraLike
+#+Check whether the OS running this function is a Fedora Linux or one of its derivatives (e.g. CentOS, Red Hat, Qubes OS).
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isFedoraLike {
+command -v dnf &> /dev/null || command -v yum &> /dev/null
+}
+
+#+b_osid_isQubesDom0
+#+Check whether the OS running this function is a Qubes OS in dom0.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isQubesDom0 {
+blib_osid_isOSFromName "Qubes"
+}
+
+#+b_osid_isQubesVM
+#+Check whether the OS running this function is a Qubes OS in a VM.
+#+returns: Sets a zero exit code if the check returns true. Does not print any output.
+function b_osid_isQubesVM {
+#qrexec-client-vm is only available in client VMs and stable as such since at least 3.x.
+command -v qrexec-client-vm &> /dev/null
+}

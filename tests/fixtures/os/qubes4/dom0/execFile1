@@ -1,0 +1,17 @@
+#!/bin/bash
+
+function func {
+	echo "func called"
+}
+
+#some random comment
+echo "hello world!"
+
+if [ 1 -eq 2 ] ; then
+	echo "WTF?!"
+else
+	#another comment
+	func
+fi
+
+exit 101

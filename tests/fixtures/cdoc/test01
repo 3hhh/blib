@@ -1,0 +1,24 @@
+#!/bin/bash
+#this is a test file for the blib cdoc module
+
+
+function foobar {
+echo "foo"
+
+#BAR!
+eval "echo bar"
+}
+
+#+ THIS IS *THE HOLY GRAIL* of _all_ documentation!!!! ^^
+#+ you may believe me... or not...
+
+#or?
+foobar
+
+#+Bla bla bla Mr Freeman!  
+
+#+###_we_ need to test this stuff first though.
+
+foobar
+
+

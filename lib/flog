@@ -1,0 +1,378 @@
+#!/bin/bash
+#
+#+Flexible log writer for bash supporting arbitrary piped output (files, network streams, stdout, stderr, ...) in a user-defined output format.
+#+Log files can be automatically reduced to their last X lines.
+#+
+#+In order to log to the system log, please use the logger command instead. This library is mostly meant for application logs handled in a more custom manner.
+#+
+#+Currently only a single writer per instance of this library/thread is kept in memory, but you can user multiple one after another or in multiple threads. Each writer should have a dedicated log file to write to.
+#+
+#+Exact format of log entries:
+#+
+#+     [header][message]
+#+     [header]: Can be arbitrarily defined in the 
+#+               respective callback function. If nothing
+#+               is defined, the below default header
+#+               is used:
+#+     [default header] = '[default date] '
+#+     [default date]: current date in the format as used
+#+               by date +"%F %T %Z" (the format can be changed)
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.3
+
+b_import fs
+
+#set all internal variables to their defaults
+#blib_flog_reset
+#resets all internal variables to their initial values
+function blib_flog_reset {
+#storage for the b_flog_init, get & set parameters
+BLIB_STORE["BLIB_FLOG_FILENAME"]=""
+BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]="not initialized"
+BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]=""
+BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]=""
+BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]="%F %T %Z"
+BLIB_STORE["BLIB_FLOG_INIT_DONE"]=1
+
+#the used file descriptor
+BLIB_STORE["BLIB_FLOG_FD"]=""
+}
+blib_flog_reset
+
+#+### Global Variables ###
+
+declare -gA B_FLOG_SEV
+#+B_FLOG_SEV
+#+Global map for human readable severities which may be used by users of this script.
+#+It was inspired by the severities of RFC5424.
+#+Currently supported values: emergency|alert|critical|crit|error|err|warning|warn|notice|informational|info|debug
+B_FLOG_SEV=(
+	["emergency"]=0
+	["alert"]=1
+	["critical"]=2
+	["crit"]=2
+	["error"]=3
+	["err"]=3
+	["warning"]=4
+	["warn"]=4
+	["notice"]=5
+	["informational"]=6
+	["info"]=6
+	["debug"]=7
+	)
+
+declare -gA BLIB_FLOG_SEV2NAME
+#BLIB_FLOG_SEV2NAME
+#Maps the integers back to the names used within the log.
+BLIB_FLOG_SEV2NAME=(
+	[0]="EMERGENCY"
+	[1]="ALERT"
+	[2]="CRIT"
+	[3]="ERR"
+	[4]="WARN"
+	[5]="NOTICE"
+	[6]="INFO"
+	[7]="DEBUG"
+	)
+
+#+### Functions ###
+
+#+b_flog_printSeverity [severity]
+#+[severity]: see [b_flog_init](#b_flog_init)
+#+Print the given severity in a way for logging. This function is meant to be used as building block for header functions.
+#+returns: a printed version of the given severity for logging
+function b_flog_printSeverity {
+local severity="${1:-6}"
+[[ "${BLIB_FLOG_SEV2NAME["$severity"]+exists}" == "exists" ]] && severity="${BLIB_FLOG_SEV2NAME["$severity"]}"
+echo -n "$severity"
+}
+
+#+b_flog_close
+#+close the currently open log; is automatically called, but users may want to call it themselves to force the respective file descriptor to be closed before the program is ended
+#+returns: nothing
+#+@StateChanging
+function b_flog_close {
+#close the file descriptor
+[ -n "${BLIB_STORE["BLIB_FLOG_FD"]}" ] && exec {BLIB_STORE["BLIB_FLOG_FD"]}>&-
+blib_flog_reset
+return 0
+}
+
+#+b_flog_init [log file name] [header callback function] [log reduction lines]
+#+Initialize this log writer. This function **must** be called before any others.
+#+[log file name]: name of the log file to write to; special files such as /dev/stdout, /dev/stderr (default), /dev/tcp, /dev/udp are supported if your bash version supports them; the file doesn't need to exist, but directories above it must exist
+#+[header callback function]: optional name of the function to be called whenever a new log entry is generated; the function must be defined as follows:
+#+
+#+     [header callback function] [severity]
+#+     [severity]: see [b_flog_log](#b_flog_log)
+#+     returns: the full header meant to be used for the current moment in time
+#+              with the given severity (without knowing the message details)
+#+              and sets a non-zero exit code on errors; errors may cause the
+#+              message to be logged without header
+#+
+#+[log reduction lines]: if set to a positive integer, reduce the log file approximately to that number of lines during logging (default: 3000) - see b_flog_setLogReductionLinesApprox for details; this option has no effect on non-file outputs (stdout, network output, ...)
+#+returns: sets a non-zero exit code on errors and may exit the script
+#+@StateChanging
+#+@B_E
+function b_flog_init {
+#close previously used file
+b_flog_close
+
+#start init
+BLIB_STORE["BLIB_FLOG_INIT_DONE"]=1
+BLIB_STORE["BLIB_FLOG_FILENAME"]="${1:-/dev/stderr}"
+b_flog_setHeaderFunction "${2:-b_flog_defaultHeader}"
+b_flog_setLogReductionLinesApprox "${3:-3000}"
+
+#create the file if it doesn't exit (but don't create any directories above)
+[ ! -e "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] && > "${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
+
+#open the file for appending, let bash choose the file descriptor
+exec {BLIB_STORE["BLIB_FLOG_FD"]}>>"${BLIB_STORE["BLIB_FLOG_FILENAME"]}" || { B_ERR="Failed to open the log output ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E }
+
+#make sure the log is closed on exit
+#NOTE: this cannot be tested as bats uses EXIT traps for its own functionality
+[ $B_TEST_MODE -ne 0 ] && trap b_flog_close EXIT
+
+#set the init done flag
+BLIB_STORE["BLIB_FLOG_INIT_DONE"]=0
+}
+
+#blib_flog_reduceLog
+#Reduce the log if and when it makes sense.
+#returns: sets a non-zero exit code on errors and may exit the script
+#@B_E
+function blib_flog_reduceLog {
+#do we need to reduce?
+#NOTE: [ -f "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] may return true if e.g. stdout is redirected to a file --> we use the filename (but check later anyway to make sure it is not something totally strange)
+if  [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] && [ ${BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]} -gt 0 ] && [ ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} -ge 0 ] ; then
+	local rnd=0
+	#only check for reduction every 20 calls on average (we must not use any state for that)
+	#we don't do that during testing to get deterministic logs
+	[ $B_TEST_MODE -ne 0 ] && rnd=$(( $RANDOM % 20 ))
+
+	if [ $rnd -eq 0 ] ; then
+		local cnt=""
+		local log="${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
+
+		#make sure it's not something strange
+		[ ! -f "$log" ] && return 0
+
+		#count lines
+		cnt="$(b_fs_getLineCount "$log")" || { B_ERR="Failed to count the number of lines of ${log}." ; B_E }
+		
+		#reduce if necessary
+		if [ $cnt -gt ${BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]} ] ; then
+			local tmp=""
+			tmp="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+			tail -n ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} "$log" > "$tmp" || { B_ERR="Failed to reduce the log $log." ; B_E }
+			cat "$tmp" > "$log" || { B_ERR="Failed to write the reduced log back." ; B_E }
+			b_flog_log "Reduced the log to its last ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} lines."
+		fi
+	fi
+fi
+
+return 0
+}
+
+#+b_flog_log [message] [severity]
+#+Log the given message with the given optional severity.
+#+[message]: message to log
+#+[severity]: users may pass arbitrary numbers or even Strings here, but it is recommended to stick to the priorities defined in $BLIB_FLOG_SEV (default: ${B_FLOG_SEV\["info"\]})
+#+returns: sets a non-zero exit code on errors and may exit the script
+#+@B_E
+function b_flog_log {
+local msg="$1"
+local sev="${2:-${B_FLOG_SEV["info"]}}"
+local header=""
+local ret=0
+
+#IMPORTANT: this function MUST NOT write any state in order to be usable by subshells
+
+[ ${BLIB_STORE["BLIB_FLOG_INIT_DONE"]} -ne 0 ] && B_ERR="Calling b_flog_log without init is not supported." && B_E
+
+#get the header
+header="$(${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]} "$sev")"
+if [ $? -ne 0 ] ; then
+	header="$(b_flog_defaultHeader "$sev")"
+	msg="The header function ${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]} returned an error. Thus falled back to the default header. Message: $msg"
+	ret=1
+fi
+
+#write
+echo "${header}${msg}" >&${BLIB_STORE["BLIB_FLOG_FD"]} || { B_ERR="Failed to write to the log output at ${BLIB_STORE["BLIB_FLOG_FILENAME"]}. Missing call to b_flog_init?" ; B_E }
+
+#log reduction
+blib_flog_reduceLog
+
+return $ret
+}
+
+#+b_flogErrorHandler [error out] [print stderr] [print stack trace] [print log errors] [log stack trace] [severity]
+#+An alternative to [b_defaultErrorHandler](#b_defaultErrorHandler) which will log program errors using flog.
+#+[error out]: see [b_defaultErrorHandler](#b_defaultErrorHandler) (default: 0)
+#+[print stderr]: see [b_defaultErrorHandler](#b_defaultErrorHandler) (default: 1 / log only)
+#+[print stack trace]: see [b_defaultErrorHandler](#b_defaultErrorHandler) (default: 1 / log only)
+#+[print log errors]: whether or not to print errors related to the logging itself to stderr (default: 0 / print)
+#+[log stack trace]: whether or not to log the stack trace (default: 1 / do not log it)
+#+[severity]: the severity to use for all errors, defaults to ${B_FLOG_SEV\["critical"\]}
+#+returns: see [b_defaultErrorHandler](#b_defaultErrorHandler)
+function b_flog_errorHandler {
+local errorOut=${1:-0}
+local printErr=${2:-1}
+local printStack=${3:-1}
+local printLogErr="${4:-0}"
+local logStack=${5:-1}
+local sev="${6:-${B_FLOG_SEV["critical"]}}"
+
+#make sure b_flog_log doesn't recursively call us & we manage to handle log failures
+local oldHandler="$(b_getErrorHandler)"
+b_setErrorHandler "b_defaultErrorHandler $errorOut $printLogErr $printLogErr"
+local msg="$B_ERR"
+B_ERR=""
+
+b_flog_log "$msg" "$sev"
+
+if [ $logStack -eq 0 ] ; then
+	local stack="$(b_printStackTrace 1)"
+	b_flog_log "Stack Trace:"$'\n'"$stack" "$sev"
+fi
+
+[ $errorOut -eq 0 ] && b_flog_log "Terminating $B_CALLER_NAME due to the above error..." "$sev"
+
+#reset to previous error handler
+b_setErrorHandler "$oldHandler"
+B_ERR="$msg"
+
+b_defaultErrorHandler $errorOut $printErr $printStack
+}
+
+#+b_flog_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_flog_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+date
+tail
+cat
+mktemp
+EOF
+
+echo -n "$deps"
+}
+
+################### setters & getters ###################
+
+#+b_flog_getDateFormat
+#+Get the date format used for the header by this log writer (see "man date" for explanations).
+#+returns: see above
+function b_flog_getDateFormat {
+echo "${BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]}"
+}
+
+#+b_flog_setDateFormat [format string]
+#+Set the date format used for the header by this log writer (see "man date" for explanations).
+#+returns: nothing
+#+@StateChanging
+function b_flog_setDateFormat {
+BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]="$1"
+}
+
+#+b_flog_getLogReductionLinesLowerBound
+#+Get the number of lines that the log file will at least have after a log file reduction.
+#+returns: see above
+function b_flog_getLogReductionLinesLowerBound {
+echo "${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]}"
+}
+
+#+b_flog_getLogReductionLinesUpperBound
+#+Get the maximum number of lines that the log file will have before it is reduced.
+#+returns: see above
+function b_flog_getLogReductionLinesUpperBound {
+echo "${BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]}"
+}
+
+#+b_flog_setLogReductionLinesLowerBound [bound]
+#+Set the number of lines that the log file will at least have after a log file reduction.
+#+[bound]: number of lines to use for that bound
+#+returns: nothing
+#+@StateChanging
+function b_flog_setLogReductionLinesLowerBound {
+BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]=$1
+}
+
+#+b_flog_setLogReductionLinesUpperBound
+#+Set the maximum number of lines that the log file will have before it is reduced.
+#+[bound]: number of lines to use for that bound
+#+returns: nothing
+#+@StateChanging
+function b_flog_setLogReductionLinesUpperBound {
+BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]=$1
+}
+
+#+b_flog_setLogReductionLinesApprox [line count]
+#+Set the number of average number of lines that the log file should have; counts <= 0 indicate no limit.
+#+[line count]: reduce the log after reaching 1.2\*\[line count\] lines to 0.8\*\[line count\] lines
+#+returns: nothing
+#+@StateChanging
+function b_flog_setLogReductionLinesApprox {
+local approx=$1
+b_flog_setLogReductionLinesLowerBound "$(( $approx * 8/10 ))"
+b_flog_setLogReductionLinesUpperBound "$(( $approx * 12/10 ))"
+}
+
+#+b_flog_getHeaderFunction
+#+Get the name of the header callback function that is used.
+#+returns: see above
+function b_flog_getHeaderFunction {
+echo "${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]}"
+}
+
+#+b_flog_setHeaderFunction [header function]
+#+Set the name of the header callback function to be used.
+#+[header function]: name of the header function to use
+#+returns: nothing
+#+@StateChanging
+function b_flog_setHeaderFunction {
+BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]="$1"
+}
+
+#+##### Header Functions #####
+
+#we attempt not to spawn subshells
+
+#+b_flog_defaultHeader [severity]
+#+Default header callback function used with [b_flog_init](#b_flog_init).
+#+[severity]: the default header ignores the severity
+#+returns: the default header meant to be used for the current moment in time
+function b_flog_defaultHeader {
+date +"${BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]} " | tr -d '\n'
+return 0
+}
+
+#+b_flog_headerDateSeverity [severity]
+#+An alternative to the default header callback function which appends the severity to the default header.
+#+[severity]: see [b_flog_init](#b_flog_init)
+#+returns: the default header with the severity appended
+function b_flog_headerDateSeverity {
+local severity="$1"
+b_flog_defaultHeader "$severity"
+b_flog_printSeverity "$severity"
+echo -n " "
+return 0
+}
+
+#+b_flog_headerDateScriptSeverity [severity]
+#+An alternative to the default header callback function which appends the calling script and the severity to the default header.
+#+[severity]: see [b_flog_init](#b_flog_init)
+#+returns: the default header with the calling script and severity appended
+function b_flog_headerDateScriptSeverity {
+local severity="$1"
+b_flog_defaultHeader "$severity"
+echo -n "$B_CALLER_NAME "
+b_flog_printSeverity "$severity"
+echo -n " "
+return 0
+}

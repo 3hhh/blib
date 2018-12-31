@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+#+Collection of http related functions.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.2
+
+#+### Functions ###
+
+#+b_http_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_http_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+curl
+EOF
+
+echo -n "$deps"
+}
+
+#+b_http_rawUrlEncode [string]
+#+Encode the given string according to RFC 3986.
+#+[string]: to encode
+#+returns: Returns a string in which all non-alphanumeric characters except -\_.~ have been replaced with a percent (%) sign followed by two hex digits. This is the encoding described in RFC 3986 for protecting literal characters from being interpreted as special URL delimiters, and for protecting URLs from being mangled by transmission media with character conversions (like some email systems). A non-zero exit code is set on errors.
+#+@B_E
+function b_http_rawUrlEncode {
+#original idea from https://stackoverflow.com/questions/296536/how-to-urlencode-data-for-curl-command
+#most ideas there don't support non-ASCII characters, but one does it properly:
+local str="$1"
+local ret=""
+ret="$(curl -s -o /dev/null -w %{url_effective} --get --data-urlencode "$str" "")"
+[ $? -ne 3 ] && { B_ERR="curl failed to encode $str." ; B_E }
+echo -n "${ret:2}"
+return 0
+}
+
+#+b_http_rawUrlDecode [string]
+#+Decode the given string encoded with b_str_rawUrlEncode or an equivalent function.
+#+[string]: to decode
+#+returns: The literal string with all hex characters replaced; a non-zero exit code is set on errors.
+function b_http_rawUrlDecode {
+#replace %NN with \xNN and let printf do the hex decoding
+printf '%b' "${1//%/\\x}"
+}
