@@ -2,11 +2,27 @@
 
 blib is a lightweight general purpose library for bash developers written in pure bash.
 
-It attempts to provide robust implementations for commonly encountered issues such as logging, mutexes, code documentation, OS identification, ... whilst leaving the bash syntax as it is.
+It attempts to provide robust implementations for commonly encountered issues whilst leaving the bash syntax as it is.
+
+## Functionality
+
+blib currently provides functionality in the following areas:
+
+* logging
+* mutexes
+* code documentation
+* config files
+* OS identification
+* data typing
+* terminal colors
+* traps
+* code generation
+* privilege elevation
+* [Qubes OS](https://www.qubes-os.org/)
 
 The various topics are grouped into dedicated modules which can be imported into the global bash namespace at will.
 
-An overview of the available list of modules and functions can be obtained from the [Documentation](#documentation).
+A complete overview of the available list of modules and functions can be obtained from the [Documentation](#documentation).
 
 ## Table of contents
 
