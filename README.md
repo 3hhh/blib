@@ -67,7 +67,9 @@ b_import str
 The blib code reference is available in many formats:
 
 1. **Command-line**: `blib list` and `blib info [module]`
-2. **Online**: [html](https://3hhh.github.io/blib-doc/blib.html) [pdf](https://3hhh.github.io/blib-doc/blib.pdf) (possibly outdated)
+2. **Online**: (possibly outdated)
+  * [Code Reference (html)](https://3hhh.github.io/blib-doc/blib.html)
+  * [Code Reference (pdf)](https://3hhh.github.io/blib-doc/blib.pdf)
 3. **Manpage**: `man blib` (requires [pandoc](https://pandoc.org/) during installation)
 4. **Offline**: as `html` and `pdf` in `/usr/lib/blib/doc` (requires [pandoc](https://pandoc.org/) during installation)
 
