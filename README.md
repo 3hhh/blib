@@ -8,17 +8,18 @@ It attempts to provide robust implementations for commonly encountered issues wh
 
 blib currently provides functionality in the following areas:
 
-* logging
-* mutexes
-* code documentation
-* config files
-* OS identification
-* data typing
-* terminal colors
-* traps
-* code generation
-* privilege elevation
-* [Qubes OS](https://www.qubes-os.org/)
+* [logging](https://3hhh.github.io/blib-doc/blib.html#flog)
+* [mutexes](https://3hhh.github.io/blib-doc/blib.html#mtx)
+* [code documentation](https://3hhh.github.io/blib-doc/blib.html#cdoc)
+* [config files](https://3hhh.github.io/blib-doc/blib.html#ini)
+* [OS identification](https://3hhh.github.io/blib-doc/blib.html#ososid)
+* [data typing](https://3hhh.github.io/blib-doc/blib.html#types)
+* [terminal colors](https://3hhh.github.io/blib-doc/blib.html#tcolors)
+* [traps](https://3hhh.github.io/blib-doc/blib.html#traps)
+* [module management](https://3hhh.github.io/blib-doc/blib.html#b_import)
+* [error reporting & handling](https://3hhh.github.io/blib-doc/blib.html#B_E)
+* [privilege elevation](https://3hhh.github.io/blib-doc/blib.html#b_execFuncAs)
+* [Qubes OS](https://3hhh.github.io/blib-doc/blib.html#osqubes4dom0): [RPC](https://3hhh.github.io/blib-doc/blib.html#b_dom0_execFuncIn), [file attaching](https://3hhh.github.io/blib-doc/blib.html#b_dom0_attachFile), ...
 
 The various topics are grouped into dedicated modules which can be imported into the global bash namespace at will.
 
