@@ -98,6 +98,10 @@ B_ERR=""
 #+This should be set to an integer value between 1 and 255. Any other value may cause undefined behaviour.
 B_RC=1
 
+#+B_LIB_DIR
+#+Path of the blib installation directory.
+B_LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
 #+B_SCRIPT
 #+Global variable which can be used to obtain the two global variables [B_SCRIPT_DIR](#B_SCRIPT_DIR) and [B_SCRIPT_NAME](#B_SCRIPT_NAME) as follows:
 #+```bash
