@@ -124,6 +124,7 @@ ret=$?
 eval "$oldOpts"
 
 #check for correct prefix (did the command actually execute?)
+#NOTE: this is hex, not some possibly interpreted string
 local prefixFound="$(cat "$tPrefix")"
 rm -f "$tPrefix" &> /dev/null
 [[ "$prefixFound" != "1213141213146666" ]] && B_ERR="Failed to execute qvm-run. Incorrect parameters passed?" && B_E
