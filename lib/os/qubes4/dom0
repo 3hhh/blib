@@ -532,7 +532,7 @@ qvm-check "$vm" &> /dev/null
 #+b_dom0_openCrypt [vm] [device] [mapper name] [rw flag] [mount point] [key file] [type]
 #+In the given VM, open the given crypto device with dm-crypt and mount it to the mount point.
 #+[vm]: The VM where to open the crypto device.
-#+[device]: Full path to the device (incl. /dev/) to check.
+#+[device]: Full path to the device (incl. /dev/) to open.
 #+[mapper name]: The name to assign to the decrypted version of the crypto block device. The created decrypted device will be found at */dev/mapper/\[mapper name\]*.
 #+[rw flag]: 0=open read-write, 1=open read-only (default: 0)
 #+[mount point]: Where to mount the decrypted data to. Non-existing directories will be created. If no mount point is specified, it will not be mounted (default).
@@ -576,6 +576,29 @@ else
 	#NOTE: that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
 	b_dom0_qvmRun --stdin "$vm" "$cmd" || { B_ERR="Failed to decrypt." ; B_E }
 fi
+#we use the b_dom0_qvmRun exit code as ours
+}
+
+#+b_dom0_closeCrypt [vm] [mapper name] [mount point]
+#+Close a crypto device opened with [b_dom0_openCrypt](#b_dom0_openCrypt).
+#+[vm]: The VM where to close the crypto device.
+#+[mapper name]: The name used when it was opened.
+#+[mount point]: If the decrypted data is mounted inside the \[vm\], please specify the mount point here so that it can be unmounted before closing the device. Otherwise the function will attempt to close the device without unmounting (likely to fail).
+#+returns: nothing, but sets a non-zero exit code on errors
+#+@B_E
+function b_dom0_closeCrypt {
+local vm="$1"
+local mapperName="$2"
+local mp="$3"
+
+#escape
+local mapperNameEsc=""
+local mpEsc=""
+printf -v mpEsc '%q' "$mp"
+printf -v mapperNameEsc '%q' "$mapperName"
+
+local cmd="[ -n \"$mp\" ] && { umount $mpEsc || exit 2 ; } ; cryptsetup close $mapperNameEsc"
+b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close inside the VM $vm." ; B_E }
 #we use the b_dom0_qvmRun exit code as ours
 }
 

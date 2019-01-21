@@ -829,7 +829,7 @@ function testSuccCrossCopy {
 	testSuccCrossCopy "$tfolder" "/tmp/foldertest/" "$tfolderName/$tfileName" "$tfileMd5"
 }
 
-@test "b_dom0_openCrypt" {
+@test "b_dom0_openCrypt & b_dom0_closeCrypt" {
 	skipIfNoTestVMs 
 
 	local luksFile="$(getDom0Fixture "luksloop")"
@@ -850,12 +850,11 @@ function testSuccCrossCopy {
 	[[ "$output" == "/dev/loop"* ]]
 	local loopDevVM="$output"
 
-	
 	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "/tmp/nonexistingfile" "luksdev" "" "" "$luksKeyVM"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_dom0_openCrypt "non-existing-vm" "$luksFileVM" "luksdev" "" "" "$luksKeyVM"
+	runB b_dom0_openCrypt "non-existing-vm" "$loopDevVM" "luksdev" "" "" "$luksKeyVM"
 	echo "out: $output"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
@@ -864,7 +863,7 @@ function testSuccCrossCopy {
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "$luksFileVM" "luksdev01" "" "" "$luksKeyVM"
+	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDevVM" "luksdev01" "" "" "$luksKeyVM"
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
@@ -874,7 +873,27 @@ function testSuccCrossCopy {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "$luksFileVM" "luksdev02" "" "/mntl02" "$luksKeyVM"
+	runB b_dom0_closeCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "luksdev01" "/nonexistingmnt/"
+	echo "out: $output"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_dom0_closeCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "luksdev01"
+	echo "out: $output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_closeCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "luksdev01"
+	echo "out: $output"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_dom0_closeCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "luksdev01-another-nonexisting"
+	echo "out: $output"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDevVM" "luksdev02" "" "/mntl02" "$luksKeyVM"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
@@ -883,12 +902,20 @@ function testSuccCrossCopy {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "$luksFileVM" "luksdev03" 1 "/mntl03" "$luksKeyVM"
+	runB b_dom0_closeCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "luksdev02" "/mntl02"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_openCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDevVM" "luksdev03" 1 "/mntl03" "$luksKeyVM"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	runB b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM "/mntl03" 1
 	echo "out: $output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_closeCrypt "${TEST_STATE["DOM0_TESTVM_1"]}" "luksdev03" "/mntl03"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
