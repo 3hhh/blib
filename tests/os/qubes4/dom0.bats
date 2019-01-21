@@ -644,8 +644,9 @@ function crossAttachTest {
 	[ $status -eq 0 ]
 }
 
-@test "b_dom0_crossAttachFile" {
+@test "b_dom0_crossAttachDevice & b_dom0_crossAttachFile" {
 	skipIfNoTestVMs 
+	#b_dom0_crossAttachFile currently uses b_dom0_crossAttachDevice, so we only need to test the first one
 
 	runB b_dom0_crossAttachFile "${TEST_STATE["DOM0_TESTVM_1"]}" "/tmp/nonexistingfile" "${TEST_STATE["DOM0_TESTVM_2"]}"
 	[ $status -ne 0 ]

@@ -685,12 +685,41 @@ fi
 b_dom0_attachFile "$pfile" "$targetVM" "$rwFlag"
 }
 
+#+b_dom0_crossAttachDevice [source VM] [source device] [target VM] [rw flag]
+#+Attach the given block device from the source VM to the target VM.
+#+
+#+This is merely a convenience wrapper for `qvm-block attach`.
+#+[source VM]: VM where the source file can be found.
+#+[source device]: Device to attach to the \[target VM\].
+#+[target VM]: VM to attach the device to. Must be started.
+#+[rw flag]: If set to 0, attaches the \[source deivce\] in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
+#+@B_E
+function b_dom0_crossAttachDevice {
+local sourceVM="$1"
+local sourceDevice="$2"
+local targetVM="$3"
+local rwFlag="${4:-1}"
+local addOptions=""
+[ $rwFlag -ne 0 ] && addOptions="$addOptions --ro" || addOptions="$addOptions -o read-only=no"
+
+local deviceName="${sourceDevice##*/}"
+[ -z "$deviceName" ] && B_ERR="Failed to extract the device name from $sourceDevice." && B_E
+
+#run qvm-block
+qvm-block a $addOptions "$targetVM" "${sourceVM}:${deviceName}" || { B_ERR="Failed to run qvm-block successfully." ; B_E }
+
+#set the return values
+echo -n "/dev/"
+blib_dom0_parseAttachedList 4 1 "${sourceVM}:$deviceName"
+}
+
 #+b_dom0_crossAttachFile [source VM] [source file] [target VM] [rw flag]
 #+Attach the given file from the source VM as block device to the target VM.
 #+[source VM]: VM where the source file can be found.
 #+[source file]: File to attach as block device.
 #+[target VM]: VM to attach the file to. Must be started.
-#+[rw flag]: If set to 0, attaches the dom0 file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+[rw flag]: If set to 0, attaches the \[source file\] in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
 #+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
 #+@B_E
 function b_dom0_crossAttachFile {
@@ -698,22 +727,13 @@ local sourceVM="$1"
 local sourceFile="$2"
 local targetVM="$3"
 local rwFlag="${4:-1}"
-local addOptions=""
 local loDevice=""
-local loDeviceName=""
-[ $rwFlag -ne 0 ] && addOptions="$addOptions --ro" || addOptions="$addOptions -o read-only=no"
 
 #same as in b_dom0_attachFile
 loDevice="$(b_dom0_createLoopDeviceIfNecessary "$sourceVM" "$sourceFile")" || { B_ERR="Failed to create a loop device for the file $sourceFile in the VM $sourceVM." ; B_E }
-loDeviceName="${loDevice##*/}"
-[ -z "$loDeviceName" ] && B_ERR="Failed to extract the device name from $loDevice." && B_E
 
-#run qvm-block
-qvm-block a $addOptions "$targetVM" "${sourceVM}:${loDeviceName}" || { B_ERR="Failed to run qvm-block successfully." ; B_E }
-
-#set the return values
-echo -n "/dev/"
-blib_dom0_parseAttachedList 4 1 "${sourceVM}:$loDeviceName"
+#attach
+b_dom0_crossAttachDevice "$sourceVM" "$loDevice" "$targetVM" "$rwFlag"
 }
 
 #+b_dom0_detachDevice [vm] [device]
