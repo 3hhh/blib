@@ -63,6 +63,19 @@ fi
 trap "$new" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E }
 }
 
+#+b_traps_prepend [code] [signal] [tag]
+#+Prepend the given commands to the ones currently existing for the given trap signal.
+#+
+#+Convenience wrapper to [b_traps_add](#b_traps_add) with \[append flag\] set to 1.
+#+[code]: see [b_traps_add](#b_traps_add)
+#+[signal]: see [b_traps_add](#b_traps_add)
+#+[tag]: see [b_traps_add](#b_traps_add)
+#+returns: see [b_traps_add](#b_traps_add)
+#+@B_E
+function b_traps_prepend {
+b_traps_add "$1" "$2" "$3" 1
+}
+
 #+b_traps_remove [signal] [tag]
 #+Remove the commands tagged with the given tag from the signal trap.
 #+[signal]: Name of the signal to remove the commands from.
