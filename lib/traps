@@ -26,17 +26,19 @@ cur="${cur#"trap -- '"}"
 echo "${cur%"' $signal"}"
 }
 
-#+b_traps_add [code] [signal] [tag]
+#+b_traps_add [code] [signal] [tag] [append flag]
 #+Add the given commands to the given trap signal.
 #+[code]: Whatever should be added to the trap.
 #+[signal]: Name of the signal to add the commands to.
 #+[tag]: An optional *unique* marker for these commands so that they can be removed with [b_traps_remove](#b_traps_remove) later on.
+#+[append flag]: Whether to append the new commands to the end (0: default) or insert them in the beginning (1).
 #+returns: Whatever the internal call to *trap* to set the new trap returns.
 #+@B_E
 function b_traps_add {
 local cmds="$1"
 local signal="$2"
 local tag="$3"
+local appendFlag="${4:-0}"
 local toAdd=""
 local old=""
 #Note: traps support newlines and ; as line separators as well as bash comments
@@ -49,9 +51,16 @@ fi
 
 old="$(b_traps_getCodeFor "$signal")" || B_E
 
-[ -n "$old" ] && old="$old"$'\n'
+local new=""
+if [ $appendFlag -eq 0 ] ; then
+	[ -n "$old" ] && old="$old"$'\n'
+	new="${old}${toAdd}"
+else
+	[ -n "$old" ] && old=$'\n'"$old"
+	new="${toAdd}${old}"
+fi
 
-trap "${old}${toAdd}" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E }
+trap "$new" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E }
 }
 
 #+b_traps_remove [signal] [tag]

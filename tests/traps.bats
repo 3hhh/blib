@@ -57,12 +57,14 @@ echo "from l3"
 
 	b_traps_add 'echo anonymous' SIGTERM || exit 1
 	b_traps_add 'echo "and another"' SIGTERM another || exit 1
+	b_traps_add 'echo "insert test"' SIGTERM "" 1 || exit 1
 
 	#NOTE: the remove must not happen in a subshell, but in the same shell that the add happened
 	b_traps_remove SIGTERM "another" || exit 1
 	b_traps_remove SIGTERM "test1" || exit 1
 
-	local ref='echo "foo bar"
+	local ref='echo "insert test"
+echo "foo bar"
 #begin: l3
 echo "from l3"
 #end: l3
@@ -87,7 +89,7 @@ echo anonymous'
 	echo "stat: $status"
 	echo "$output"
 	[ $status -eq 0 ]
-	[[ "$output" == "foo bar"$'\n'"from l3"$'\n'"anonymous" ]]
+	[[ "$output" == "insert test"$'\n'"foo bar"$'\n'"from l3"$'\n'"anonymous" ]]
 }
 
 @test "b_traps_add (invalid)" {
