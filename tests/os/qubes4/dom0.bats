@@ -730,6 +730,20 @@ function assertMd5 {
 	[ -n "$output" ]
 	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" "$md5TestFile"
 
+	#files - full path
+	targetVMPath="/tmp/DOM0_COPY_TEST2/foo"
+	runB b_dom0_copy "$testFile" "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" 1 1
+	echo "out4: $output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" "$md5TestFile"
+
+	runB b_dom0_copy "$testFile" "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" 0 1
+	echo "out5: $output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" "$md5TestFile"
+
 	#directory copy
 	local testDir="$(mktemp -d)"
 	local testDirName="${testDir##*/}"
@@ -743,13 +757,13 @@ function assertMd5 {
 	[ -z "$output" ]
 	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" "$md5TestFile"
 
-	runB b_dom0_copy "$testFile" "${TEST_STATE["DOM0_TESTVM_1"]}" "/home" 0
+	runB b_dom0_copy "$testDir" "${TEST_STATE["DOM0_TESTVM_1"]}" "/home" 0
 	echo "out5: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" "$md5TestFile"
 
-	runB b_dom0_copy "$testFile" "${TEST_STATE["DOM0_TESTVM_1"]}" "/home" 1
+	runB b_dom0_copy "$testDir" "${TEST_STATE["DOM0_TESTVM_1"]}" "/home" 1
 	echo "out6: $output"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
@@ -761,28 +775,44 @@ function assertMd5 {
 	runB b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" "[ -d \"/home\" ] && [ -d \"/home/$user\" ]"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
+
+	#directories - full path
+	local targetVMPath="/tmp/test_dir"
+
+	runB b_dom0_copy "$testDir" "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" 1 1
+	echo "out7: $output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath/ext4loop" "$md5TestFile"
+
+	runB b_dom0_copy "$testDir" "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath" 0 1
+	echo "out8: $output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertMd5 "${TEST_STATE["DOM0_TESTVM_1"]}" "$targetVMPath/ext4loop" "$md5TestFile"
 }
 
-#testSuccCrossCopy [source file or dir] [target dir] [target file _name_ in target dir to check md5] [md5]
+#testSuccCrossCopy [source file or dir] [target dir] [target file path to check md5] [md5] [parent dir]
 function testSuccCrossCopy {
 	local source="$1"
 	local target="$2"
-	local checkFile="$2/$3"
+	local checkFile="$3"
 	local checkMd5="$4"
+	local parentDir=${5:-0}
 
-	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "$source" "${TEST_STATE["DOM0_TESTVM_2"]}" "$target" 1
+	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "$source" "${TEST_STATE["DOM0_TESTVM_2"]}" "$target" 1 $parentDir
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertMd5 "${TEST_STATE["DOM0_TESTVM_2"]}" "$checkFile" "$checkMd5"
 
-	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "$source" "${TEST_STATE["DOM0_TESTVM_2"]}" "$target" 1
+	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "$source" "${TEST_STATE["DOM0_TESTVM_2"]}" "$target" 1 $parentDir
 	echo "out: $output"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	assertMd5 "${TEST_STATE["DOM0_TESTVM_2"]}" "$checkFile" "$checkMd5"
 
-	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "$source" "${TEST_STATE["DOM0_TESTVM_2"]}" "$target" 0
+	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "$source" "${TEST_STATE["DOM0_TESTVM_2"]}" "$target" 0 $parentDir
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
@@ -809,15 +839,22 @@ function testSuccCrossCopy {
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
+	runB b_dom0_crossCopy "${TEST_STATE["DOM0_TESTVM_1"]}" "/tmp/nonexistingfile" "${TEST_STATE["DOM0_TESTVM_2"]}" "/tmp/holymoly/" 1 1
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
 	#successful tests with files
 	local cmd="md5sum \"$tfile\" | cut -d' ' -f1"
 	runB b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" "$cmd"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	local tfileMd5="$output"
-	testSuccCrossCopy "$tfile" "/tmp/holymoly/" "$tfileName" "$tfileMd5"
+	testSuccCrossCopy "$tfile" "/tmp/holymoly/" "/tmp/holymoly/$tfileName" "$tfileMd5"
 	#without trailing slash:
-	testSuccCrossCopy "$tfile" "/tmp/holymoly2" "$tfileName" "$tfileMd5"
+	testSuccCrossCopy "$tfile" "/tmp/holymoly2" "/tmp/holymoly2/$tfileName" "$tfileMd5"
+	#full path variant:
+	local fullPath="/tmp/holymoly3/foobar"
+	testSuccCrossCopy "$tfile" "$fullPath" "$fullPath" "$tfileMd5" 1
 
 	#successful tests with directories
 	local tfolder="$(mktemp -u -d)"
@@ -826,7 +863,12 @@ function testSuccCrossCopy {
 	runB b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" "$cmd"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
-	testSuccCrossCopy "$tfolder" "/tmp/foldertest/" "$tfolderName/$tfileName" "$tfileMd5"
+	testSuccCrossCopy "$tfolder" "/tmp/foldertest/" "/tmp/foldertest/$tfolderName/$tfileName" "$tfileMd5"
+	#full path variants (with & without trailing slah):
+	local fullPath="/tmp/foldertest/the_new_name"
+	testSuccCrossCopy "$tfolder" "$fullPath" "$fullPath/$tfileName" "$tfileMd5" 1
+	local fullPath="/tmp/foldertest/the_new_name2"
+	testSuccCrossCopy "$tfolder" "$fullPath/" "$fullPath/$tfileName" "$tfileMd5" 1
 }
 
 @test "b_dom0_openCrypt & b_dom0_closeCrypt" {

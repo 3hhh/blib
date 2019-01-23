@@ -360,18 +360,18 @@ fi
 B_ERR="The sanity check for the output of VM $vm failed." ; B_E
 }
 
-#blib_dom0_copyPrepareTarget [source file name] [target VM] [target directory] [overwrite]
+#blib_dom0_copyPrepareTarget [target file name] [target VM] [target directory] [overwrite]
 #Do all preparations of the target VM necessary for b_dom0_copy and b_dom0_crossCopy.
-#[source file name]: _file name_ (!= path) of the file or directory to copy to the target directory
+#[target file name]: _file name_ (!= path) of the file or directory to copy to the target directory
 #returns: Sets a non-zero exit code on errors. In particular a non-zero exit code is returned if the target file already exists and overwrite is false (!= 0).
 #@B_E
 function blib_dom0_copyPrepareTarget {
-local srcFileName="$1"
-[ -z "$srcFileName" ] && return 1
+local fileName="$1"
+[ -z "$fileName" ] && return 1
 local targetVM="$2"
 local targetDir="$3"
 local overwrite=${4:-0}
-local targetPath="$targetDir/$srcFileName"
+local targetPath="$targetDir/$fileName"
 
 #escape
 printf -v targetPath '%q' "$targetPath"
@@ -383,12 +383,13 @@ local cmd="[ $overwrite -eq 0 ] && rm -rf $targetPath ; mkdir -p $targetDir || e
 b_silence "b_dom0_qvmRun" "$targetVM" "$cmd"
 }
 
-#+b_dom0_copy [dom0 file] [target VM] [target VM dir] [overwrite]
+#+b_dom0_copy [dom0 file] [target VM] [target VM dir] [overwrite] [parent dir]
 #+Grab a file or directory in dom0 and push it to the given file path in the target VM.
 #+[dom0 file]: location of the dom0 file or directory to read from, assumed to exist
 #+[target VM]: VM to write to, assumed to exist. Must be started.
 #+[target VM dir]: full path to the parent directory in the target VM to copy the file or directory to; non-existing parent directories are created; the name is taken from the name of the file/directory in dom0
 #+[overwrite]: Whether or not to overwrite an existing [destination file] (default: 0 = overwrite).
+#+[parent dir]: Set this to 0, if the \[target VM dir\] is the target _parent_ directory (default) and to 1 if it includes the target file or folder _name_ as last element.
 #+returns: Sets an exit code of 0, if everything went fine, and a non-zero exit code otherwise.
 #+@B_E
 function b_dom0_copy {
@@ -398,6 +399,8 @@ local vm="$2"
 local vmUser=""
 local vmDir="$3"
 local overwrite=${4:-0}
+local parentDir="${5:-0}"
+local targetName=""
 
 #qvm-copy-to-vm will display nasty GUI errors otherwise...
 [ ! -e "$dom0Path" ] && B_ERR="Failed to find $dom0Path in dom0." && B_E
@@ -406,8 +409,16 @@ local overwrite=${4:-0}
 dom0FileName="$(basename "$dom0Path")" || { B_ERR="Failed to compute the basename for $dom0Path." ; B_E }
 vmUser="$(qvm-prefs "$vm" "default_user")" || { B_ERR="Failed to run qvm-prefs." ; B_E }
 
+#compute the target name
+if [ $parentDir -eq 0 ] ; then
+	targetName="$dom0FileName"
+else
+	targetName="$(basename "$vmDir")"
+	vmDir="$(dirname "$vmDir")"
+fi
+
 #prep
-blib_dom0_copyPrepareTarget "$dom0FileName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
+blib_dom0_copyPrepareTarget "$targetName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
 
 #make sure the file does not exist in ~/QubesIncoming/dom0
 local qubesInc="/home/$vmUser/QubesIncoming/dom0/$dom0FileName"
@@ -420,19 +431,21 @@ qvm-copy-to-vm "$vm" "$dom0Path" || { B_ERR="Failed to run qvm-copy-to-vm for th
 
 #move it to the right place
 printf -v vmDir '%q' "$vmDir"
-local cmd="[ -d $vmDir ] && mv $qubesInc $vmDir"
+printf -v targetName '%q' "$targetName"
+local cmd="[ -d $vmDir ] && mv -f $qubesInc $vmDir/$targetName"
 b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to move the data in ~/QubesIncoming/ to the right place." ; B_E }
 
 return 0
 }
 
-#+b_dom0_crossCopy [source VM] [source file] [target VM] [target VM dir] [overwrite]
+#+b_dom0_crossCopy [source VM] [source file] [target VM] [target VM dir] [overwrite] [parent dir]
 #+Cross copy a file or directory from one VM to another, initiated by dom0. No user prompt is displayed.
 #+[source VM]: Where to copy the source file from. Must be started.
 #+[source file]: The file or directory to copy.
 #+[target VM]: Where to copy the file to. Must be started.
 #+[target VM dir]: full path to the parent directory in the target VM to copy the file or directory to; non-existing parent directories are created; the name is taken from the name of the file/directory in dom0
 #+[overwrite]: Whether or not to overwrite an existing [destination file] (default: 0 = overwrite).
+#+[parent dir]: Set this to 0, if the \[target VM dir\] is the target _parent_ directory (default) and to 1 if it includes the target file or folder _name_ as last element.
 #+returns: Sets an exit code of 0, if everything went fine, and a non-zero exit code otherwise.
 #+@B_E
 function b_dom0_crossCopy {
@@ -443,26 +456,38 @@ local srcFileName=""
 local dstVM="$3"
 local dstVMDir="$4"
 local overwrite=${5:-0}
+local parentDir=${6:-0}
 local ret=5
+local dstName=""
 
 srcFileName="$(basename "$srcFile")" || { B_ERR="Failed to compute the basename for $srcFile." ; B_E }
 srcVMDir="$(dirname "$srcFile")" || { B_ERR="Failed to compute the dirname for $srcFile." ; B_E }
 
+#compute the target/dst name
+if [ $parentDir -eq 0 ] ; then
+	dstName="$srcFileName"
+else
+	dstName="$(basename "$dstVMDir")"
+	dstVMDir="$(dirname "$dstVMDir")"
+fi
+
 #prep
-blib_dom0_copyPrepareTarget "$srcFileName" "$dstVM" "$dstVMDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
+blib_dom0_copyPrepareTarget "$dstName" "$dstVM" "$dstVMDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
 
 #escape
 printf -v srcVMDir '%q' "$srcVMDir"
 printf -v dstVMDir '%q' "$dstVMDir"
 printf -v srcFileName '%q' "$srcFileName"
+printf -v dstName '%q' "$dstName"
 
 #copy
 #basic idea: tar file or directory, pipe it via qvm-run / b_dom0_qvmRun to the destination VM and untar there
 #tar -f - means: write to stdout/read from stdin
+#the --one-top-level=[name] --strip-components=1 lets us define the name of the top-level element of the tar archive (surprisingly, this also worked for files when I tested it)
 b_setBE 1
 local oldOpts=""
 [[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
-b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -cz -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -xz -f -"
+b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -cz -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -xz --one-top-level=$dstName --strip-components=1 -f -"
 ret=$?
 eval "$oldOpts"
 b_resetErrorHandler
