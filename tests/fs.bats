@@ -250,79 +250,77 @@ function loopDevCleanup {
 	cat "$loopFile" > "$tmpLoopFile"
 	[ -f "$tmpLoopFile" ]
 
+	local tmpLoopFile2="$(mktemp)"
+	cat "$loopFile" > "$tmpLoopFile2"
+	[ -f "$tmpLoopFile2" ]
+
 	#some failing tests:
 	
-	echo 1
 	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "/tmp/nonexistingFile_" - "fs" -
 	[[ "$output" == *"ERROR"* ]]
 	[ $status -ne 0 ]
 
-	echo 2
 	runB b_execFuncAs "root" b_fs_mountIfNecessary "/dev/doesntexist" "$tmpDir" - "fs" -
 	[[ "$output" == *"ERROR"* ]]
 	[ $status -ne 0 ]
 	
 	#successful tests:
 	
-	echo 3
 	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
 	local loopDev="$output"
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 
-	echo 4
 	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
-	echo 5
 	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
-	echo 6
+	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile2" - "fs" -
+	[ $status -eq 0 ]
+	[[ "$output" =~ /dev/loop[0-9]+ ]]
+	local loopDev2="$output"
+	[[ "$loopDev2" != "$loopDev" ]]
+
 	runB b_fs_getMountpoints "$loopDev"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	echo 7
 	runB b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	echo 8
 	runB b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	echo 9
 	runB b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	echo 10
 	runB b_fs_getMountpoints "$loopDev"
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	echo 11
 	local out="$(cat "$tmpDir/SUCCESS.txt")"
 	[[ "$out" == "We did it!" ]]
 
 	#cleanup:
 	
-	echo 12
 	runB b_execFuncAs "root" loopDevCleanup "$loopDev" - -
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	echo 13
 	runB b_fs_getMountpoints "$loopDev"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
 	rm -f "$tmpLoopFile"
+	rm -f "$tmpLoopFile2"
 	rm -rf "$tmpDir"
 	rm -rf "$tmpDir2"
 
