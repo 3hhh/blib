@@ -1,0 +1,189 @@
+#!/bin/bash
+#
+#+Provides means for inter-process communication (ipc) via global bash variables (v).
+#+
+#+This implementation uses shared memory, i.e. it should be reasonably fast.
+#+
+#+Only a single process or thread is assumed to be writing (i.e. use [b_ipcv_save](#b_ipcv_save)) a variable at a time and multiple processes may read it (using e.g. [b_ipcv_load](#b_ipcv_load)). If you need to write a single variable from multiple processes, please consider using the [mtx] module or similar locking means in combination with this module.
+#+
+#+Copyright (C) 2018  David Hobach  LGPLv3
+#+0.3
+
+#base directory for shared memory operations
+#idea: all namespaces get a separate sub directory there, every variable a single file --> KISS
+BLIB_IPCV_SHM_BASE="/dev/shm/blib_ipcv"
+
+#directory for temporary operations
+BLIB_IPCV_TEMP_NAME="temp"
+BLIB_IPCV_TEMP="$BLIB_IPCV_SHM_BASE/$BLIB_IPCV_TEMP_NAME"
+
+#safety check & some init
+findmnt "/dev/shm" &> /dev/null || { B_ERR="Your system does not appear to use /dev/shm. Thus you cannot use the ipcv module." ; B_E }
+mkdir -p "$BLIB_IPCV_TEMP" || { B_ERR="Failed to create the directory $BLIB_IPCV_TEMP." ; B_E }
+
+#+### Functions ###
+
+#+b_ipcv_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_ipcv_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+findmnt
+mkdir
+mktemp
+mv
+rm
+EOF
+
+echo -n "$deps"
+}
+
+#blib_ipcv_assertCorrectNamespace [namespace] [check existence]
+#Check whether the given namespace name is acceptable.
+#[namespace]: to check
+#[check existence]: whether or not to check its existence (default: false)
+#returns: Errors out, if the name is unacceptable.
+#@B_E
+function blib_ipcv_assertCorrectNamespace {
+local ns="$1"
+local checkExistence=${2:-1}
+[ -z "$ns" ] && B_ERR="You must specify a non-empty namespace." && B_E
+[[ "$ns" == "$BLIB_IPCV_TEMP_NAME" ]] && B_ERR="The namespace $ns is reserved and must not be used by applications." && B_E
+[[ "$ns" == *"/"* ]] && B_ERR="Slashes in namespace names are forbidden." && B_E
+
+if [ $checkExistence -eq 0 ] ; then
+	local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+	[ ! -d "$nsDir" ] && B_ERR="The namespace $ns does not seem to exist." && B_E
+fi
+
+return 0
+}
+
+#+b_ipcv_save [namespace] [var name 1] .. [var name n]
+#+Save the current values of the given variables so that they are made available for other processes under the given namespace.
+#+
+#+Please note that each variable is saved atomically, but individually. I.e. if you need multiple values to be updated at the same time, please use a single variable (e.g. a map).
+#+[namespace]: Name for a common group under which the given variables should be saved. The combination of \[namespace\] and \[variable name\] must be a unique identifier across all processes running on the system.
+#+[var name i]: The name of the global variable to make accessible for other processes. An arbitrary number of variable names can be specified.
+#+returns: Nothing, but a non-zero exit code indicates failed variable save attempts. A failed save attempt also triggers [B_E](#B_E).
+#+@B_E
+function b_ipcv_save {
+local ns="$1"
+blib_ipcv_assertCorrectNamespace "$ns" || B_E
+shift
+
+local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+mkdir -p "$nsDir" || { B_ERR="Failed to create the directory for the namespace at $nsDir." ; B_E }
+
+local ret=0
+local temp=""
+local out=""
+for var in "$@" ; do
+	tmp="$(mktemp -p "$BLIB_IPCV_TEMP")" || { B_ERR="Failed to create a temporary memory object." ; B_E }
+	out="$(declare -p "$var")" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to find the variable ${var}." ; B_E }
+
+	#NOTE: unfortunately declare -p doesn't save the very important -g in some bash versions --> we need to add it
+	echo "${out/declare/declare -g}" > "$tmp" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to write the variable ${var}." ; B_E }
+
+	#NOTE: the below mv should be atomic on almost all Linux distros
+	mv "$tmp" "$nsDir/$var" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to move a temporary memory object for the variable $var." ; B_E }
+done
+
+return 0
+}
+
+#+b_ipcv_load [namespace] [var name 1] .. [var name n]
+#+Load the given variables from the given namespace into the current process context.
+#+[namespace]: Name of the group under which the variable was saved with [b_ipcv_save](#b_ipcv_save).
+#+[var name i]: Name of the variable to load. Multiple names can be specified.
+#+returns: A non-zero exit code indicates the number of variables that could not be loaded unless some unexpected error occurred and [B_E](#B_E) is triggered. Please note that a failed load attempt/unavailable variable does generally not trigger [B_E](#B_E).
+#+@B_E
+function b_ipcv_load {
+local ns="$1"
+blib_ipcv_assertCorrectNamespace "$ns" 0 || B_E
+shift
+
+local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+
+local var=
+local ret=0
+for var in "$@" ; do
+	#source and use declare -p to double check that the variable was set
+	source "$nsDir/$var" &> /dev/null && declare -p "$var" &> /dev/null
+	[ $? -ne 0 ] && ret=$(($ret +1))
+done
+
+return $ret
+}
+
+#+b_ipcv_loadNamespace [namespace]
+#+Load all variables that can be loaded for the given namespace into the current process context.
+#+[namespace]: Name of the group for which to load all available variables.
+#+returns: Sets a zero exit code on success. Failing to load any single available variable will always trigger [B_E](#B_E).
+#+@B_E
+function b_ipcv_loadNamespace {
+local ns="$1"
+blib_ipcv_assertCorrectNamespace "$ns" 0 || B_E
+
+local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+
+local varPath=
+local var=
+local vars=()
+for varPath in "$nsDir"/* "$nsDir"/.[^.]* ; do
+	var="${varPath##*/}"
+
+	[ -z "$var" ] && continue
+	[[ "$var" == "*" ]] && continue
+	[[ "$var" == ".[^.]*" ]] && continue
+
+	vars+=( "$var" )
+done
+
+b_ipcv_load "$ns" "${vars[@]}" || { B_ERR="Failed to load the namespace $ns." ; B_E }
+return 0
+}
+
+#+b_ipcv_unset [namespace] [var name 1] .. [var name n]
+#+Unset/Remove the given variables from the global namespace.
+#+Please note that the variables will remain set in your current process context, if they were set before. Use the standard bash `unset` for that.
+#+[namespace]: Group where the given variables belong to.
+#+[var name i]: Name of the variable to remove. Multiple may be specified.
+#+returns: The number of variables which could not be unset. [B_E](#B_E) is not triggered for these.
+#+@B_E
+function b_ipcv_unset {
+local ns="$1"
+blib_ipcv_assertCorrectNamespace "$ns" || B_E
+shift
+
+local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+
+local var=
+local ret=0
+for var in "$@" ; do
+	rm -f "$nsDir/$var" &> /dev/null || ret=$(($ret +1))
+done
+
+return $ret
+}
+
+#+b_ipcv_unsetNamespace [namespace]
+#+Remove the given global namespace and all variables it contains.
+#+Please note that the variables will remain set in your current process context, if they were set before. Use the standard bash `unset` for that.
+#+[namespace]: To remove.
+#+returns: Sets a zero exit code only upon successful removal. Otherwise [B_E](#B_E) is triggered.
+#+@B_E
+function b_ipcv_unsetNamespace {
+local ns="$1"
+blib_ipcv_assertCorrectNamespace "$ns" || B_E
+
+local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+if [ -d "$nsDir" ] ; then
+	rm -rf "$nsDir" || { B_ERR="Failed to unset the namespace ${ns}." ; B_E }
+else
+	[ -e "$nsDir" ] && B_ERR="Invalid namespace $ns provided ($nsDir appears to be no directory)." && B_E
+fi
+
+return 0
+}

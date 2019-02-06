@@ -19,6 +19,7 @@ blib currently provides functionality in the following areas:
 * [module management](https://3hhh.github.io/blib-doc/blib.html#b_import)
 * [error reporting & handling](https://3hhh.github.io/blib-doc/blib.html#B_E)
 * [privilege elevation](https://3hhh.github.io/blib-doc/blib.html#b_execFuncAs)
+* [inter-process communication](https://3hhh.github.io/blib-doc/blib.html#ipcv)
 * [Qubes OS](https://3hhh.github.io/blib-doc/blib.html#osqubes4dom0): [RPC](https://3hhh.github.io/blib-doc/blib.html#b_dom0_execFuncIn), [file attaching](https://3hhh.github.io/blib-doc/blib.html#b_dom0_attachFile), ...
 
 The various topics are grouped into dedicated modules which can be imported into the global bash namespace at will.
