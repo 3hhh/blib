@@ -627,19 +627,21 @@ b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close 
 #we use the b_dom0_qvmRun exit code as ours
 }
 
-#blib_dom0_parseAttachedList [retrieve index] [check index 1] [check value 1] [check index 2] [check value 2]
+#blib_dom0_parseAttachedList [input] [retrieve index] [check index 1] [check value 1] [check index 2] [check value 2]
 #See implementation.
+#[input]: optional output from a previous `qvm-block l` call; if none is specified, this function will execute the call
+#[retrieve index]: index to retrieve for the matched value
 #[check index 1 & 2]: capture indices to match, only the first is required
 #[check value 1 & 2]: check equality for the [check index i] with this one
-#[retrieve index]: index to retrieve for the matched value
 #returns: The retrieved value or sets a non-zero exit code.
 #@B_E
 function blib_dom0_parseAttachedList {
-local retInd="$1"
-local checkInd1="$2"
-local checkValue1="$3"
-local checkInd2="$4"
-local checkValue2="$5"
+local input="$1"
+local retInd="$2"
+local checkInd1="$3"
+local checkValue1="$4"
+local checkInd2="$5"
+local checkValue2="$6"
 
 #sample qvm-block l output:
 #sys-usb:loop0  /home/user/test.dd  surfing (read-only=no, frontend-dev=xvdi)
@@ -647,8 +649,9 @@ local checkValue2="$5"
 #(   1        )(      2          ) (  3   )                             ( 4 )
 local regex='^([^[:blank:]]+)[[:blank:]]+(.*)[[:blank:]]+([^[:blank:]]+)[[:blank:]]+\(.*frontend\-dev=([a-z0-9]+).*\)$'
 
-local list=""
-list="$(qvm-block l)" || { B_ERR="Failed to run qvm-block l" ; B_E }
+if [ -z "$input" ] ; then
+	input="$(qvm-block l)" || { B_ERR="Failed to run qvm-block l" ; B_E }
+fi
 
 local line=""
 while IFS= read -r line ; do
@@ -660,9 +663,9 @@ while IFS= read -r line ; do
 			fi
 		fi
 	fi
-done <<< "$list"
+done <<< "$input"
 
-B_ERR="Failed to find the requested data in the Qube list." ; B_E
+B_ERR="Failed to find the requested data in the list of block devices." ; B_E
 }
 
 #+b_dom0_attachFile [dom0 file] [target VM] [rw flag]
@@ -695,7 +698,7 @@ qvm-block a $addOptions "$targetVM" "dom0:${loDeviceName}" || { B_ERR="Failed to
 
 #set the return values
 echo -n "/dev/"
-blib_dom0_parseAttachedList 4 1 "dom0:$loDeviceName"
+blib_dom0_parseAttachedList "" 4 1 "dom0:$loDeviceName"
 }
 
 #+b_dom0_attachVMDisk [source VM] [target VM] [dom0 working folder] [rw flag]
@@ -759,7 +762,7 @@ qvm-block a $addOptions "$targetVM" "${sourceVM}:${deviceName}" || { B_ERR="Fail
 
 #set the return values
 echo -n "/dev/"
-blib_dom0_parseAttachedList 4 1 "${sourceVM}:$deviceName"
+blib_dom0_parseAttachedList "" 4 1 "${sourceVM}:$deviceName"
 }
 
 #+b_dom0_crossAttachFile [source VM] [source file] [target VM] [rw flag]
@@ -798,7 +801,7 @@ local devName="${dev##*/}"
 
 #get the backend ID
 local bid=""
-bid="$(blib_dom0_parseAttachedList 1 3 "$vm" 4 "$devName")" || { B_ERR="Failed to obtain the list of currently attached devices." ; B_E }
+bid="$(blib_dom0_parseAttachedList "" 1 3 "$vm" 4 "$devName")" || { B_ERR="Failed to obtain the list of currently attached devices." ; B_E }
 
 #detach & set exit code
 qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
