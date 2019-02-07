@@ -123,11 +123,30 @@ mount "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the de
 }
 
 #+b_fs_createLoopDeviceIfNecessary [file]
-#+Create a loop device for the given file if no old one exists. May require root access rights.
+#+Create a loop device for the given file if no old one exists. Usually requires root access rights.
 #+[file]: File for which to create a loop device.
 #+returns: Created loop device or previously used one (incl. /dev/). Sets a non-zero exit code, if no device could be created.
 #+@B_E
 function b_fs_createLoopDeviceIfNecessary {
 local file="$1"
-losetup -f -L --show "$file" || { B_ERR="Failed to create a loop device from $file." ; B_E }
+
+#-L was apparently introduced with losetup 2.29.x
+#--> we first try to use it and then fall back to not using it
+#NOTE: we cannot check the version in userspace (usually also requires root)
+losetup -f -L --show "$file" 2> /dev/null
+
+#do it manually
+if [ $? -ne 0 ] ; then
+	local oldDev=""
+	oldDev="$(losetup -n -O NAME -j "$file")"
+
+	if [ $? -eq 0 ] && [ -n "$oldDev" ] ; then
+		echo "$oldDev"
+	else
+		#no old device --> create a new one
+		#we use the exit code as ours
+		#usually requires root access rights
+		losetup -f --show "$file" || { B_ERR="Failed to create a loop device from $file." ; B_E }
+	fi
+fi
 }
