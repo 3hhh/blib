@@ -20,6 +20,8 @@ function testWriter1 {
 	for ((T_COUNTER=0; T_COUNTER<10; T_COUNTER++)) ; do
 		T_DATE="$(date +%s)" || exit 1
 		b_ipcv_save "blib-ipcv-testing" "T_DATE" "T_COUNTER" || exit 2
+		echo "writer [${BASHPID}] T_DATE: $T_DATE"
+		echo "writer [${BASHPID}] T_COUNTER & iter: $T_COUNTER"
 		sleep 1
 	done
 
@@ -41,7 +43,8 @@ function testWriter1 {
 function testReader1 {
 	local useNsFunc="${1:-1}"
 	local now=
-	local diff=
+	local diffDate=
+	local diffCnt=
 	local i=
 
 	#test load
@@ -55,14 +58,19 @@ function testReader1 {
 		fi
 
 		#test for correct return values
+		diffDate=$(( $now - $T_DATE))
+		diffCnt=$(( $T_COUNTER - $i ))
+		echo "reader [${BASHPID}] iter: $i"
+		echo "reader [${BASHPID}] T_DATE: $T_DATE"
+		echo "reader [${BASHPID}] T_COUNTER: $T_COUNTER"
+		echo "reader [${BASHPID}] diffDate: $diffDate"
+		echo "reader [${BASHPID}] diffCnt: $diffCnt"
 		[ -z "$T_DATE" ] && exit 1
 		[ -z "$T_COUNTER" ] && exit 2
-		diff=$(( $now - $T_DATE))
-		[ $diff -gt 2 ] && exit 3
-		[ $diff -lt 0 ] && exit 4
-		diff=$(( $T_COUNTER - $i ))
-		[ $diff -gt 2 ] && exit 5
-		[ $diff -lt 0 ] && exit 6
+		[ $diffDate -gt 2 ] && exit 3
+		[ $diffDate -lt 0 ] && exit 4
+		[ $diffCnt -gt 2 ] && exit 5
+		[ $diffCnt -lt -1 ] && exit 6
 
 		sleep 1
 	done
@@ -93,7 +101,7 @@ function execWriterReaderTest {
 
 	testWriter1 "$useNsFunc" &
 	pids+=($!)
-	sleep 0.5
+	sleep 1
 	testReader1 "$useNsFunc" &
 	pids+=($!)
 	testReader1 "$useNsFunc" &
@@ -108,7 +116,7 @@ function execWriterReaderTest {
 	for pid in "${pids[@]}" ; do
 		wait "$pid"
 		status=$?
-		[ $status -ne 0 ] && echo "$pid exit code: $status" && exit 1
+		[ $status -ne 0 ] && echo "[${pid}] exit code: $status" && exit 1
 	done
 
 	return 0
@@ -244,11 +252,9 @@ function execWriterReaderTest {
 @test "1 writer, multiple readers" {
 	runB execWriterReaderTest 0
 	echo "$output"
-	[ -z "$output" ]
 	[ $status -eq 0 ]
 
 	runB execWriterReaderTest 1
 	echo "$output"
-	[ -z "$output" ]
 	[ $status -eq 0 ]
 }
