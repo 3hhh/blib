@@ -43,3 +43,38 @@ local e
 for e in "${@:2}"; do [ "$e" == "$1" ] && return 0; done
 return 1
 }
+
+#+b_arr_mapsAreEqual [map spec 1] [map spec 2]
+#+Check whether the two given maps/associative arrays are equal.
+#+[map spec 1]: First map specification to check. Since maps cannot be passed directly to functions in Bash 4.2, you'll have to use `"$(declare -p "yourmap")"` instead.
+#+[map spec 1]: Second map specification to check.
+#+returns: an exit code of 0, if the maps are equal and 1 otherwise; [B_E](#B_E) is only triggered on programming errors
+#+@B_E
+function b_arr_mapsAreEqual {
+local spec1="$1"
+local spec2="$2"
+
+if [[ "$spec1" != "declare -A"* ]] || [[ "$spec2" != "declare -A"* ]] ; then
+	B_ERR="Invalid call to b_arr_mapAreEqual. Maybe your forgot to pass the parameters indirectly?"
+	B_E
+fi
+
+#assign specs to local variables
+spec1="declare -A arr1=${spec1#*=}"
+spec2="declare -A arr2=${spec2#*=}"
+eval "$spec1" || { B_ERR="First eval failed." ; B_E }
+eval "$spec2" || { B_ERR="Second eval failed." ; B_E }
+
+#compare
+[ ${#arr1[@]} -ne ${#arr2[@]} ] && return 1
+local key=
+for key in "${!arr1[@]}" ; do
+	if [ ${arr2["$key"]+exists} ] ; then
+		[[ "${arr1["$key"]}" == "${arr2["$key"]}" ]] || return 1
+	else
+		return 1
+	fi
+done
+
+return 0
+}

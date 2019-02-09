@@ -62,3 +62,60 @@ testArr1=("this is" "a test entry" "4" "my dear friends!")
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 }
+
+@test "b_arr_mapsAreEqual" {
+	declare -A t1=( ["holy moly"]="foo bar" ["the answer"]=42 [evil]=666 )
+	t1Spec="$(declare -p "t1")"
+	declare -A t2=( ["holy moly"]="foo bar" ["the answer"]=42 [evil]=667 )
+	t2Spec="$(declare -p "t2")"
+	declare -A t3=( ["the answer"]=42 [evil]=666 ["holy moly"]="foo bar" )
+	t3Spec="$(declare -p "t3")"
+	declare -A t4=( [evil]=666 ["holy moly"]="foo bar" )
+	t4Spec="$(declare -p "t4")"
+	declare -A t5=( ["the answer"]=42 ["holy moly"]="foo bar" [evil]=666  )
+	t5Spec="$(declare -p "t5")"
+
+	runB b_arr_mapsAreEqual "$t1Spec" "$t2Spec"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t2Spec" "$t1Spec"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t1Spec" "$t1Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t2Spec" "$t2Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t3Spec" "$t3Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t1Spec" "$t3Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t3Spec" "$t1Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t1Spec" "$t5Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t5Spec" "$t1Spec"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t3Spec" "$t4Spec"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t4Spec" "$t3Spec"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+}
