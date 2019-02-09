@@ -74,6 +74,8 @@ testArr1=("this is" "a test entry" "4" "my dear friends!")
 	t4Spec="$(declare -p "t4")"
 	declare -A t5=( ["the answer"]=42 ["holy moly"]="foo bar" [evil]=666  )
 	t5Spec="$(declare -p "t5")"
+	declare -A t6=( ["diffkey"]=42 ["holy moly"]="foo bar" [evil]=666  )
+	t6Spec="$(declare -p "t6")"
 
 	runB b_arr_mapsAreEqual "$t1Spec" "$t2Spec"
 	[ $status -ne 0 ]
@@ -116,6 +118,14 @@ testArr1=("this is" "a test entry" "4" "my dear friends!")
 	[ -z "$output" ]
 
 	runB b_arr_mapsAreEqual "$t4Spec" "$t3Spec"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t6Spec" "$t5Spec"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_arr_mapsAreEqual "$t5Spec" "$t6Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 }
