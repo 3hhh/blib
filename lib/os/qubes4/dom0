@@ -627,45 +627,102 @@ b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close 
 #we use the b_dom0_qvmRun exit code as ours
 }
 
-#blib_dom0_parseAttachedList [input] [retrieve index] [check index 1] [check value 1] [check index 2] [check value 2]
-#See implementation.
-#[input]: optional output from a previous `qvm-block l` call; if none is specified, this function will execute the call
-#[retrieve index]: index to retrieve for the matched value
-#[check index 1 & 2]: capture indices to match, only the first is required
-#[check value 1 & 2]: check equality for the [check index i] with this one
-#returns: The retrieved value or sets a non-zero exit code.
-#@B_E
-function blib_dom0_parseAttachedList {
-local input="$1"
-local retInd="$2"
-local checkInd1="$3"
-local checkValue1="$4"
-local checkInd2="$5"
-local checkValue2="$6"
-
-#sample qvm-block l output:
-#sys-usb:loop0  /home/user/test.dd  surfing (read-only=no, frontend-dev=xvdi)
-#matches:
-#(   1        )(      2          ) (  3   )                             ( 4 )
-local regex='^([^[:blank:]]+)[[:blank:]]+(.*)[[:blank:]]+([^[:blank:]]+)[[:blank:]]+\(.*frontend\-dev=([a-z0-9]+).*\)$'
+#+b_dom0_parseQvmBlock [variable name] [input]
+#+Parse data from `qvm-block ls` to an associative array.
+#+The indices of the associative array will be of the format _\[counter\]\_\[field\]_ (counters run from 0 (inclusive) to max (exclusive)).
+#+The special index "max" is equal to the number of lines. It can be used for iterations over the map.
+#+Currently supported \[field\] values: backend|device id|description|used by|read-only|frontend-dev
+#+[variable name]: Name of the associative array to use as output.
+#+[input]: Optional output from a previous `qvm-block ls` call; if none is specified, this function will execute the call and use its output.
+#+returns: A string specifying an associative array in bash syntax. You can eval that string to obtain all relevant data. On errors [B_E](#B_E) is called.
+#+@B_E
+function b_dom0_parseQvmBlock {
+local outVar="$1"
+local input="$2"
 
 if [ -z "$input" ] ; then
-	input="$(qvm-block l)" || { B_ERR="Failed to run qvm-block l" ; B_E }
+	input="$(qvm-block ls)" || { B_ERR="Failed to run qvm-block ls." ; B_E }
 fi
 
+#sample qvm-block l output:
+#BACKEND:DEVID  DESCRIPION          USED BY
+#sys-usb:loop0  /home/user/test.dd  surfing (read-only=no, frontend-dev=xvdi)
+#NOTES:
+# - the first line may contain a header that must be skipped (for some reason qvm-block sometimes skips it itself when not writing to a terminal)
+# - USED BY may be empty
+# - columns are separated by at least 2 space characters
+# - the format of the description is somewhat unclear: for simplicity I'll assume that it may contain at most 1 space
+# - read-only and frontend-dev may be swapped
+
+declare -A ret
+local i=0
 local line=""
 while IFS= read -r line ; do
+	#skip header
+	[[ "$line" == "BACKEND:DEVID"* ]] && continue
+
+	#parse backend & device id
+	local regex='^([^[:blank:]:]+):([^[:blank:]]+)[[:blank:]]{2,}(.*)$'
 	if [[ "$line" =~ $regex ]] ; then
-		if [[ "${BASH_REMATCH[$checkInd1]}" == "$checkValue1" ]] ; then
-			if [ -z "$checkInd2" ] || [[ "${BASH_REMATCH[$checkInd2]}" == "$checkValue2" ]] ; then
-				echo "${BASH_REMATCH[$retInd]}"
-				return 0
+		ret["${i}_backend"]="${BASH_REMATCH[1]}"
+		ret["${i}_device id"]="${BASH_REMATCH[2]}"
+
+		#parse description
+		local rem="${BASH_REMATCH[3]}"
+		local j=0
+		local lastSpace=0
+		local desc=""
+		for ((j=0; j < ${#rem}; j++)) ; do
+			local ch="${rem:$j:1}"
+			if [[ "$ch" == " " ]] ; then
+				lastSpace=$(( $lastSpace +1 ))
+
+				if [ $lastSpace -gt 1 ] ; then
+					rem="${rem:$j}"
+					break
+				fi
+			else
+				if [ $lastSpace -ne 0 ] ; then
+					desc="$desc $ch"
+					lastSpace=0
+				else
+					desc="$desc$ch"
+				fi
 			fi
+		done
+		ret["${i}_description"]="$desc"
+
+		#parse used by
+		regex='^[[:blank:]]*([^[:blank:]]+)(.*)$'
+		if [[ "$rem" =~ $regex ]] ; then
+			ret["${i}_used by"]="${BASH_REMATCH[1]}"
+			rem="${BASH_REMATCH[2]}"
+
+			#parse read-only
+			regex='^.*read\-only=([^[:blank:],\)]+).*$'
+			[[ "$rem" =~ $regex ]] && ret["${i}_read-only"]="${BASH_REMATCH[1]}" || ret["${i}_read-only"]=""
+
+			#parse frontend-dev
+			regex='^.*frontend\-dev=([^[:blank:],\)]+).*$'
+			[[ "$rem" =~ $regex ]] && ret["${i}_frontend-dev"]="${BASH_REMATCH[1]}" || ret["${i}_frontend-dev"]=""
+
+		else
+			ret["${i}_used by"]=""
+			ret["${i}_read-only"]=""
+			ret["${i}_frontend-dev"]=""
 		fi
+	else
+		B_ERR="Failed to find the backend and device id for the line $line."
+		B_E
 	fi
+
+	i=$(($i + 1))
 done <<< "$input"
 
-B_ERR="Failed to find the requested data in the list of block devices." ; B_E
+ret["max"]=$i
+
+ret="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the qvm-block ls output." ; B_E }
+echo "${ret/declare -A ret/declare -A $outVar}"
 }
 
 #+b_dom0_attachFile [dom0 file] [target VM] [rw flag]
@@ -696,9 +753,24 @@ loDeviceName="${loDevice##*/}"
 #run qvm-block
 qvm-block a $addOptions "$targetVM" "dom0:${loDeviceName}" || { B_ERR="Failed to attach the loop device $loDeviceName to the VM $targetVM." ; B_E }
 
-#set the return values
-echo -n "/dev/"
-blib_dom0_parseAttachedList "" 4 1 "dom0:$loDeviceName"
+#retrieve info
+local blockinfo=""
+blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+eval "$blockinfo" || { B_ERR="b_dom0_parseQvmBlock output incorrect." ; B_E }
+local i=0
+for ((i=0; i < ${blockinfo["max"]}; i++)) ; do
+	if [[ "${blockinfo["${i}_backend"]}" == "dom0" ]] && [[ "${blockinfo["${i}_device id"]}" == "$loDeviceName" ]] ; then
+		if [ -n "${blockinfo["${i}_frontend-dev"]}" ] ; then
+		       echo "/dev/${blockinfo["${i}_frontend-dev"]}"
+		       return 0
+		else
+		       B_ERR="Failed to attach."
+		       B_E
+		fi
+	fi
+done
+
+return 1
 }
 
 #+b_dom0_attachVMDisk [source VM] [target VM] [dom0 working folder] [rw flag]
@@ -760,9 +832,24 @@ local deviceName="${sourceDevice##*/}"
 #run qvm-block
 qvm-block a $addOptions "$targetVM" "${sourceVM}:${deviceName}" || { B_ERR="Failed to run qvm-block successfully." ; B_E }
 
-#set the return values
-echo -n "/dev/"
-blib_dom0_parseAttachedList "" 4 1 "${sourceVM}:$deviceName"
+#retrieve info
+local blockinfo=""
+blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+eval "$blockinfo" || { B_ERR="b_dom0_parseQvmBlock output incorrect." ; B_E }
+local i=0
+for ((i=0; i < ${blockinfo["max"]}; i++)) ; do
+	if [[ "${blockinfo["${i}_backend"]}" == "$sourceVM" ]] && [[ "${blockinfo["${i}_device id"]}" == "$deviceName" ]] ; then
+		if [ -n "${blockinfo["${i}_frontend-dev"]}" ] ; then
+			echo "/dev/${blockinfo["${i}_frontend-dev"]}"
+			return 0
+		else
+			B_ERR="Failed to attach."
+			B_E
+		fi
+	fi
+done
+
+return 1
 }
 
 #+b_dom0_crossAttachFile [source VM] [source file] [target VM] [rw flag]
@@ -801,7 +888,17 @@ local devName="${dev##*/}"
 
 #get the backend ID
 local bid=""
-bid="$(blib_dom0_parseAttachedList "" 1 3 "$vm" 4 "$devName")" || { B_ERR="Failed to obtain the list of currently attached devices." ; B_E }
+local blockinfo=""
+blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+eval "$blockinfo" || { B_ERR="b_dom0_parseQvmBlock output incorrect." ; B_E }
+local i=0
+for ((i=0; i < ${blockinfo["max"]}; i++)) ; do
+	if [[ "${blockinfo["${i}_frontend-dev"]}" == "$devName" ]] && [[ "${blockinfo["${i}_used by"]}" == "$vm" ]] ; then
+		bid="${blockinfo["${i}_backend"]}:${blockinfo["${i}_device id"]}"
+		break
+	fi
+done
+[ -z "$bid" ] && B_ERR="Failed to identify the backend ID for the device $dev in the VM $vm." && B_E
 
 #detach & set exit code
 qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }

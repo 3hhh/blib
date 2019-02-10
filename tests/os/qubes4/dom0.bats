@@ -392,6 +392,78 @@ In Qubes VM.'
 	[[ "$output" != *"testFunc01:"* ]]
 }
 
+@test "b_dom0_parseQvmBlock" {
+	local qvmBlock1='sys-usb:loop1        /foo/bar/bla.data           test (read-only=no, frontend-dev=xvdi)
+sys-us:loop2         /hallo/welt/foo.dd       test2 (read-only=yes, frontend-dev=xvdj)
+sys-usb:mmcblk0      ()                         
+sys-usb:mmcblk0p1    (mama)                     
+mail:dm-0            tada                 
+test2:dm-0           desc with spaces                            '
+	
+	b_import "arr"
+	declare -A test1Expected=(
+		["max"]=6
+
+		["0_backend"]="sys-usb"
+		["0_device id"]="loop1"
+		["0_description"]="/foo/bar/bla.data"
+		["0_used by"]="test"
+		["0_read-only"]="no"
+		["0_frontend-dev"]="xvdi"
+
+		["1_backend"]="sys-us"
+		["1_device id"]="loop2"
+		["1_description"]="/hallo/welt/foo.dd"
+		["1_used by"]="test2"
+		["1_read-only"]="yes"
+		["1_frontend-dev"]="xvdj"
+
+		["2_backend"]="sys-usb"
+		["2_device id"]="mmcblk0"
+		["2_description"]="()"
+		["2_used by"]=""
+		["2_read-only"]=""
+		["2_frontend-dev"]=""
+
+		["3_backend"]="sys-usb"
+		["3_device id"]="mmcblk0p1"
+		["3_description"]="(mama)"
+		["3_used by"]=""
+		["3_read-only"]=""
+		["3_frontend-dev"]=""
+
+		["4_backend"]="mail"
+		["4_device id"]="dm-0"
+		["4_description"]="tada"
+		["4_used by"]=""
+		["4_read-only"]=""
+		["4_frontend-dev"]=""
+
+		["5_backend"]="test2"
+		["5_device id"]="dm-0"
+		["5_description"]="desc with spaces"
+		["5_used by"]=""
+		["5_read-only"]=""
+		["5_frontend-dev"]=""
+		)
+
+	runB b_dom0_parseQvmBlock "test1" "$qvmBlock1"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+	eval "$output"
+	b_arr_mapsAreEqual "$(declare -p "test1")" "$(declare -p "test1Expected")"
+
+	#with header
+	qvmBlock1="BACKEND:DEVID       DESCRIPTION            USED BY"$'\n'"$qvmBlock1"
+
+	runB b_dom0_parseQvmBlock "test2" "$qvmBlock1"
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+	eval "$output"
+	b_arr_mapsAreEqual "$(declare -p "test2")" "$(declare -p "test1Expected")"
+}
+
 #testSuccAttachFileInVM [mount point] [rw flag] [umount]
 #[mount point]: where to find the file SUCCESS.txt at its root
 #[rw flag]: 0 = r/w, 1 = r/o
@@ -631,6 +703,7 @@ function crossAttachTest {
 	local rwFlag="$3"
 
 	runB b_dom0_crossAttachFile "${TEST_STATE["DOM0_TESTVM_1"]}" "$tFile" "${TEST_STATE["DOM0_TESTVM_2"]}" "$rwFlag"
+	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "/dev/"* ]]
 	local dev="$output"
