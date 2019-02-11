@@ -392,7 +392,7 @@ In Qubes VM.'
 	[[ "$output" != *"testFunc01:"* ]]
 }
 
-@test "b_dom0_parseQvmBlock" {
+@test "b_dom0_parseQvmBlock & b_dom0_getQvmBlockInfo" {
 	local qvmBlock1='sys-usb:loop1        /foo/bar/bla.data           test (read-only=no, frontend-dev=xvdi)
 sys-us:loop2         /hallo/welt/foo.dd       test2 (read-only=yes, frontend-dev=xvdj)
 sys-usb:mmcblk0      ()                         
@@ -406,6 +406,7 @@ test2:dm-0           desc with spaces                            '
 
 		["0_backend"]="sys-usb"
 		["0_device id"]="loop1"
+		["0_id"]="sys-usb:loop1"
 		["0_description"]="/foo/bar/bla.data"
 		["0_used by"]="test"
 		["0_read-only"]="no"
@@ -413,6 +414,7 @@ test2:dm-0           desc with spaces                            '
 
 		["1_backend"]="sys-us"
 		["1_device id"]="loop2"
+		["1_id"]="sys-us:loop2"
 		["1_description"]="/hallo/welt/foo.dd"
 		["1_used by"]="test2"
 		["1_read-only"]="yes"
@@ -420,6 +422,7 @@ test2:dm-0           desc with spaces                            '
 
 		["2_backend"]="sys-usb"
 		["2_device id"]="mmcblk0"
+		["2_id"]="sys-usb:mmcblk0"
 		["2_description"]="()"
 		["2_used by"]=""
 		["2_read-only"]=""
@@ -427,6 +430,7 @@ test2:dm-0           desc with spaces                            '
 
 		["3_backend"]="sys-usb"
 		["3_device id"]="mmcblk0p1"
+		["3_id"]="sys-usb:mmcblk0p1"
 		["3_description"]="(mama)"
 		["3_used by"]=""
 		["3_read-only"]=""
@@ -434,6 +438,7 @@ test2:dm-0           desc with spaces                            '
 
 		["4_backend"]="mail"
 		["4_device id"]="dm-0"
+		["4_id"]="mail:dm-0"
 		["4_description"]="tada"
 		["4_used by"]=""
 		["4_read-only"]=""
@@ -441,6 +446,7 @@ test2:dm-0           desc with spaces                            '
 
 		["5_backend"]="test2"
 		["5_device id"]="dm-0"
+		["5_id"]="test2:dm-0"
 		["5_description"]="desc with spaces"
 		["5_used by"]=""
 		["5_read-only"]=""
@@ -462,6 +468,41 @@ test2:dm-0           desc with spaces                            '
 	[ -n "$output" ]
 	eval "$output"
 	b_arr_mapsAreEqual "$(declare -p "test2")" "$(declare -p "test1Expected")"
+
+	#b_dom0_getQvmBlockInfo
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "id" "description" "/foo/bar/bla.data"
+	[ $status -eq 0 ]
+	echo "$output"
+	[[ "$output" == "sys-usb:loop1" ]]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "description" "backend" "sys-usb" "device id" "mmcblk0p1"
+	[ $status -eq 0 ]
+	[[ "$output" == "(mama)" ]]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "description" "backend" "sys-usb" "device id" "mmcblk0"
+	[ $status -eq 0 ]
+	[[ "$output" == "()" ]]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "used by" "backend" "sys-usb" "device id" "mmcblk0"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "frontend-dev" "backend" "sys-usb" "device id" "mmcblk0"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "frontend-dev" "backend" "sys-nonexisting" "device id" "mmcblk0"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "frontend-dev" "backend" "sys-usb" "device id" "diff"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "foo" "backend" "sys-usb" "device id" "mmcblk0"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+	[[ "$output" == *"ERROR"* ]]
 }
 
 #testSuccAttachFileInVM [mount point] [rw flag] [umount]
