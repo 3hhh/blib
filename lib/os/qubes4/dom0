@@ -501,7 +501,7 @@ return $ret
 #blib_dom0_checkRunning [vm] [start]
 #Helper function for b_dom0_ensureRunning & b_dom0_isRunning
 #[start]: if set to 0, start the VM if needed
-#+returns: Sets a zero exit code, if the VM was successfully started or was running and a non-zero exit code otherwise. [B_E](#B_E) will only be called for internal errors.
+#returns: Sets a zero exit code, if the VM was successfully started or was running and a non-zero exit code otherwise. [B_E](#B_E) will only be called for internal errors.
 #@B_E
 function blib_dom0_checkRunning {
 local vm="$1"
@@ -634,7 +634,7 @@ b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close 
 #+Currently supported \[field\] values: backend|device id|id|description|used by|read-only|frontend-dev
 #+[variable name]: Name of the associative array to use as output.
 #+[input]: Optional output from a previous `qvm-block ls` call; if none is specified, this function will execute the call and use its output.
-#+returns: A string specifying an associative array in bash syntax. You can eval that string to obtain all relevant data. On errors [B_E](#B_E) is called.
+#+returns: A string specifying an associative array in bash syntax. You can eval that string to obtain all relevant data or use the more convenient [b_dom0_getQvmBlockInfo](#b_dom0_getQvmBlockInfo). On errors [B_E](#B_E) is called.
 #+@B_E
 function b_dom0_parseQvmBlock {
 local outVar="$1"
@@ -726,24 +726,34 @@ ret="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the qvm-block l
 echo "${ret/declare -A ret/declare -A $outVar}"
 }
 
-#+b_dom0_getQvmBlockInfo [input] [retrieve field] [filter field 1] [filter value 1] .. [filter field n] .. [filter value n]
-#+Convenience function to retrieve information from `qvm-block ls`.
+#+b_dom0_getQvmBlockInfo [map] [retrieve field] [filter field 1] [filter value 1] .. [filter field n] .. [filter value n]
+#+Convenience function to retrieve information from the output of [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock).
 #+Searches for the given filter values in the given fields and retrieves the first field value matching all filters.
 #+More simple, but less flexible than [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock).
-#+[input]: Optional output from a previous `qvm-block ls` call; if none is specified, this function will execute the call and use its output.
+#+[map]: Optional output from a previous call to [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock). If none is specified, this function will internally call [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock).
 #+[retrieve field]: Name of the field to retrieve.
 #+[filter field i]: Name of any field supported by [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock).
 #+[filter value i]: The value to search for in \[filter field i\] (equality check).
 #+returns: The value of the requested field and sets a zero exit code on success. Sets a non-zero exit code if no matching value could be found. On errors [B_E](#B_E) is called.
 #+@B_E
 function b_dom0_getQvmBlockInfo {
-local input="$1"
+local blockinfo="$1"
 shift
 local retField="$1"
 shift
 
-local blockinfo=""
-blockinfo="$(b_dom0_parseQvmBlock "blockinfo" "$input")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+if [ -z "$blockinfo" ] ; then
+	blockinfo="$(b_dom0_parseQvmBlock "blockinfo" "$input")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+else
+	local regex='^declare \-A ([^=]+)=(.*)$'
+	if [[ "$blockinfo" =~ $regex ]] ; then
+		blockinfo="declare -A blockinfo=${BASH_REMATCH[2]}"
+	else
+		B_ERR="The map that you passed to this function appears to be invalid."
+		B_E
+	fi
+fi
+
 eval "$blockinfo" || { B_ERR="b_dom0_parseQvmBlock output incorrect." ; B_E }
 local i=0
 local checkField=""
@@ -784,7 +794,6 @@ return 1
 
 #+b_dom0_attachFile [dom0 file] [target VM] [rw flag]
 #+Attach the given file from dom0 (!) as block device to the target VM.
-#+
 #+The function may attempt to acquire root privileges (and thus display a password prompt).
 #+[dom0 file]: Full path to the file *in dom0* to attach.
 #+[target VM]: VM to attach the file to. Must be started.
@@ -854,7 +863,6 @@ b_dom0_attachFile "$pfile" "$targetVM" "$rwFlag"
 
 #+b_dom0_crossAttachDevice [source VM] [source device] [target VM] [rw flag]
 #+Attach the given block device from the source VM to the target VM.
-#+
 #+This is merely a convenience wrapper for `qvm-block attach`.
 #+[source VM]: VM where the source file can be found.
 #+[source device]: Device to attach to the \[target VM\].

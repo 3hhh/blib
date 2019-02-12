@@ -453,12 +453,15 @@ test2:dm-0           desc with spaces                            '
 		["5_frontend-dev"]=""
 		)
 
+	local test1ExpectedSpec="$(declare -p "test1Expected")"
+	[ -n "$test1ExpectedSpec" ]
+
 	runB b_dom0_parseQvmBlock "test1" "$qvmBlock1"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	eval "$output"
-	b_arr_mapsAreEqual "$(declare -p "test1")" "$(declare -p "test1Expected")"
+	b_arr_mapsAreEqual "$(declare -p "test1")" "$test1ExpectedSpec"
 
 	#with header
 	qvmBlock1="BACKEND:DEVID       DESCRIPTION            USED BY"$'\n'"$qvmBlock1"
@@ -467,39 +470,39 @@ test2:dm-0           desc with spaces                            '
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	eval "$output"
-	b_arr_mapsAreEqual "$(declare -p "test2")" "$(declare -p "test1Expected")"
+	b_arr_mapsAreEqual "$(declare -p "test2")" "$test1ExpectedSpec"
 
 	#b_dom0_getQvmBlockInfo
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "id" "description" "/foo/bar/bla.data"
-	[ $status -eq 0 ]
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "id" "description" "/foo/bar/bla.data"
 	echo "$output"
+	[ $status -eq 0 ]
 	[[ "$output" == "sys-usb:loop1" ]]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "description" "backend" "sys-usb" "device id" "mmcblk0p1"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "description" "backend" "sys-usb" "device id" "mmcblk0p1"
 	[ $status -eq 0 ]
 	[[ "$output" == "(mama)" ]]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "description" "backend" "sys-usb" "device id" "mmcblk0"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "description" "backend" "sys-usb" "device id" "mmcblk0"
 	[ $status -eq 0 ]
 	[[ "$output" == "()" ]]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "used by" "backend" "sys-usb" "device id" "mmcblk0"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "used by" "backend" "sys-usb" "device id" "mmcblk0"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "frontend-dev" "backend" "sys-usb" "device id" "mmcblk0"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "frontend-dev" "backend" "sys-usb" "device id" "mmcblk0"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "frontend-dev" "backend" "sys-nonexisting" "device id" "mmcblk0"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "frontend-dev" "backend" "sys-nonexisting" "device id" "mmcblk0"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "frontend-dev" "backend" "sys-usb" "device id" "diff"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "frontend-dev" "backend" "sys-usb" "device id" "diff"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_dom0_getQvmBlockInfo "$qvmBlock1" "foo" "backend" "sys-usb" "device id" "mmcblk0"
+	runB b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "foo" "backend" "sys-usb" "device id" "mmcblk0"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	[[ "$output" == *"ERROR"* ]]
