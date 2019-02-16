@@ -335,6 +335,7 @@ echo "${BLIB_STORE["BLIB_ERR_HANDLER"]}"
 #+@B_E
 function b_silence {
 #we use b_setBE 1 to retrieve the B_ERR message if there's any
+local ret=
 b_setBE 1
 blib_execFuncInCurrentContext "$@" &> /dev/null
 ret=$?
