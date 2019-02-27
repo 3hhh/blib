@@ -58,3 +58,20 @@ echo 1
 	[ $status -eq 0 ]
 	[[ "$output" == "$raw2" ]]
 }
+
+@test "b_http_getOnlineStatus" {
+	skipIfNoUserData
+
+	local expected=0
+	[[ "$UTD_ONLINE" == "no" ]] && expected=2
+
+	runB b_http_getOnlineStatus
+	[ $status -eq $expected ]
+	[ -z "$output" ]
+
+	B_HTTP_CHECKURLS=( "https://nonexisting.nonexisting" )
+
+	runB b_http_getOnlineStatus
+	[ $status -eq 2 ]
+	[ -z "$output" ]
+}

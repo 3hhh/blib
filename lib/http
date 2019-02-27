@@ -5,6 +5,26 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.2
 
+#+### Global Variables ###
+
+declare -ga B_HTTP_CHECKURLS
+#+B_HTTP_CHECKURLS
+#+Each call to [b_http_getOnlineStatus](#b_http_getOnlineStatus) causes one of the URLs in this array to be visited.
+#+It is recommended to pick a relatively large number of URLs with SSL support to remain relatively anonymous, if [b_http_getOnlineStatus](#b_http_getOnlineStatus) is called multiple times.
+#+Defaults to the European/US Alexa Top 10 (which hopefully blends in to the masses).
+B_HTTP_CHECKURLS=(
+		"https://www.google.com"
+		"https://www.youtube.com"
+		"https://www.facebook.com"
+		"https://www.wikipedia.org"
+		"https://www.yahoo.com"
+		"https://www.amazon.com"
+		"https://twitter.com"
+		"https://www.instagram.com"
+		"https://www.reddit.com"
+		"https://www.blogger.com"
+		)
+
 #+### Functions ###
 
 #+b_http_getDeps
@@ -42,4 +62,78 @@ return 0
 function b_http_rawUrlDecode {
 #replace %NN with \xNN and let printf do the hex decoding
 printf '%b' "${1//%/\\x}"
+}
+
+#+b_http_getOnlineStatus
+#+Find out whether we are online or not by attempting an http connection.
+#+One of [B_HTTP_CHECKURLS](#B_HTTP_CHECKURLS) is possibly visited during the process.
+#+returns: 0, if we're online, 1 if only DNS works and 2 if neither DNS nor http(s) worked; [B_E](#B_E) will be called if the status cannot be determined.
+#+@B_E
+function b_http_getOnlineStatus {
+local ind=$(( $RANDOM % ${#B_HTTP_CHECKURLS[@]} ))
+local url="${B_HTTP_CHECKURLS[$ind]}"
+local ret=
+curl -m 5 "$url" &> /dev/null
+ret=$?
+
+case $ret in
+	0)
+	return 0
+	;;
+
+	1)
+	B_ERR="$url is using an unsupported protocol."
+	B_E
+	;;
+
+	2)
+	B_ERR="Failed to initialize curl."
+	B_E
+	;;
+
+	3)
+	B_ERR="$url appears to be malformed."
+	B_E
+	;;
+
+	4)
+	B_ERR="Invalid curl options used."
+	B_E
+	;;
+
+	5)
+	#proxy connection failed
+	return 2
+	;;
+
+	6)
+	#DNS resolution failed
+	return 2
+	;;
+
+	7)
+	#failed to connect (but DNS did work)
+	return 1
+	;;
+
+	8)
+	#weird server reply
+	return 0
+	;;
+
+	28)
+	#timeout from -m --> slow or bad connection
+	return 2
+	;;
+
+	80)
+	#failed to shut down the SSL connection
+	return 0
+	;;
+
+	*)
+	B_ERR="Unexpected curl error code: $ret"
+	B_E
+	;;
+esac
 }

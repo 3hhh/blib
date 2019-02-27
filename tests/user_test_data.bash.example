@@ -10,6 +10,10 @@
 
 #+### Global Variables ###
 
+#+UTD_ONLINE
+#+Whether or not the test machine is connected to the Internet.
+UTD_ONLINE="no"
+
 #+UTD_OS
 #+Specify your operating system here, currently supported values:
 #+debian|fedora|red hat|centos|ubuntu|opensuse|qubes dom0|other
