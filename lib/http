@@ -64,16 +64,18 @@ function b_http_rawUrlDecode {
 printf '%b' "${1//%/\\x}"
 }
 
-#+b_http_getOnlineStatus
+#+b_http_getOnlineStatus [timeout]
 #+Find out whether we are online or not by attempting an http connection.
 #+One of [B_HTTP_CHECKURLS](#B_HTTP_CHECKURLS) is possibly visited during the process.
-#+returns: 0, if we're online, 1 if only DNS works and 2 if neither DNS nor http(s) worked; [B_E](#B_E) will be called if the status cannot be determined.
+#+[timeout]: Timeout in seconds for hanging checks (default: 5).
+#+returns: 0, if we're online, 1 if only DNS works, 2 if neither DNS nor http(s) worked, 3 if the check timed out; [B_E](#B_E) will be called if the status cannot be determined.
 #+@B_E
 function b_http_getOnlineStatus {
+local timeout=${1:-5}
 local ind=$(( $RANDOM % ${#B_HTTP_CHECKURLS[@]} ))
 local url="${B_HTTP_CHECKURLS[$ind]}"
 local ret=
-curl -m 5 "$url" &> /dev/null
+curl -m $timeout "$url" &> /dev/null
 ret=$?
 
 case $ret in
@@ -123,7 +125,7 @@ case $ret in
 
 	28)
 	#timeout from -m --> slow or bad connection
-	return 2
+	return 3
 	;;
 
 	80)
