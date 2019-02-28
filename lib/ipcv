@@ -11,15 +11,15 @@
 
 #base directory for shared memory operations
 #idea: all namespaces get a separate sub directory there, every variable a single file --> KISS
-BLIB_IPCV_SHM_BASE="/dev/shm/blib_ipcv"
+BLIB_STORE["BLIB_IPCV_SHM_BASE"]="/dev/shm/blib_ipcv"
 
 #directory for temporary operations
-BLIB_IPCV_TEMP_NAME="temp"
-BLIB_IPCV_TEMP="$BLIB_IPCV_SHM_BASE/$BLIB_IPCV_TEMP_NAME"
+BLIB_STORE["BLIB_IPCV_TEMP_NAME"]="temp"
+BLIB_STORE["BLIB_IPCV_TEMP"]="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/${BLIB_STORE["BLIB_IPCV_TEMP_NAME"]}"
 
 #safety check & some init
 findmnt "/dev/shm" &> /dev/null || { B_ERR="Your system does not appear to use /dev/shm. Thus you cannot use the ipcv module." ; B_E }
-mkdir -p "$BLIB_IPCV_TEMP" || { B_ERR="Failed to create the directory $BLIB_IPCV_TEMP." ; B_E }
+mkdir -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}" || { B_ERR="Failed to create the directory $BLIB_IPCV_TEMP." ; B_E }
 
 #+### Functions ###
 
@@ -49,11 +49,11 @@ function blib_ipcv_assertCorrectNamespace {
 local ns="$1"
 local checkExistence=${2:-1}
 [ -z "$ns" ] && B_ERR="You must specify a non-empty namespace." && B_E
-[[ "$ns" == "$BLIB_IPCV_TEMP_NAME" ]] && B_ERR="The namespace $ns is reserved and must not be used by applications." && B_E
+[[ "$ns" == "${BLIB_STORE["BLIB_IPCV_TEMP_NAME"]}" ]] && B_ERR="The namespace $ns is reserved and must not be used by applications." && B_E
 [[ "$ns" == *"/"* ]] && B_ERR="Slashes in namespace names are forbidden." && B_E
 
 if [ $checkExistence -eq 0 ] ; then
-	local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+	local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 	[ ! -d "$nsDir" ] && B_ERR="The namespace $ns does not seem to exist." && B_E
 fi
 
@@ -73,14 +73,14 @@ local ns="$1"
 blib_ipcv_assertCorrectNamespace "$ns" || B_E
 shift
 
-local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 mkdir -p "$nsDir" || { B_ERR="Failed to create the directory for the namespace at $nsDir." ; B_E }
 
 local ret=0
 local temp=""
 local out=""
 for var in "$@" ; do
-	tmp="$(mktemp -p "$BLIB_IPCV_TEMP")" || { B_ERR="Failed to create a temporary memory object." ; B_E }
+	tmp="$(mktemp -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}")" || { B_ERR="Failed to create a temporary memory object." ; B_E }
 	out="$(declare -p "$var")" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to find the variable ${var}." ; B_E }
 
 	#NOTE: unfortunately declare -p doesn't save the very important -g in some bash versions --> we need to add it
@@ -104,7 +104,7 @@ local ns="$1"
 blib_ipcv_assertCorrectNamespace "$ns" 0 || B_E
 shift
 
-local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 
 local var=
 local ret=0
@@ -126,7 +126,7 @@ function b_ipcv_loadNamespace {
 local ns="$1"
 blib_ipcv_assertCorrectNamespace "$ns" 0 || B_E
 
-local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 
 local varPath=
 local var=
@@ -157,7 +157,7 @@ local ns="$1"
 blib_ipcv_assertCorrectNamespace "$ns" || B_E
 shift
 
-local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 
 local var=
 local ret=0
@@ -178,7 +178,7 @@ function b_ipcv_unsetNamespace {
 local ns="$1"
 blib_ipcv_assertCorrectNamespace "$ns" || B_E
 
-local nsDir="$BLIB_IPCV_SHM_BASE/$ns"
+local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 if [ -d "$nsDir" ] ; then
 	rm -rf "$nsDir" || { B_ERR="Failed to unset the namespace ${ns}." ; B_E }
 else
