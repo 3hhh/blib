@@ -121,8 +121,8 @@ return 0
 
 #+b_mtx_try [mutex] [block ID] [claim stale] [claim own]
 #+Attempt to obtain the given mutex. Return immediately even if it cannot be obtained.
-#+[mutex]: A mutex obtained via b_mtx_create.
-#+[block ID]: The ID to use by which to block (default: running (sub)shell process id $$). This should be the process ID of the process attempting to obtain the mutex or you should know what you're doing. If you're in a subshell that should have a mutex with other subshells, store their $BASHPID and call the function with that.
+#+[mutex]: A mutex obtained via b_mtx_create. You may also use a static and otherwise unused directory path as mutex and share it across all relevant processes.
+#+[block ID]: The ID to use by which to block (default: running (sub)shell process id $$). This should be the process ID of the process attempting to obtain the mutex or you should know what you're doing. If you're in a subshell that should deploy a mutex against other subshells, store their $BASHPID and call the function with that.
 #+[claim stale]: If set to 0, claim the mutex even if it is still blocked by some other process, but that process isn't running anymore. If set to 1 (default), the function returns without obtaining the mutex. In general this should only be used in situations where a mutex has a high probability of being stale (e.g. application start).
 #+[claim own]: If set to 0 (default), claim the mutex if it appears to be blocked by the provided block ID. If set to 1, consider it blocked even then.
 #+returns: The function incl. parameters to execute to remove the mutex if it was obtained and an error message stating the reason otherwise. The provided function _should_ be called as part of an exit trap of the calling script or via eval. Sets an exit code of 0, if the mutex was obtained. An exit code of 1 is set, if the mutex was blocked and another non-zero exit code if some other error occurred (the mutex might be blocked even then). 
