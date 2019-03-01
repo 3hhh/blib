@@ -93,15 +93,9 @@ done
 return 0
 }
 
-#+b_ipcv_load [namespace] [var name 1] .. [var name n]
-#+Load the given variables from the given namespace into the current process context.
-#+[namespace]: Name of the group under which the variable was saved with [b_ipcv_save](#b_ipcv_save).
-#+[var name i]: Name of the variable to load. Multiple names can be specified.
-#+returns: A non-zero exit code indicates the number of variables that could not be loaded unless some unexpected error occurred and [B_E](#B_E) is triggered. Please note that a failed load attempt/unavailable variable does generally not trigger [B_E](#B_E).
-#+@B_E
-function b_ipcv_load {
+#internal implementation of b_ipcv_load
+function blib_ipcv_load {
 local ns="$1"
-blib_ipcv_assertCorrectNamespace "$ns" 0 || B_E
 shift
 
 local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
@@ -117,14 +111,28 @@ done
 return $ret
 }
 
-#+b_ipcv_loadNamespace [namespace]
+#+b_ipcv_load [namespace] [var name 1] .. [var name n]
+#+Load the given variables from the given namespace into the current process context.
+#+[namespace]: Name of the group under which the variable was saved with [b_ipcv_save](#b_ipcv_save). Must exist.
+#+[var name i]: Name of the variable to load. Multiple names can be specified.
+#+returns: A non-zero exit code indicates the number of variables that could not be loaded unless some unexpected error occurred and [B_E](#B_E) is triggered. Please note that a failed load attempt/unavailable variable does generally not trigger [B_E](#B_E).
+#+@B_E
+function b_ipcv_load {
+blib_ipcv_assertCorrectNamespace "$1" 0 || B_E
+blib_ipcv_load "$@"
+}
+
+#+b_ipcv_loadNamespace [namespace] [check existence]
 #+Load all variables that can be loaded for the given namespace into the current process context.
 #+[namespace]: Name of the group for which to load all available variables.
+#+[check existence]: Whether or not to make sure that the namespace to load exists (default: 0/check). Otherwise non-existing namespaces will not cause an error.
 #+returns: Sets a zero exit code on success. Failing to load any single available variable will always trigger [B_E](#B_E).
 #+@B_E
 function b_ipcv_loadNamespace {
 local ns="$1"
-blib_ipcv_assertCorrectNamespace "$ns" 0 || B_E
+local checkExistence="${2:-0}"
+
+blib_ipcv_assertCorrectNamespace "$ns" "$checkExistence" || B_E
 
 local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 
@@ -141,7 +149,7 @@ for varPath in "$nsDir"/* "$nsDir"/.[^.]* ; do
 	vars+=( "$var" )
 done
 
-b_ipcv_load "$ns" "${vars[@]}" || { B_ERR="Failed to load the namespace $ns." ; B_E }
+blib_ipcv_load "$ns" "${vars[@]}" || { B_ERR="Failed to load the namespace $ns." ; B_E }
 return 0
 }
 
