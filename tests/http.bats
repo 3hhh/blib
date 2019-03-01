@@ -22,37 +22,30 @@ function setup {
 	runB b_http_rawUrlEncode ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
-echo 1
+
 	runB b_http_rawUrlDecode ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
-echo 1
 
 	runB b_http_rawUrlEncode "$raw1"
-echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "$enc1" ]]
-echo 1
 
 	runB b_http_rawUrlEncode "$raw2"
 	[ $status -eq 0 ]
 	[[ "$output" == "$enc2" ]]
-echo 1
 
 	runB b_http_rawUrlEncode "$enc1"
 	[ $status -eq 0 ]
 	local encoded="$output"
-echo 1
 
 	runB b_http_rawUrlDecode "$encoded"
 	[ $status -eq 0 ]
 	[[ "$output" == "$enc1" ]]
-echo 1
 
 	runB b_http_rawUrlDecode "$enc1"
 	[ $status -eq 0 ]
 	[[ "$output" == "$raw1" ]]
-echo 1
 
 	runB b_http_rawUrlDecode "$enc2"
 	[ $status -eq 0 ]
