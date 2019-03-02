@@ -114,9 +114,7 @@ function execWriterReaderTest {
 	local pid=
 	local status=-1
 	for pid in "${pids[@]}" ; do
-		wait "$pid"
-		status=$?
-		[ $status -ne 0 ] && echo "[${pid}] exit code: $status" && exit 1
+		wait "$pid" || { echo "[${pid}] exit code: $?" ; exit 1 ; }
 	done
 
 	return 0
