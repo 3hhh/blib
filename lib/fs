@@ -44,7 +44,8 @@ test -e "$dir/"* 2> /dev/null
 #+@B_E
 function b_fs_getLastModifiedInDays {
 local file="$1"
-local now="$(date +%s)"
+local now=
+printf -v now '%(%s)T' -1
 local lastAccess=""
 lastAccess="$(date -r "$file" +%s)" || { B_ERR="Failed to read the timestamps of the file $file. Maybe it doesn't exist?" ; B_E }
 local ret=$(( ( $now - $lastAccess ) / (60*60*24) ))
