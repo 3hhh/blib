@@ -104,6 +104,7 @@ local var=
 local ret=0
 for var in "$@" ; do
 	#source and use declare -p to double check that the variable was set
+	#NOTE: it shouldn't be an issue if the file is replaced whilst we're reading as we still have the correct file handle open (and the file system should make sure we're reading the original file)
 	source "$nsDir/$var" &> /dev/null && declare -p "$var" &> /dev/null
 	[ $? -ne 0 ] && ret=$(($ret +1))
 done
