@@ -12,7 +12,11 @@ b_import proc
 b_import types
 
 #private vars
-BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E }
+BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
+#set to the correct value, if we're in dom0:
+if command -v "qubes-prefs" &> /dev/null ; then
+	BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E }
+fi
 
 #+### Functions ###
 
