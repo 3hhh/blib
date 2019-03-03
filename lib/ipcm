@@ -1,0 +1,160 @@
+#!/bin/bash
+#
+#+An inter-process map implementation.
+#+
+#+The map is available to all running processes during a single boot session.
+#+
+#+Both reading and writing to the map can be done from any number of processes.
+#+
+#+ Overall Features
+#+ -------------------     ---------------------
+#+ \# readers              multiple
+#+ \# writers              multiple
+#+ read consistency        always
+#+ write consistency       always
+#+ blocking                on writes
+#+ -------------------     ---------------------
+#+
+#+Copyright (C) 2019  David Hobach  LGPLv3
+#+0.2
+
+b_import ipcv
+b_import mtx
+
+#internal storage
+declare -gA BLIB_IPCM_STORE
+
+#namespace for ipcv
+BLIB_STORE["BLIB_IPCM_NS"]="blib-ipcm"
+
+#the mutex we use for all write operations
+BLIB_STORE["BLIB_IPCM_MTX"]="/dev/shm/${BLIB_STORE["BLIB_IPCM_NS"]}_mtx"
+
+#+### Functions ###
+
+#+b_ipcm_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_ipcm_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+EOF
+
+echo -n "$deps"
+}
+
+#+b_ipcm_setNamespace [namespace]
+#+Set the common process namespace to use. All processes inside the same namespace share a common state.
+#+It is recommended to call this function a single time before any other functions of this module. Otherwise the default namespace, which may include unrelated processes, is used.
+#+[namespace]: Name of the namespace to set.
+#+returns: Errors out, if the name is unacceptable.
+#+@StateChanging
+#+@B_E
+function b_ipcm_setNamespace {
+local ns="$1"
+blib_ipcv_assertCorrectNamespace "$ns" || B_E
+
+#NOTE: we must also use another mutex to keep locks local to each namespace
+BLIB_STORE["BLIB_IPCM_NS"]="$ns"
+BLIB_STORE["BLIB_IPCM_MTX"]="/dev/shm/${ns}_mtx"
+}
+
+#+b_ipcm_getNamespace
+#+Retrieve the currently used namespace.
+#+returns: The currently used namespace.
+function b_ipcm_getNamespace {
+echo "${BLIB_STORE["BLIB_IPCM_NS"]}"
+}
+
+#+b_ipcm_change [key] [change function] [maximum time]
+#+Change the given key/value combination inside the map in a thread-safe way.
+#+May wait for changes done by other processes.
+#+[key]: A global unique identifier for the given value.
+#+[change function]: Name of the function to execute the change of the value. It will be called with the current key as first parameter and the current value as second. It is expected to print the new value to set for this key. A non-zero exit code will cause [b_ipcm_change](#b_ipcm_change) to abort the change.
+#+[maximum time]: maximum time in ms to wait for other processes to complete their operation (default: 0 = indefinitely)
+#+returns: A zero exit code and prints the new value, if the change succeeded. An exit code of [B_RC](#B_RC)+1 indicates that the change function returned a non-zero exit code. [B_E](#B_E) is called otherwise.
+#+@B_E
+function b_ipcm_change {
+local key="$1"
+local changeFunc="$2"
+local maxTime="${3:-0}"
+local removeMutexFunc=""
+
+#claim the write mutex
+removeMutexFunc="$(b_mtx_waitFor "${BLIB_STORE["BLIB_IPCM_MTX"]}" "$BASHPID" "" "$maxTime")" || { B_ERR="Other processes appear to be blocking write operations to the ipcm internal storage and we hit the timeout. Exit code: $?. Output: $removeMutexFunc" ; B_E ; }
+
+#obtain the current data & escape
+local val=
+val="$(b_ipcm_get "$key")" || { eval "$removeMutexFunc" ; B_ERR="Failed to retrieve the data." ; B_E ; }
+local keyEsc=
+local valEsc=
+printf -v keyEsc '%q' "$key"
+printf -v valEsc '%q' "$val"
+
+#call the change function
+BLIB_IPCM_STORE["$key"]="$(eval "$changeFunc $keyEsc $valEsc")" || { eval "$removeMutexFunc" ; return $(( $B_RC +1 )) ; }
+
+#save the new data globally
+local ret=
+b_setBE 1
+b_ipcv_save "${BLIB_STORE["BLIB_IPCM_NS"]}" "BLIB_IPCM_STORE"
+ret=$?
+b_resetErrorHandler
+
+#remove the write mutex
+eval "$removeMutexFunc"
+[ $ret -ne 0 ] && B_ERR="Failed to save the data." && B_E
+
+echo "${BLIB_IPCM_STORE["$key"]}"
+return 0
+}
+
+#+b_ipcm_get [key] [fallback]
+#+Retrieve the data found at the given key.
+#+[key]: A global unique identifier for the data to retrieve.
+#+[fallback]: Data to return if nothing was found for the given key (default: empty).
+#+returns: Sets a zero exit code and returns the data found on success. If no data was found, the fallback data is returned and a zero exit code is set. [B_E](#B_E) is called on errors.
+function b_ipcm_get {
+local key="$1"
+local fallback="$2"
+
+#NOTE: we use b_ipcv_loadNamespace rather than b_ipcv_load as the former doesn't care whether BLIB_IPCM_STORE was ever saved --> we avoid several bootstrap issues with that
+b_ipcv_loadNamespace "${BLIB_STORE["BLIB_IPCM_NS"]}" 1 || { B_ERR="Failed to load the internal data structure." ; B_E ; }
+
+if [ -n "${BLIB_IPCM_STORE["$key"]+exists}" ] ; then
+	echo "${BLIB_IPCM_STORE["$key"]}"
+else
+	echo "$fallback"
+fi
+
+return 0
+}
+
+#+b_ipcm_unsetNamespace [namespace] [maximum time]
+#+Unsets the given namespace and all keys stored within it.
+#+It is recommended to call this function when all processes finished their work.
+#+[namespace]: The namespace to unset (default: the current namespace).
+#+[maximum time]: maximum time in ms to wait for other processes to complete their operation (default: 0 = indefinitely)
+#+returns: Sets a zero exit code only upon successful removal. Otherwise [B_E](#B_E) is triggered.
+#+@B_E
+function b_ipcm_unsetNamespace {
+local ns="${1:-${BLIB_STORE["BLIB_IPCM_NS"]}}"
+local maxTime="$2"
+local removeMutexFunc=""
+
+#get mutex
+removeMutexFunc="$(b_mtx_waitFor "/dev/shm/${ns}_mtx" "$BASHPID" "" "$maxTime")" || { B_ERR="Other processes appear to be blocking write operations to the ipcm internal storage." ; B_E ; }
+
+#unset
+local ret=
+b_setBE 1
+b_ipcv_unsetNamespace "$ns"
+ret=$?
+b_resetErrorHandler
+
+#cleanup & return
+eval "$removeMutexFunc"
+[ $ret -ne 0 ] && B_ERR="Failed to unset the namespace $ns." && B_E
+
+return 0
+}
