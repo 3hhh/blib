@@ -488,18 +488,23 @@ EOF
 echo -n "$deps"
 }
 
-#blib_getModuleImports [module]
+#blib_getModuleImports [module] [markdown link]
 #get the list of other modules that the given module imports via b_import (in its header)
 #[module]: module to check the imports for; may be a relative path
+#[markdown link]: whether or not to print the output as markdown link (default: 1/false)
 #returns: newline-separated list of imports of the given module; sets a non-zero status code on errors
 #@B_E
 function blib_getModuleImports {
 local module="$1"
+local markLink="${2:-1}"
 local modulePath=""
 modulePath="$(blib_getModulePath "$module")" || { B_ERR="Failed to obtain the path for the module $module."; B_E; }
 #NOTE: space in front of b_import will make the below ignore it (this is meant to allow for dynamic imports not to be reported as e.g. below)
 local importRegex='^b_import[[:blank:]]+(.*)$'
 local import=""
+
+local outFormat='%s\n'
+[ $markLink -eq 0 ] && outFormat=' [%s]\n\n'
 
 #unfortunately we need str here
  b_import str
@@ -508,7 +513,7 @@ local line=""
 while IFS= read -r line ; do
 	if [[ "$line" =~ $importRegex ]] ; then
 		import="$(b_str_stripQuotes "${BASH_REMATCH[1]}")"
-		echo "$import"
+		printf "$outFormat" "$import"
 	fi
 done < "$modulePath"
 
@@ -957,14 +962,13 @@ if [ $prevCnt -eq 0 ] ; then
 		fi
 
 		local imports=""
-		imports="$(blib_getModuleImports "$fileId" 2> /dev/null)"
-		if [ $? -eq 0 ] ; then
-			[ -z "$imports" ] && imports="no imports"
+		imports="$(blib_getModuleImports "$fileId" 0 2> /dev/null)"
+		if [ $? -eq 0 ] && [ -n "$imports" ] ; then
 			echo ""
 			echo "### Imports ###"
 			echo "$imports"
-			echo ""
 		fi
+		echo ""
 	fi
 else
 	echo ""
