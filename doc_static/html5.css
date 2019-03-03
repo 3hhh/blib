@@ -89,6 +89,27 @@ dd p {
 	margin-top: 0;
 }
 
+table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+table td, table th {
+	border: 1px solid #ddd;
+	padding: 5px 8px 5px 8px;
+}
+
+table tr:nth-child(even) {
+	background-color: #f8f8f8;
+}
+
+table th {
+	padding-top: 8px;
+	padding-bottom: 8px;
+	background-color: #cc99ff;
+	color: white;
+}
+
 #reflist {
 	margin-left: 0;
 	padding-left:10px;
