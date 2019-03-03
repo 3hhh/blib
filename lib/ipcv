@@ -4,7 +4,16 @@
 #+
 #+This implementation uses shared memory, i.e. it should be reasonably fast.
 #+
-#+Only a single process or thread is assumed to be writing (i.e. use [b_ipcv_save](#b_ipcv_save)) a variable at a time and multiple processes may read it (using e.g. [b_ipcv_load](#b_ipcv_load)). If you need to write a single variable from multiple processes, please consider using the [mtx] module or similar locking means in combination with this module.
+#+Only a single process or thread is assumed to be writing (i.e. use [b_ipcv_save](#b_ipcv_save)) a variable at a time and multiple processes may read it (using e.g. [b_ipcv_load](#b_ipcv_load)). If you need to write a single variable from multiple processes, please consider using the [mtx] module or similar locking means in combination with this module (or just [ipcm]).
+#+
+#+ Overall Features
+#+ -------------------     ---------------------
+#+ \# readers              multiple
+#+ \# writers              single
+#+ read consistency        always
+#+ write consistency       only for one writer
+#+ blocking                never
+#+ -------------------     ---------------------
 #+
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.3
