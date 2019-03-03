@@ -1,0 +1,130 @@
+#!/bin/bash
+#
+#+Allow multiple processes to write to a _virtual_ file at the same time without causing write inconsitencies (written data from each process mangled with each other).
+#+
+#+This is achieved by keeping one file per process and relies on the assumption that both replacing and reading a symlink on your Linux distribution is atomic.
+#+
+#+In order for this to work, all write operations must go through this module.
+#+
+#+Currently reading only returns the data written by the process which wrote last. If you need some sort of appending, it makes more sense to deploy a mutex using e.g. the [mtx module](#mtx).
+#+
+#+ Overall Features
+#+ -------------------     ----------------------------
+#+ \# readers              multiple
+#+ \# writers              multiple
+#+ read consistency        partial, last writer wins
+#+ write consistency       always
+#+ blocking                never
+#+ -------------------     ----------------------------
+#+
+#+Copyright (C) 2019  David Hobach  LGPLv3
+#+0.2
+
+#possible improvement: For those OSes where symlink replacements are not atomic, we could pass reading through this module as well and simply always read the most recent *.done file for which we succeed to obtain a file handle (try again if we don't).
+
+BLIB_STORE["BLIB_MULTIW_MAX_HANG"]=3
+
+#+### Functions ###
+
+#+b_multiw_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_multiw_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+shuf
+mv
+ln
+stat
+rm
+EOF
+
+echo -n "$deps"
+}
+
+#+b_multiw_setMaxHangTime [seconds]
+#+Set the maximum time that a process is expected to hang between two instructions. This is relevant for various internal guarantees.
+#+[seconds]: Time in seconds that a process hangs at most.
+#+returns: Nothing.
+#+@StateChanging
+function b_multiw_setMaxHangTime {
+BLIB_STORE["BLIB_MULTIW_MAX_HANG"]=$1
+}
+
+#+b_multiw_getMaxHangTime
+#+Get the maximum time that a process is expected to hang between two instructions. This is relevant for various internal guarantees.
+#+returns: Time in seconds.
+function b_multiw_getMaxHangTime {
+echo "${BLIB_STORE["BLIB_MULTIW_MAX_HANG"]}"
+}
+
+#+b_multiw_write [file path]
+#+Write all data lying in stdin to the given _virtual_ file in a thread-safe way.
+#+[file path]: Full path to the virtual file to write to. Must not be a regular file (but may not exist).
+#+returns: A zero exit code, if the write operation was successful and a non-zero exit code otherwise.
+#+@B_E
+function b_multiw_write {
+local file="$1"
+[ -z "$file" ] && B_ERR="Forgot to specify a file." && B_E
+[ -e "$file" ] && [ ! -h "$file" ] && B_ERR="The file $file cannot be managed by multiw as it already appears to be used otherwise." && B_E
+
+local rand=
+rand="$(shuf -i 0-999999999 -n1)" || { B_ERR="Failed to generate a random number." ; B_E }
+local realFileProg="${file}.$rand.multiw.prog"
+local realFileDone="${file}.$rand.multiw.done"
+[ -e "$realFileProg" ] && B_ERR="Unexpected file name clash ($realFileProg)." && B_E
+[ -e "$realFileDone" ] && B_ERR="Unexpected file name clash ($realFileDone)." && B_E
+
+#write (non-atomic)
+cat - > "$realFileProg" || { B_ERR="Write error for the file $realFileProg." ; B_E }
+
+#get the file list to remove later (non-atomic)
+#maybe TODO: make it less expensive
+local now=
+printf -v now '%(%s)T' -1
+local remList=""
+local rem=
+local remEsc=
+local remMod=
+local remList=""
+for rem in "$file".*.multiw.done ; do
+	remMod="$(stat -c "%Y" "$rem" 2> /dev/null)" || continue
+	local diff=$(( $now - $remMod ))
+	if [ $diff -ge ${BLIB_STORE["BLIB_MULTIW_MAX_HANG"]} ] ; then
+		printf -v remEsc '%q' "$rem"
+		remList="$remList $remEsc"
+	fi
+done
+
+#mark our work as done (atomic, but not needed)
+mv "$realFileProg" "$realFileDone" || { B_ERR="Failed to mark $realFileProg as done." ; B_E }
+
+#Potential racing condition here:
+#Another process observes that we marked our realFile as done, updates his to done as well, sets the symlink, removes our file, we update the symlink to a removed file. --> that's why we need to assume that this process hangs for at most ${BLIB_STORE["BLIB_MULTIW_MAX_HANG"]} seconds
+
+#replace symlink (the mv is atomic)
+local tmp="$realFileDone.tmp"
+[ -e "$tmp" ] && B_ERR="Unexpected temp file clash ($tmp)." && B_E
+ln -s "$realFileDone" "$tmp" || { B_ERR="Failed to create a symlink for $realFileDone." ; B_E }
+mv -T "$tmp" "$file" || { B_ERR="Failed to update the target file $file symlink." ; B_E }
+
+#remove the older files
+#NOTE: this will not cause issues to currently on-going read operations as open handles will remain present
+[ -n "$remList" ] && rm -f $remList &> /dev/null
+return 0
+}
+
+#+b_multiw_remove [file path]
+#+Remove the given virtual file _and all of its revisions_.
+#+This function should only be called when all processes finished reading and writing. It is recommended to use it over the standard Linux `rm` as the latter will leave remnants behind.
+#+returns: A zero exit code on success.
+#+@B_E
+function b_multiw_remove {
+local file="$1"
+[ ! -h "$file" ] && B_ERR="The file $file doesn't look like one managed by multiw." && B_E
+if test -n "$(shopt -s nullglob; echo "$file".*.multiw.*)" ; then
+	rm -f "$file" "$file".*.multiw.* &> /dev/null
+else
+	B_ERR="The file $file doesn't look like one managed by multiw." && B_E
+fi
+}
