@@ -6,11 +6,11 @@
 #+0.3
 
 #load common test code
-load test_common
+load ../test_common
 
 function setup {
 	loadBlib
-	b_import "ipcv"
+	b_import "multithreading/ipcv"
 }
 
 #writer thread  [use namespace function (default: 1/no)]

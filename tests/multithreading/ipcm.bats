@@ -6,14 +6,14 @@
 #+0.3
 
 #load common test code
-load test_common
+load ../test_common
 
 T_IPCM_NS="ipcm-testing"
 T_IPCM_KEY="ipc-test-counter"
 
 function setup {
 	loadBlib
-	b_import "ipcm"
+	b_import "multithreading/ipcm"
 	b_ipcm_setNamespace "$T_IPCM_NS"
 }
 

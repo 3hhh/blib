@@ -6,11 +6,11 @@
 #+0.3
 
 #load common test code
-load test_common
+load ../test_common
 
 function setup {
 	loadBlib
-	b_import "mtx"
+	b_import "multithreading/mtx"
 }
 
 #runSingleMutexTest [mutex] [cleanup]

@@ -6,7 +6,7 @@
 #+
 #+In order for this to work, all write operations must go through this module.
 #+
-#+Currently reading only returns the data written by the process which wrote last. If you need some sort of appending, it makes more sense to deploy a mutex using e.g. the [mtx module](#mtx).
+#+Currently reading only returns the data written by the process which wrote last. If you need some sort of appending, it makes more sense to deploy a mutex using e.g. the [multithreading/mtx] module.
 #+
 #+ Overall Features
 #+ -------------------     ----------------------------

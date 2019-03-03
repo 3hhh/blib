@@ -6,11 +6,11 @@
 #+0.3
 
 #load common test code
-load test_common
+load ../test_common
 
 function setup {
 	loadBlib
-	b_import "multiw"
+	b_import "multithreading/multiw"
 }
 
 @test "b_multiw_getMaxHangTime & b_multiw_setMaxHangTime" {

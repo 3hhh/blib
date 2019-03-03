@@ -18,8 +18,8 @@
 #+Copyright (C) 2019  David Hobach  LGPLv3
 #+0.2
 
-b_import ipcv
-b_import mtx
+b_import "multithreading/ipcv"
+b_import "multithreading/mtx"
 
 #internal storage
 declare -gA BLIB_IPCM_STORE
