@@ -208,7 +208,7 @@ function b_nop {
 function b_version {
 local part="${1:0}"
 local major=1
-local minor=0
+local minor=1
 
 case "$part" in
 	1)
@@ -789,9 +789,10 @@ return $ret
 function blib_docBeginCallback {
 local header=""
 local outFormat="$2"
+local version="$(b_version)"
 read -r -d '' header << 'EOF'
 ---
-title: 'blib Code Reference v1.0'
+title: 'blib Code Reference vVERSION'
 author: 'David Hobach'
 rights: '(C) 2018  David Hobach  CC BY-NC'
 lang: 'en'
@@ -799,6 +800,7 @@ header: 'blib Code Reference'
 section: 3
 ---
 EOF
+header="${header/VERSION/$version}"
 echo "$header"
 
 if [[ "$outFormat" == "man" ]] ; then
