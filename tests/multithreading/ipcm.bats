@@ -140,8 +140,6 @@ function runTokenProcess {
 	runB b_ipcm_get "$T_IPCM_KEY"
 	echo "expected: ${#pids[@]}"
 	echo "found: $output"
-	echo "expected: ${#pids[@]}" >> /tmp/ipcm.log
-	echo "found: $output" >> /tmp/ipcm.log
 	[ $status -eq 0 ]
 	[ $output -eq ${#pids[@]} ]
 }
