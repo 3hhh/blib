@@ -812,7 +812,6 @@ function meFunc {
 	[[ "$output" == *"b_blib_getDeps"* ]]
 	echo 3
 	[[ "$output" == *"Dependencies"* ]]
-	[[ "$output" == *"Imports"* ]]
 	echo 4
 
 	#check whether dependencies are in the list
@@ -821,22 +820,22 @@ function meFunc {
 	[[ "$output" == *"dirname"* ]]
 	echo 6
 
-	runB "$BLIB" "info" "os/osid"
+	runB "$BLIB" "info" "os/qubes4/dom0"
 	[ $status -eq 0 ]
 	echo 7
-	[[ "$output" == *"os/osid"* ]]
+	[[ "$output" == *"os/qubes4/dom0"* ]]
 	echo 8
-	[[ "$output" == *"b_osid_getDeps"* ]]
+	[[ "$output" == *"b_dom0_getDeps"* ]]
 	echo 9
 	[[ "$output" == *"Dependencies"* ]]
 	[[ "$output" == *"Imports"* ]]
 	[[ "$output" == *"Functions"* ]]
+	[[ "$output" == *"qvm-prefs"* ]]
 	echo 10
 
 	runB "$BLIB" "info" "http"
 	[ $status -eq 0 ]
 	[[ "$output" == *"Dependencies"* ]]
-	[[ "$output" == *"Imports"* ]]
 	[[ "$output" == *"Functions"* ]]
 	echo 11
 
