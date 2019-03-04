@@ -247,15 +247,15 @@ fi
 #+[mutex]: see [b_mtx_try](#b_mtx_try)
 #+[block ID]: see [b_mtx_try](#b_mtx_try)
 #+[claim stale]: see [b_mtx_try](#b_mtx_try)
-#+[maximum time]: maximum time in ms to wait for the mutex to become available (default: 0 = indefinitely)
+#+[maximum time]: maximum time in ms to wait for the mutex to become available (default: -1 = indefinitely)
 #+returns: see [b_mtx_try](#b_mtx_try)
 function b_mtx_waitFor {
 local mutex="$1"
 local blockId="$2"
 local claimStale="$3"
-local maximumTime="${4:-0}"
+local maximumTime="${4:--1}"
 local timeLeft="1"
-[ $maximumTime -gt 0 ] && timeLeft=$maximumTime
+[ $maximumTime -ge 0 ] && timeLeft=$maximumTime
 local ret=""
 local retC=""
 local sleepTimeSec=""

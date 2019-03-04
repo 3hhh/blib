@@ -71,13 +71,13 @@ echo "${BLIB_STORE["BLIB_IPCM_NS"]}"
 #+May wait for changes done by other processes.
 #+[key]: A global unique identifier for the given value.
 #+[change function]: Name of the function to execute the change of the value. It will be called with the current key as first parameter and the current value as second. It is expected to print the new value to set for this key. A non-zero exit code will cause [b_ipcm_change](#b_ipcm_change) to abort the change.
-#+[maximum time]: maximum time in ms to wait for other processes to complete their operation (default: 0 = indefinitely)
+#+[maximum time]: maximum time in ms to wait for other processes to complete their operation (default: -1 = indefinitely)
 #+returns: A zero exit code and prints the new value, if the change succeeded. An exit code of [B_RC](#B_RC)+1 indicates that the change function returned a non-zero exit code. [B_E](#B_E) is called otherwise.
 #+@B_E
 function b_ipcm_change {
 local key="$1"
 local changeFunc="$2"
-local maxTime="${3:-0}"
+local maxTime="$3"
 local removeMutexFunc=""
 
 #claim the write mutex
