@@ -24,7 +24,7 @@ BINARY_INSTALL="/usr/bin/$LIB_NAME"
 MAN_INSTALL_PATH="/usr/share/man/man3/${LIB_NAME}.3"
 
 function usage {
-echo "Usage: $SCRIPT_NAME [install|uninstall] [install dir]"
+echo "Usage: $SCRIPT_NAME [install|uninstall|reinstall] [install dir]"
 echo ""
 echo "Installer for $LIB_NAME."
 echo ""
@@ -49,8 +49,10 @@ echo "Updating the mandb... "
 mandb > /dev/null || errorOut "Failed to update the mandb."
 }
 
+#installR [install dir] [run man update]
 function installR {
 local installDir="$1"
+local runMan="${2:-0}"
 local targetDir="$installDir/$LIB_NAME"
 local docDir="$targetDir/doc"
 local generatedMan="$docDir/${LIB_NAME}.man"
@@ -79,7 +81,7 @@ if command -v pandoc &> /dev/null ; then
 	blib gendoc man || exit $?
 
 	ln -s "$generatedMan" "$MAN_INSTALL_PATH" || errorOut "Failed to install the $LIB_NAME manpage."
-	updateMan
+	[ $runMan -eq 0 ] && updateMan
 else
 	echo "Skipping doc installation as pandoc is not installed."
 fi
@@ -87,8 +89,10 @@ fi
 return 0
 }
 
+#installR [install dir] [run man update]
 function uninstallR {
 local installDir="$1"
+local runMan="${2:-0}"
 local targetDir="$installDir/blib"
 [ ! -d "$targetDir" ] && errorOut "blib doesn't seem to be installed in $targetDir."
 
@@ -100,8 +104,16 @@ rm -f "$BINARY_INSTALL"
 if [ -h "$MAN_INSTALL_PATH" ] || [ -e "$MAN_INSTALL_PATH" ] ; then
 	echo "Removing $MAN_INSTALL_PATH ..."
 	rm -f "$MAN_INSTALL_PATH"
-	updateMan
+	[ $runMan -eq 0 ] && updateMan
 fi
+
+return 0
+}
+
+function reinstallR {
+local installDir="$1"
+uninstallR "$installDir" 1 || errorOut "Failed to uninstall."
+installR "$installDir"
 }
 
 function main {
@@ -129,6 +141,10 @@ case "$cmd" in
 	uninstallR "$installDir"
 	;;
 	
+	reinstall)
+	reinstallR "$installDir"
+	;;
+
 	*)
 	usage
 	;;

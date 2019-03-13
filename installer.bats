@@ -64,10 +64,11 @@ function ensureRemoved {
 	[ -d "/usr/share/man/man3" ]
 }
 
-#testInstall [expected status] [install dir]
+#testInstall [expected status] [install dir] [test reinstall]
 function testInstall {
 	local eStatus=$1
 	local installDir="${2:-$DEFAULT_INSTALL_DIR}"
+	local testRe="${3:-1}"
 	echo "Installation: $installDir"
 
 	run $SUDO_PREFIX "$INSTALLER install \"$installDir\""
@@ -78,6 +79,16 @@ function testInstall {
 	if [ $eStatus -eq 0 ] ; then
 		ensureInstalled "$installDir" || exit 1
 		
+		if [ $testRe -eq 0 ] ; then
+			run $SUDO_PREFIX "$INSTALLER reinstall \"$installDir\""
+			echo "Reinstall:"
+			echo "$output"
+			[ $status -eq $eStatus ]
+			[ -n "$output" ]
+		
+			ensureInstalled "$installDir" || exit 2
+		fi
+
 		#set a marker indicating that this installation was completed from this test
 		touch "$installDir/blib/doc/BATS_TEST_MARKER"
 	fi
@@ -99,7 +110,7 @@ function testUninstall {
 	fi
 }
 
-@test "install" {
+@test "install & reinstall" {
 	skipIfRootUnavailable
 	skipIfInstalled
 
@@ -109,9 +120,9 @@ function testUninstall {
 	ensureRemoved
 	ensureRemoved "$tmpInst"
 
-	testInstall 0 "$tmpInst"
+	testInstall 0 "$tmpInst" 0
 	testUninstall 0 "$tmpInst"
-	testInstall 0 "$tmpInst/"
+	testInstall 0 "$tmpInst/" 0
 	testUninstall 0 "$tmpInst/"
 
 	#default install test
