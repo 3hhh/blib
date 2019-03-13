@@ -195,6 +195,6 @@ if [ $checkFlag -eq 0 ] ; then
 	fi
 fi
 
-[[ "$pref" == "-" ]] && [ $ret -ne 0 ] &&  echo -n "$pref"
+[[ "$pref" == "-" ]] && [ $ret -ne 0 ] && echo -n "$pref"
 echo "$ret"
 }
