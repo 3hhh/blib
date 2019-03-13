@@ -151,3 +151,50 @@ if [ $? -ne 0 ] ; then
 	fi
 fi
 }
+
+#+b_fs_parseSize [string] [check flag]
+#+Parse human-readable file system sizes that include units.
+#+[string]: A string denoting a file system size of the format [number][unit]. Unit may be one of KB 1000, K 1024, MB 1000*1000, M 1024*1024, GB 1000*1000*1000, G 1024*1024*1024, and so on for T, P. If no unit is provided, the number is assumed to denote bytes.
+#+[check flag]: Check whether the result makes sense (default: 0/true). This check will make integer overflows less likely.
+#+returns: The respective number of bytes meant with the given string. [B_E](#B_E) is called on parsing errors.
+#+@B_E
+function b_fs_parseSize {
+local str="$1"
+local checkFlag="${2:-0}"
+
+local re='^[[:space:]]*([\+\-]?)([0-9]+)([bBkKmMgGtTpP]?[bB]?)[[:space:]]*$'
+[[ "$str" =~ $re ]] || { B_ERR="Failed to parse the size: $str" ; B_E }
+
+local pref="${BASH_REMATCH[1]}"
+local num="${BASH_REMATCH[2]}"
+local unit="${BASH_REMATCH[3]^^}"
+
+declare -A precomp=(
+	[B]=1
+	[K]=1024
+	[KB]=1000
+	[M]=1048576
+	[MB]=1000000
+	[G]=1073741824
+	[GB]=1000000000
+	[T]=1099511627776
+	[TB]=1000000000000
+	[P]=1125899906842624
+	[PB]=1000000000000000
+	)
+
+local prec=1
+[ -n "$unit" ] && prec="${precomp["$unit"]}"
+[ -z "$prec" ] && prec=1
+local ret=$(( $num * $prec ))
+
+if [ $checkFlag -eq 0 ] ; then
+	if [[ $ret -lt 0 || ( $num -ne 0 && $ret -eq 0 ) || ( $num -ne 0 && $ret -le $prec ) ]] ; then
+		B_ERR="An integer overflow was detected."
+		B_E
+	fi
+fi
+
+[[ "$pref" == "-" ]] && [ $ret -ne 0 ] &&  echo -n "$pref"
+echo "$ret"
+}

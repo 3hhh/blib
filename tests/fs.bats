@@ -325,3 +325,93 @@ function loopDevCleanup {
 	rm -rf "$tmpDir2"
 
 }
+
+@test "b_fs_parseSize" {
+	#failing
+	runB b_fs_parseSize "zzM"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_fs_parseSize "10f"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_fs_parseSize "M"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_fs_parseSize "B"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_fs_parseSize "B"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_fs_parseSize "B" 1
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runB b_fs_parseSize ""
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	#succeeding
+	runB b_fs_parseSize "0"
+	echo "out: $output"
+	[ $status -eq 0 ]
+	[[ "$output" == "0" ]]
+
+	runB b_fs_parseSize "123"
+	[ $status -eq 0 ]
+	[[ "$output" == "123" ]]
+
+	runB b_fs_parseSize "-123"
+	[ $status -eq 0 ]
+	[[ "$output" == "-123" ]]
+
+	runB b_fs_parseSize "123K"
+	[ $status -eq 0 ]
+	[[ "$output" == "125952" ]]
+
+	runB b_fs_parseSize "123KB"
+	[ $status -eq 0 ]
+	[[ "$output" == "123000" ]]
+
+	runB b_fs_parseSize "123M"
+	[ $status -eq 0 ]
+	[[ "$output" == "128974848" ]]
+
+	runB b_fs_parseSize "123m"
+	[ $status -eq 0 ]
+	[[ "$output" == "128974848" ]]
+
+	runB b_fs_parseSize "123MB"
+	[ $status -eq 0 ]
+	[[ "$output" == "123000000" ]]
+
+	runB b_fs_parseSize "123G"
+	[ $status -eq 0 ]
+	[[ "$output" == "132070244352" ]]
+
+	runB b_fs_parseSize "123GB"
+	[ $status -eq 0 ]
+	[[ "$output" == "123000000000" ]]
+
+	runB b_fs_parseSize "123gb"
+	[ $status -eq 0 ]
+	[[ "$output" == "123000000000" ]]
+
+	runB b_fs_parseSize "123T"
+	[ $status -eq 0 ]
+	[[ "$output" == "135239930216448" ]]
+
+	runB b_fs_parseSize "123TB"
+	[ $status -eq 0 ]
+	[[ "$output" == "123000000000000" ]]
+	#skipping peta for now as it is likely to lead to integer overflow
+
+	runB b_fs_parseSize "-123kb"
+	[ $status -eq 0 ]
+	[[ "$output" == "-123000" ]]
+}
