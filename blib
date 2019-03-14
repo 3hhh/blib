@@ -642,19 +642,29 @@ for par in "$@" ; do
 	shift
 done
 
-#parse blib, add the function call instead of blib_main or whatever else is there (we might be calling b_generateStandalone from standalone mode)
+#parse blib, add the function call instead of blib_main or whatever else there is (we might be calling b_generateStandalone from standalone mode)
 local mainCnt=0
-local mainCallRegex='^(\[\[ "\$\{BASH_SOURCE\[0\]\}" == "\$0" \]\] \&\&[[:space:]]+)(.*)([[:space:]]+"\$\@")$'
-local main=""
+local inMain=1
 while IFS= read -r line ; do
-	if [[ "$line" =~ $mainCallRegex ]] ; then
-		main="${BASH_REMATCH[1]}${funcCall}${BASH_REMATCH[3]}"
+	if [ $inMain -eq 0 ] ; then
+		if [[ "$line" == "#BLIB_MAIN_END" ]] ; then
+			main="$main"$'\n'"$line"
+			inMain=1
+		elif [[ "$line" == *'"$@"' ]] ; then
+			main="$main"$'\n'"	$funcCall"' "$@"'
+		else
+			main="$main"$'\n'"$line"
+		fi
+	elif [[ "$line" == "#BLIB_MAIN_BEGIN" ]] ; then
+		main="$main"$'\n'"$line"
+		inMain=0
 		mainCnt=$(( $mainCnt +1 ))
 	else
 		echo "$line"
 	fi
 done < "${BASH_SOURCE[0]}"
 [ $mainCnt -ne 1 ] && B_ERR="Failed to find the blib_main call." && B_E
+[ $inMain -ne 1 ] && B_ERR="Failed to find the MAIN_END marker." && B_E
 
 #set standalone mode (must be as early as possible as e.g. static imports may happen with the modules below)
 echo ""
@@ -670,9 +680,6 @@ for mod in "$@" ; do
 		echo ""
 		cat "$modulePath" || { B_ERR="Failed to read $modulePath."; B_E; }
 	fi
-
-	printf -v mod '%q' "$mod"
-	preMain="$preMain"$'\n'"b_import $mod"
 	shift
 done
 
@@ -1127,7 +1134,6 @@ done <<< "$mods"
 
 #main (executed when blib is called directly rather than sourced)
 function blib_main {
-#NOTE: this must support b_generateStandalone
 [ $# -lt 1 ] && blib_usage
 
 #parse commands
@@ -1174,6 +1180,13 @@ blib_errorOutOnDepFail "blib" || B_E
 #currently at least 4.2 is needed for declare -gA support
 [ ${BASH_VERSINFO[0]} -lt 4 ] || ( [ ${BASH_VERSINFO[0]} -eq 4 ] && [ ${BASH_VERSINFO[1]} -lt 2 ] ) && B_ERR="blib only works with bash versions >= 4.2" && B_E
 
+#BLIB_MAIN_BEGIN
+#NOTE: the above comment and the below format are required for b_generateStandalone
 #are we called directly?
-[[ "${BASH_SOURCE[0]}" == "$0" ]] && blib_main "$@"
-
+if [[ "${BASH_SOURCE[0]}" == "$0" ]] ; then
+	blib_main "$@"
+else
+	#if not, set a zero exit code to indicate a successful source call
+	:
+fi
+#BLIB_MAIN_END

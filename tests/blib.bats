@@ -14,6 +14,12 @@ function setup {
 
 VERSION_STR_REGEX='[0-9\.]+'
 
+@test "library usage: general" {
+	runB source "$BLIB"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "B_SCRIPT" {
 	[ -n "$B_SCRIPT" ]
 	eval "$B_SCRIPT"
@@ -593,11 +599,14 @@ set -e
 	[ $status -eq 0 ]
 }
 
-#testGenerateStandaloneSucc [ref file] [code file] [out file] [all params]
+#testGenerateStandaloneSucc [ref file] [code file] [out file] [expected status] [all params]
+#[expected status]: expected status code when the generated code is run
 function testGenerateStandaloneSucc {
 	local ref="$1"
 	local codeFile="$2"
 	local outFile="$3"
+	local eStatus="$4"
+	shift
 	shift
 	shift
 	shift
@@ -620,7 +629,7 @@ function testGenerateStandaloneSucc {
 	echo b
 	runB bash "$codeFile"
 	echo "$output" > "$outFile"
-	[ $status -eq 0 ]
+	[ $status -eq $eStatus ]
 	[ -n "$output" ]
 
 	echo c
@@ -649,7 +658,7 @@ function testGenerateStandaloneSucc {
 	echo f
 	runB bash "$codeFile" "${pars[@]}"
 	echo "$output" > "$outFile"
-	[ $status -eq 0 ]
+	[ $status -eq $eStatus ]
 	[ -n "$output" ]
 	
 	echo g
@@ -670,6 +679,7 @@ function depFunc {
 	echo "depFunc"
 	echo "param 1: $1"
 	echo "param 2: $2"
+	return 33
 }
 
 function funFunc {
@@ -715,22 +725,22 @@ function genRecursionFunc {
 	local outFile1="$(mktemp)"
 	local codeFile1="$(mktemp)"
 	local codeFile2="$(mktemp)"
-	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" "depFunc" "my house" "is at home" - - "depA" "depB"
-	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" "depFunc" "my house" "is at home" - "fs" "str" - "depA" "depB"
-	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" "depFunc" "my house" "is at home" - "fs" - "depA" "depB"
+	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "my house" "is at home" - - "depA" "depB"
+	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "my house" "is at home" - "fs" "str" - "depA" "depB"
+	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "my house" "is at home" - "fs" - "depA" "depB"
 
-	testGenerateStandaloneSucc "genOut02.txt" "$codeFile1" "$outFile1" "depB" - -
+	testGenerateStandaloneSucc "genOut02.txt" "$codeFile1" "$outFile1" 0 "depB" - -
 
-	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" "funFunc" "    lots of whitespace was around here!      " - "str" - "depA"
-	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" "funFunc" "   lots of whitespace was around here! " - "fs" "str" - "depA" "depB"
+	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" 0 "funFunc" "    lots of whitespace was around here!      " - "str" - "depA"
+	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" 0 "funFunc" "   lots of whitespace was around here! " - "fs" "str" - "depA" "depB"
 
 	b_import str
-	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" "b_str_trim" "   lots of whitespace was around here! " - "fs" "str" - "depA" "depB"
-	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" "b_str_trim" "   lots of whitespace was around here!" - "str" -
-	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" "b_str_trim" "   lots of whitespace was around here!" - "str" - "b_str_trim"
+	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "   lots of whitespace was around here! " - "fs" "str" - "depA" "depB"
+	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "   lots of whitespace was around here!" - "str" -
+	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "   lots of whitespace was around here!" - "str" - "b_str_trim"
 
-	#crazy 2 level recursion (b_generateStandalone call from standalone blib variant)
-	testGenerateStandaloneSucc "genOut05.txt" "$codeFile1" "$outFile1" "genRecursionFunc" "$codeFile2" - "str" -
+	#crazy 2 level recursion (b_generateStandalone call from standalonne  blib variant)
+	testGenerateStandaloneSucc "genOut05.txt" "$codeFile1" "$outFile1" 0 "genRecursionFunc" "$codeFile2" - "str" -
 	
 	#cleanup
 	rm -f "$outFile1"
