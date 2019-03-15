@@ -6,10 +6,10 @@
 #+0.2
 
 #whether or not b_osid_init ran
-BLIB_STORE["BLIB_OSID_INITIALIZED"]=1
+BLIB_STORE_VOLATILE["BLIB_OSID_INITIALIZED"]=1
 
 #relevant identifiers requiring initialization
-BLIB_STORE["BLIB_OSID_NAME"]=""
+BLIB_STORE_VOLATILE["BLIB_OSID_NAME"]=""
 
 #+### Functions ###
 
@@ -31,17 +31,19 @@ echo -n "$deps"
 function b_osid_init {
 local force=${1:-1}
 
-if [ $force -eq 0 ] || [ ${BLIB_STORE["BLIB_OSID_INITIALIZED"]} -ne 0 ] ; then
+if [ $force -eq 0 ] || [ ${BLIB_STORE_VOLATILE["BLIB_OSID_INITIALIZED"]} -ne 0 ] ; then
+	local fl=
+	local line=
 	for fl in /etc/*release ; do
 		[[ "$fl" == "/etc/*release" ]] && continue
 
 		while IFS= read -r line ; do
-			[[ "$line" =~ ^NAME=(.*)$ ]] && BLIB_STORE["BLIB_OSID_NAME"]="${BASH_REMATCH[1]}"
+			[[ "$line" =~ ^NAME=(.*)$ ]] && BLIB_STORE_VOLATILE["BLIB_OSID_NAME"]="${BASH_REMATCH[1]}"
 		done < "$fl"
 	done
 
 	#mark as initialized
-	BLIB_STORE["BLIB_OSID_INITIALIZED"]=0
+	BLIB_STORE_VOLATILE["BLIB_OSID_INITIALIZED"]=0
 fi
 
 return 0
@@ -55,7 +57,7 @@ local name="$1"
 local re=".?$name"
 
 b_osid_init
-[[ "${BLIB_STORE["BLIB_OSID_NAME"]}" =~ $re ]]
+[[ "${BLIB_STORE_VOLATILE["BLIB_OSID_NAME"]}" =~ $re ]]
 }
 
 #+b_osid_isDebian
