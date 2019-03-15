@@ -52,6 +52,7 @@ local emptyRegex='^[[:blank:]]*$'
 local commentRegex='^[[:blank:]]*[;#].*$'
 local sectionRegex='^[[:blank:]]*\[(.*)\][[:blank:]]*$'
 local keyValRegex='^[[:blank:]]*([^=]+[^[:blank:]]+)[[:blank:]]*=(.*)$'
+local line=
 while IFS= read -r line ; do
 	#skip empty lines
 	[[ "$line" =~ $emptyRegex ]] && continue
