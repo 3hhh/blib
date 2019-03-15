@@ -86,8 +86,9 @@ local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 mkdir -p "$nsDir" || { B_ERR="Failed to create the directory for the namespace at $nsDir." ; B_E }
 
 local ret=0
-local temp=""
-local out=""
+local tmp=
+local out=
+local var=
 for var in "$@" ; do
 	tmp="$(mktemp -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}")" || { B_ERR="Failed to create a temporary memory object." ; B_E }
 	out="$(declare -p "$var")" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to find the variable ${var}." ; B_E }
