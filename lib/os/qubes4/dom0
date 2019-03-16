@@ -348,6 +348,7 @@ return 0
 function b_dom0_createLoopDeviceIfNecessary {
 local vm="$1"
 local file="$2"
+local out=""
 
 out="$(b_dom0_execFuncIn "$vm" "" "b_fs_createLoopDeviceIfNecessary" "$file" - "fs" - 2> /dev/null)" || { B_ERR="Failed to create a loop device for the file $file in the VM $vm." ; B_E }
 
