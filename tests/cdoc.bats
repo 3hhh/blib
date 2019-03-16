@@ -29,7 +29,7 @@ function testGenerateDiff {
 
 	echo "INFILES: $inFiles"
 	echo "expected out: $expected"
-	runB b_cdoc_generate "$inFiles" "$tmpOut"
+	runSL b_cdoc_generate "$inFiles" "$tmpOut"
 	echo "$output"
 	echo "TEMP OUTPUT: $tmpOut"
 	[ $status -eq 0 ]
@@ -83,7 +83,7 @@ function pandocTest {
 
 	initWithTestCallbacks
 
-	runB b_cdoc_generate "$(genFileList "test02" "test01")" "$outFile" "$outFormat"
+	runSL b_cdoc_generate "$(genFileList "test02" "test01")" "$outFile" "$outFormat"
 	echo "$output"
 	echo "OUTPUT FILE: $outFile"
 	[ $status -eq 0 ]

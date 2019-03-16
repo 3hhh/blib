@@ -30,7 +30,7 @@ TIMER_START=""
 #where the TEST_STATE is persisted
 TEST_STATE_FILE="/tmp/blib_bats_test_state"
 
-#the current ID for runB
+#the current ID for runSL & runSC
 TEST_RUN_ID=1
 
 #+TEST_STATE
@@ -135,7 +135,7 @@ run $setterFunc "$val"
 $setterFunc "$val"
 
 #test getter #2
-run $getterFunc
+runSL $getterFunc
 [ $status -eq 0 ]
 [[ "$output" == "$val" ]]
 
@@ -167,13 +167,93 @@ local now="$(date +%s)"
 echo $(( $now - $TIMER_START ))
 }
 
-#+__runB [bats params]
-#+A blib-specific version of the bats run command which prints an identifier for easier debugging. The identifier starts at 1 on the first run call per test and increases with each further run call.
-#+[params]: all bats parameters
+#printRelevantState
+#Prints the parts that appear relevant from the runtime state. May drop parts that it doesn't understand. Should be used by [runStateSaving](#runStateSaving) only.
+function printRelevantState {
+declare -p | {
+	#filter stuff from the state that we don't want to see because it's very volatile
+	#for simplicity we also drop every line that doesn't look like a declare on a single line
+	#maybe TODO: improve on that, but could be hard as declare -p behaves differently across different bash versions and various separators such as )'" and combinations are all valid depending on the context, i.e. one might have to write an entire parser
+        local line=
+        local reBeginDecl='^declare [-a-zA-Z]+ ([^=]+)=?(.*)$'
+        local reSkip='^(_|IGNORE_.*|BLIB_ERR_.*|B_ERR|RANDOM|SECONDS|BASHPID|FUNCNAME|PIPESTATUS|BASH_.*|BLIB_STORE_VOLATILE|BLIB_IPCM_STORE|BLIB_INI_FILE)$'
+	local name=
+        while IFS= read -r line ; do
+                if [[ "$line" =~ $reBeginDecl ]] ; then
+			name="${BASH_REMATCH[1]}"
+                        if [[ "$name" =~ $reSkip ]] ; then
+                                continue
+                        else
+				echo "$line"
+			fi
+                fi
+	done
+}
+}
+
+#runStateSaving [pre execution fd] [post execution fd] [commands ...]
+#Run the given commands, but save the state before and afterwards.
+#[pre execution fd]: Where to write the state before execution to.
+#[post execution fd]: Where to write the state after execution to.
+#[commands]: To execute.
+#returns: Whatever the executed [commands] returned.
+function runStateSaving {
+local IGNORE_PRE_FD="$1"
+local IGNORE_POST_FD="$2"
+local IGNORE_RET=77
+shift
+shift
+
+#escape
+printf -v IGNORE_PRE_FD '%q' "$IGNORE_PRE_FD"
+printf -v IGNORE_POST_FD '%q' "$IGNORE_POST_FD"
+
+#save pre state & make sure post state is saved using an exit trap
+#NOTE: we're likely overriding the bats EXIT trap here, but
+#  a) bats still has the ERR trap
+#  b) we're running inside a subshell (c.f. run()) and bats still has the EXIT trap on the parent
+printRelevantState > $IGNORE_PRE_FD
+trap "printRelevantState > $IGNORE_POST_FD" exit
+
+#exec
+"$@"
+IGNORE_RET=$?
+
+#set proper return code
+return $IGNORE_RET
+}
+
+#+__runSL [commands]
+#+A version of the bats `run` command which makes sure that the bash runtime state does not change after running the given commands (SL = stateless).
+#+This *should* be the default method of executing tests for blib.
+#+If the given commands are expected to change the state, use [runSC](#runSC) instead. In particular the default bats `run` should almost never be used.
+#+Also prints an identifier for easier debugging. The identifier starts at 1 on the first run call per test and increases with each further run call.
+#+*WARNING*: As the bats `run` it runs inside a subshell. So don't expect changes to persist.
+#+[commands]: The commands to run.
 #+returns: whatever bats run returns
-function runB {
-	echo "run_$TEST_RUN_ID"
-	TEST_RUN_ID=$(( TEST_RUN_ID +1 ))
-	run "$@"
-	echo "status: $status"
+function runSL {
+local stateBefore=
+local stateAfter=
+
+stateBefore="$(mktemp)"
+stateAfter="$(mktemp)"
+runSC runStateSaving "$stateBefore" "$stateAfter" "$@"
+echo "state before: $stateBefore"
+echo "state after: $stateAfter"
+diff --suppress-common-lines "$stateBefore" "$stateAfter"
+rm -f "$stateBefore" "$stateAfter"
+}
+
+#+__runSC [commands]
+#+A version of the bats `run` command which ignore changes to the bash runtime state (SC = state changing).
+#+If the given commands are expected to be stateless, use [runSL](#runSL) instead. In particular the default bats `run` should almost never be used.
+#+Also prints an identifier for easier debugging. The identifier starts at 1 on the first run call per test and increases with each further run call.
+#+*WARNING*: As the bats `run` it runs inside a subshell. So don't expect changes to persist.
+#+[commands]: The commands to run.
+#+returns: whatever bats run returns
+function runSC {
+echo "run_$TEST_RUN_ID"
+TEST_RUN_ID=$(( TEST_RUN_ID +1 ))
+run "$@"
+echo "status: $status"
 }

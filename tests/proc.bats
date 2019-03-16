@@ -14,23 +14,23 @@ function setup {
 }
 
 @test "b_proc_pidExists" {
-	runB b_proc_pidExists 1
+	runSL b_proc_pidExists 1
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
-	runB b_proc_pidExists "a"
+	runSL b_proc_pidExists "a"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_proc_pidExists "$$"
+	runSL b_proc_pidExists "$$"
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
-	runB b_proc_pidExists "$BASHPID"
+	runSL b_proc_pidExists "$BASHPID"
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
-	runB b_proc_pidExists 0
+	runSL b_proc_pidExists 0
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 }
@@ -41,7 +41,7 @@ function testProcess {
 
 @test "b_proc_waitForPid" {
 	local startTime="$(date +%s%3N)"
-	runB b_proc_waitForPid 1 1
+	runSL b_proc_waitForPid 1 1
 	local endTime="$(date +%s%3N)"
 	local diff=$(( $endTime - $startTime ))
 	[ $status -eq 0 ]
@@ -51,7 +51,7 @@ function testProcess {
 
 	local startTime="$(date +%s%3N)"
 	testProcess &
-	runB b_proc_waitForPid $! 1
+	runSL b_proc_waitForPid $! 1
 	local endTime="$(date +%s%3N)"
 	local diff=$(( $endTime - $startTime ))
 	[ $status -eq 0 ]
@@ -60,7 +60,7 @@ function testProcess {
 	[ $diff -gt 500 ]
 
 	#non existing pid
-	runB b_proc_waitForPid 999999999999
+	runSL b_proc_waitForPid 999999999999
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }

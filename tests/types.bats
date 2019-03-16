@@ -14,51 +14,51 @@ function setup {
 }
 
 @test "b_types_isInteger" {
-	runB b_types_isInteger 1234
+	runSL b_types_isInteger 1234
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger 0
+	runSL b_types_isInteger 0
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "a"
+	runSL b_types_isInteger "a"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "33"
+	runSL b_types_isInteger "33"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "145."
+	runSL b_types_isInteger "145."
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "1.32"
+	runSL b_types_isInteger "1.32"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "1,32"
+	runSL b_types_isInteger "1,32"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "1a32"
+	runSL b_types_isInteger "1a32"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "-9b"
+	runSL b_types_isInteger "-9b"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger '0'
+	runSL b_types_isInteger '0'
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "-3"
+	runSL b_types_isInteger "-3"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_types_isInteger "8989123213213"
+	runSL b_types_isInteger "8989123213213"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
@@ -84,7 +84,7 @@ function setup {
 	for ((i=0; i<100; i++)) ; do
 		dd if="$randSource" bs=100 count=1 of="$tmp" 2> /dev/null
 		echo "input data: $(base64 "$tmp")"
-		cat "$tmp" | { runB b_types_parseString
+		cat "$tmp" | { runSL b_types_parseString
 		[ $status -ne 0 ]
 		[[ "$output" != *"ERROR:"* ]]
 		}
@@ -94,23 +94,23 @@ function setup {
 
 	echo "post binary hammering"
 
-	{ runB b_types_parseString
+	{ runSL b_types_parseString
 	[ $status -ne 0 ]
 	[[ "$output" != *"ERROR:"* ]]
 	} < "$tfileMixed1"
 
-	{ runB b_types_parseString
+	{ runSL b_types_parseString
 	[ $status -ne 0 ]
 	[[ "$output" != *"ERROR:"* ]]
 	} < "$tfileMixed2"
 
-	{ runB b_types_parseString
+	{ runSL b_types_parseString
 	[ $status -eq 0 ]
 	[[ "$output" == "$origStr1" ]]
 	} <<< "$origStr1"
 
 	#special case: nothing at all
-	{ runB b_types_parseString
+	{ runSL b_types_parseString
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	} <<< ""

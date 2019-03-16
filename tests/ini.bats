@@ -22,7 +22,7 @@ function getIniFixture {
 
 function runValidDefaultTests {
 	local ini="$(getIniFixture "$1")"
-	runB b_ini_read "$ini"
+	runSL b_ini_read "$ini"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
@@ -32,137 +32,137 @@ function runValidDefaultTests {
 
 function runValid01Tests {
 	#default section
-	runB b_ini_get "no"
+	runSL b_ini_get "no"
 	[ $status -eq 0 ]
 	[[ "$output" == "section, but that's ok" ]]
 
-	runB b_ini_getString "no"
+	runSL b_ini_getString "no"
 	[ $status -eq 0 ]
 	[[ "$output" == "section, but that's ok" ]]
 
-	runB b_ini_getInt "no"
+	runSL b_ini_getInt "no"
 	[ $status -ne 0 ]
 
-	runB b_ini_getBool "no"
+	runSL b_ini_getBool "no"
 	[ $status -ne 0 ]
 
-	runB b_ini_getString "is it" ""
+	runSL b_ini_getString "is it" ""
 	[ $status -eq 0 ]
 	[[ "$output" == "really?!" ]]
 
-	runB b_ini_getString "is it" "non existent section"
+	runSL b_ini_getString "is it" "non existent section"
 	[ $status -ne 0 ]
 
-	runB b_ini_getString "" ""
+	runSL b_ini_getString "" ""
 	[ $status -ne 0 ]
 
-	runB b_ini_getInt "number of the beast" "non existent section"
+	runSL b_ini_getInt "number of the beast" "non existent section"
 	[ $status -ne 0 ]
 
-	runB b_ini_getInt "number of the beast"
+	runSL b_ini_getInt "number of the beast"
 	[ $status -eq 0 ]
 	[ $output -eq 666 ]
 
-	runB b_ini_getBool "it rocks"
+	runSL b_ini_getBool "it rocks"
 	[ $status -eq 0 ]
 	[ $output -eq 0 ]
 
-	runB b_ini_getInt "port"
+	runSL b_ini_getInt "port"
 	[ $status -eq 0 ]
 	[ $output -eq 1 ]
 
 	#sectionName
-	runB b_ini_getString "foo" "sectionName"
+	runSL b_ini_getString "foo" "sectionName"
 	[ $status -eq 0 ]
 	[[ "$output" == "bar" ]]
 
-	runB b_ini_getInt "port" "sectionName"
+	runSL b_ini_getInt "port" "sectionName"
 	[ $status -eq 0 ]
 	[ $output -eq 1234 ]
 
-	runB b_ini_getBool "mega" "sectionName"
+	runSL b_ini_getBool "mega" "sectionName"
 	[ $status -eq 0 ]
 	[ $output -eq 1 ]
 
-	runB b_ini_getString "organization" "sectionName"
+	runSL b_ini_getString "organization" "sectionName"
 	[ $status -eq 0 ]
 	[[ "$output" == "holy moly" ]]
 
-	runB b_ini_getString "non existent" "sectionName"
+	runSL b_ini_getString "non existent" "sectionName"
 	[ $status -ne 0 ]
 
-	runB b_ini_getString "file" "sectionName"
+	runSL b_ini_getString "file" "sectionName"
 	[ $status -eq 0 ]
 	[[ "$output" == '"this is a file with ""' ]]
 
 	#section with whitespaces
-	runB b_ini_getString "also indented" "section with whitespaces"
+	runSL b_ini_getString "also indented" "section with whitespaces"
 	[ $status -eq 0 ]
 	[[ "$output" == 'mum I need hääälp!' ]]
 
-	runB b_ini_get "some space above" "section with whitespaces"
+	runSL b_ini_get "some space above" "section with whitespaces"
 	[ $status -eq 0 ]
 	[[ "$output" == 'and some afterwards  ' ]]
 
-	runB b_ini_getString "some space above" "section with whitespaces"
+	runSL b_ini_getString "some space above" "section with whitespaces"
 	[ $status -eq 0 ]
 	[[ "$output" == 'and some afterwards' ]]
 
-	runB b_ini_get ";line!" "section with whitespaces"
+	runSL b_ini_get ";line!" "section with whitespaces"
 	[ $status -ne 0 ]
 
 	#   ahhh Whitespace at the beginning of section name?
-	runB b_ini_get "Key" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_get "Key" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == '  VAL_' ]]
 
-	runB b_ini_getString "Key" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getString "Key" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == 'VAL_' ]]
 
-	runB b_ini_getString "mum" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getString "mum" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == 'rocks' ]]
 
-	runB b_ini_get "whitespace before" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_get "whitespace before" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == ' and after the =' ]]
 
-	runB b_ini_getString "whitespace before" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getString "whitespace before" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == 'and after the =' ]]
 
-	runB b_ini_getString "port" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getString "port" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == 'a string Here' ]]
 
-	runB b_ini_getInt "port" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getInt "port" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -ne 0 ]
 
-	runB b_ini_getString "dad" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getString "dad" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == 'too' ]]
 
-	runB b_ini_getString "check" '   ahhh Whitespace at the beginning of section name?'
+	runSL b_ini_getString "check" '   ahhh Whitespace at the beginning of section name?'
 	[ $status -eq 0 ]
 	[[ "$output" == 'char'"'"'acter"s^!noesc\rpe\\![muha]' ]]
 
 	#sec_without_content
-	runB b_ini_get "port" 'sec_without_content'
+	runSL b_ini_get "port" 'sec_without_content'
 	[ $status -ne 0 ]
 
-	runB b_ini_get "dad" 'sec_without_content'
+	runSL b_ini_get "dad" 'sec_without_content'
 	[ $status -ne 0 ]
 
 	#non existing section
-	runB b_ini_get "port" 'non existing'
+	runSL b_ini_get "port" 'non existing'
 	[ $status -ne 0 ]
 }
 
 function runInvalidDefaultTests {
 	local ini="$(getIniFixture "$1")"
 
-	runB b_ini_read "$ini"
+	runSL b_ini_read "$ini"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	[[ "$output" != *"Could not open"* ]]
@@ -171,7 +171,7 @@ function runInvalidDefaultTests {
 
 }
 
-#function to make sure the ini is loaded to the current namespace (runB seems to load it to a subshell)
+#function to make sure the ini is loaded to the current namespace (runSL seems to load it to a subshell)
 function forceIniLoad {
 	local iniFile="$1"
 
@@ -189,7 +189,7 @@ function forceIniLoad {
 function runInvalidDefaultTests {
 	local ini="$(getIniFixture "$1")"
 
-	runB b_ini_read "$ini"
+	runSL b_ini_read "$ini"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	[[ "$output" != *"Could not open"* ]]
@@ -198,15 +198,15 @@ function runInvalidDefaultTests {
 	forceIniLoad "$ini"
 
 	#further tests after loading
-	runB b_ini_get "no"
+	runSL b_ini_get "no"
 	[ $status -ne 0 ]
 
-	runB b_ini_getInt "port"
+	runSL b_ini_getInt "port"
 	[ $status -ne 0 ]
 
 	#in different error mode:
 	b_setBE 1
-	runB b_ini_read "$ini"
+	runSL b_ini_read "$ini"
 	b_setBE
 	[ $status -ne 0 ]
 	[ -n "$output" ]

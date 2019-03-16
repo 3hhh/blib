@@ -19,7 +19,7 @@ function setup {
 }
 
 @test "b_tcolors_getDeps" {
-	runB b_tcolors_getDeps
+	runSL b_tcolors_getDeps
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 }

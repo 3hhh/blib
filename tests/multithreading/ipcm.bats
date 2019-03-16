@@ -90,32 +90,32 @@ function runTokenProcess {
 	local testkey="b_ipcm_change-test"
 	
 	#failing
-	runB b_ipcm_change "$testkey" "changeTo 123 3"
+	runSL b_ipcm_change "$testkey" "changeTo 123 3"
 	[ $status -eq $(( $B_RC +1 )) ]
 	[ -z "$output" ]
 	
-	runB b_ipcm_change "$testkey" "changeTo 123 3" 1
+	runSL b_ipcm_change "$testkey" "changeTo 123 3" 1
 	[ $status -eq $(( $B_RC +1 )) ]
 	[ -z "$output" ]
 
-	runB b_ipcm_change "$testkey" "nonexistingFunc"
+	runSL b_ipcm_change "$testkey" "nonexistingFunc"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
 	#succeeding
-	runB b_ipcm_change "$testkey" "changeTo 666 0"
+	runSL b_ipcm_change "$testkey" "changeTo 666 0"
 	[ $status -eq 0 ]
 	[[ "$output" == "666" ]]
 
-	runB b_ipcm_get "$testkey"
+	runSL b_ipcm_get "$testkey"
 	[ $status -eq 0 ]
 	[[ "$output" == "666" ]]
 
-	runB b_ipcm_change "$testkey" "changeTo 777 0" 1
+	runSL b_ipcm_change "$testkey" "changeTo 777 0" 1
 	[ $status -eq 0 ]
 	[[ "$output" == "777" ]]
 
-	runB b_ipcm_get "$testkey"
+	runSL b_ipcm_get "$testkey"
 	[ $status -eq 0 ]
 	[[ "$output" == "777" ]]
 }
@@ -137,7 +137,7 @@ function runTokenProcess {
 
 	echo "Checking the final result..."
 
-	runB b_ipcm_get "$T_IPCM_KEY"
+	runSL b_ipcm_get "$T_IPCM_KEY"
 	echo "expected: ${#pids[@]}"
 	echo "found: $output"
 	[ $status -eq 0 ]
@@ -148,21 +148,21 @@ function runTokenProcess {
 	#it should almost never fail, even not for nonexisting namespaces
 	#and we already did some tests above
 
-	runB b_ipcm_get "nonexistingkey"
+	runSL b_ipcm_get "nonexistingkey"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcm_get "nonexistingkey" "foo fallback"
+	runSL b_ipcm_get "nonexistingkey" "foo fallback"
 	[ $status -eq 0 ]
 	[[ "$output" == "foo fallback" ]]
 
 	b_ipcm_setNamespace "nonexisting"
 
-	runB b_ipcm_get "$T_IPCM_KEY"
+	runSL b_ipcm_get "$T_IPCM_KEY"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcm_get "$T_IPCM_KEY" "fb"
+	runSL b_ipcm_get "$T_IPCM_KEY" "fb"
 	[ $status -eq 0 ]
 	[[ "$output" == "fb" ]]
 
@@ -172,42 +172,42 @@ function runTokenProcess {
 
 @test "b_ipcm_unsetNamespace" {
 	#make sure there's something to unset
-	runB b_ipcm_change "$T_IPCM_KEY" "changeTo 666 0"
+	runSL b_ipcm_change "$T_IPCM_KEY" "changeTo 666 0"
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "666" ]]
 
-	runB b_ipcm_get "$T_IPCM_KEY"
+	runSL b_ipcm_get "$T_IPCM_KEY"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 
-	runB b_ipcm_unsetNamespace "$T_IPCM_NS"
+	runSL b_ipcm_unsetNamespace "$T_IPCM_NS"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcm_get "$T_IPCM_KEY"
+	runSL b_ipcm_get "$T_IPCM_KEY"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcm_get "$T_IPCM_KEY" "fb"
+	runSL b_ipcm_get "$T_IPCM_KEY" "fb"
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "fb" ]]
 
-	runB b_ipcm_unsetNamespace "$T_IPCM_NS" 1
+	runSL b_ipcm_unsetNamespace "$T_IPCM_NS" 1
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcm_get "$T_IPCM_KEY"
+	runSL b_ipcm_get "$T_IPCM_KEY"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcm_get "$T_IPCM_KEY" "fb"
+	runSL b_ipcm_get "$T_IPCM_KEY" "fb"
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "fb" ]]

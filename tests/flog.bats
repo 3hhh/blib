@@ -81,7 +81,7 @@ function createSample01 {
 	
 	for (( i=$s;i<$e;i++)) ; do
 		local sev="$(getSample01Severity $i)"
-		runB b_flog_log "Msg $i " "$sev"
+		runSL b_flog_log "Msg $i " "$sev"
 		[ $status -eq $eStatus ]
 		if [ $status -eq 0 ] ; then
 			[ -z "$output" ]
@@ -156,7 +156,7 @@ function runValid01Tests {
 	local checkDiff="${2:-0}"
 
 	#default header
-	#NOTE: we cannot use runB on b_flog_init as that would do the init in some subprocess (i.e. we couldn't use follow-up commands)
+	#NOTE: we cannot use runSL on b_flog_init as that would do the init in some subprocess (i.e. we couldn't use follow-up commands)
 	b_flog_init "$logFile"
 	#if it fails, it'll automatically fail this test due to -e
 	
@@ -212,7 +212,7 @@ function runValid01Tests {
 }
 
 @test "valid file logging" {
-	#testing stdout & err diffs doesn't make much sense atm as bats redirects them to a file itself and that file contains both outputs incl. the ones from our test --> hard to compare against anything --> runB without diff
+	#testing stdout & err diffs doesn't make much sense atm as bats redirects them to a file itself and that file contains both outputs incl. the ones from our test --> hard to compare against anything --> runSL without diff
 	runValid01Tests "$(mktemp)"
 }
 
@@ -225,14 +225,14 @@ function runValid01Tests {
 }
 
 @test "log without init" {
-	runB b_flog_log "foo log entry"
+	runSL b_flog_log "foo log entry"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 }
 
 @test "b_flog_close" {
 	#without init
-	runB b_flog_close
+	runSL b_flog_close
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
@@ -246,44 +246,44 @@ function runValid01Tests {
 @test "getters and setters" {
 	b_flog_setDateFormat "%s"
 
-	runB b_flog_getDateFormat
+	runSL b_flog_getDateFormat
 	[ $status -eq 0 ]
 	[[ "$output" == "%s" ]]
 
 	b_flog_setHeaderFunction "holy moly"
 
-	runB b_flog_getHeaderFunction
+	runSL b_flog_getHeaderFunction
 	[ $status -eq 0 ]
 	[[ "$output" == "holy moly" ]]
 
 	b_flog_setLogReductionLinesApprox 200
 
-	runB b_flog_getLogReductionLinesLowerBound
+	runSL b_flog_getLogReductionLinesLowerBound
 	[ $status -eq 0 ]
 	[[ "$output" == "160" ]]
 	
-	runB b_flog_getLogReductionLinesUpperBound
+	runSL b_flog_getLogReductionLinesUpperBound
 	[ $status -eq 0 ]
 	[[ "$output" == "240" ]]
 
 	b_flog_setLogReductionLinesLowerBound 12
 	b_flog_setLogReductionLinesUpperBound -1
 
-	runB b_flog_getLogReductionLinesLowerBound
+	runSL b_flog_getLogReductionLinesLowerBound
 	[ $status -eq 0 ]
 	[[ "$output" == "12" ]]
 
-	runB b_flog_getLogReductionLinesUpperBound
+	runSL b_flog_getLogReductionLinesUpperBound
 	[ $status -eq 0 ]
 	[[ "$output" == "-1" ]]
 
 	b_flog_setLogReductionLinesLowerBound -20
 
-	runB b_flog_getLogReductionLinesLowerBound
+	runSL b_flog_getLogReductionLinesLowerBound
 	[ $status -eq 0 ]
 	[[ "$output" == "-20" ]]
 
-	runB b_flog_setLogReductionLinesApprox -1
+	runSC b_flog_setLogReductionLinesApprox -1
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
@@ -301,7 +301,7 @@ B_ERR="$1" ; B_E
 	echo 1
 
 	#without init
-	runB createError "error! fatal!"
+	runSL createError "error! fatal!"
 	echo 2
 	[ $status -ne 0 ]
 	[ -n "$output" ]
@@ -310,7 +310,7 @@ B_ERR="$1" ; B_E
 	#with init
 	local logFile="$(mktemp)"
 	b_flog_init "$logFile" "b_flog_headerDateSeverity"
-	runB createError "error! fatal!"
+	runSL createError "error! fatal!"
 	echo 3
 	echo "STAT: $status"
 	echo "OUT: $output"
@@ -322,7 +322,7 @@ B_ERR="$1" ; B_E
 	#with different sev
 	b_flog_init "$logFile" "b_flog_headerDateSeverity"
 	b_setErrorHandler "b_flog_errorHandler 0 1 1 0 1 ${B_FLOG_SEV["emergency"]}"
-	runB createError "super fatal error"
+	runSL createError "super fatal error"
 	echo 4
 	[ $status -ne 0 ]
 	[ -z "$output" ]

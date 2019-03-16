@@ -19,35 +19,35 @@ function setup {
 	local raw2='?hallo!we&%lt"my friendZ$?0'
 	local enc2='%3Fhallo%21we%26%25lt%22my%20friendZ%24%3F0'
 
-	runB b_http_rawUrlEncode ""
+	runSL b_http_rawUrlEncode ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_http_rawUrlDecode ""
+	runSL b_http_rawUrlDecode ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_http_rawUrlEncode "$raw1"
+	runSL b_http_rawUrlEncode "$raw1"
 	[ $status -eq 0 ]
 	[[ "$output" == "$enc1" ]]
 
-	runB b_http_rawUrlEncode "$raw2"
+	runSL b_http_rawUrlEncode "$raw2"
 	[ $status -eq 0 ]
 	[[ "$output" == "$enc2" ]]
 
-	runB b_http_rawUrlEncode "$enc1"
+	runSL b_http_rawUrlEncode "$enc1"
 	[ $status -eq 0 ]
 	local encoded="$output"
 
-	runB b_http_rawUrlDecode "$encoded"
+	runSL b_http_rawUrlDecode "$encoded"
 	[ $status -eq 0 ]
 	[[ "$output" == "$enc1" ]]
 
-	runB b_http_rawUrlDecode "$enc1"
+	runSL b_http_rawUrlDecode "$enc1"
 	[ $status -eq 0 ]
 	[[ "$output" == "$raw1" ]]
 
-	runB b_http_rawUrlDecode "$enc2"
+	runSL b_http_rawUrlDecode "$enc2"
 	[ $status -eq 0 ]
 	[[ "$output" == "$raw2" ]]
 }
@@ -55,7 +55,7 @@ function setup {
 @test "b_http_getOnlineStatus" {
 	skipIfNoUserData
 
-	runB b_http_getOnlineStatus
+	runSL b_http_getOnlineStatus
 	[ -z "$output" ]
 	if [[ "$UTD_ONLINE" == "no" ]] ; then
 		[ $status -ne 0 ]
@@ -65,7 +65,7 @@ function setup {
 
 	B_HTTP_CHECKURLS=( "https://nonexisting.nonexisting" )
 
-	runB b_http_getOnlineStatus
+	runSL b_http_getOnlineStatus
 	[ -z "$output" ]
 	[ $status -eq 2 ]
 }

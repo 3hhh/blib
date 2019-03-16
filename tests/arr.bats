@@ -16,49 +16,49 @@ function setup {
 testArr1=("this is" "a test entry" "4" "my dear friends!")
 
 @test "b_arr_join" {
-	runB b_arr_join ";-)" "${testArr1[@]}"
+	runSL b_arr_join ";-)" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[[ "$output" == "this is;-)a test entry;-)4;-)my dear friends!" ]]
 
-	runB b_arr_join ";" "${testArr1[@]}"
+	runSL b_arr_join ";" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[[ "$output" == "this is;a test entry;4;my dear friends!" ]]
 
-	runB b_arr_join "" "${testArr1[@]}"
+	runSL b_arr_join "" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[[ "$output" == "this isa test entry4my dear friends!" ]]
 
-	runB b_arr_join "MEGA" ""
+	runSL b_arr_join "MEGA" ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
 
 @test "b_arr_contains" {
-	runB b_arr_contains "this" "${testArr1[@]}"
+	runSL b_arr_contains "this" "${testArr1[@]}"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_contains "this is" "${testArr1[@]}"
+	runSL b_arr_contains "this is" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_contains "4" "${testArr1[@]}"
+	runSL b_arr_contains "4" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_contains "my dear friends!" "${testArr1[@]}"
+	runSL b_arr_contains "my dear friends!" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_contains "!" "${testArr1[@]}"
+	runSL b_arr_contains "!" "${testArr1[@]}"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_contains "this is even" "${testArr1[@]}"
+	runSL b_arr_contains "this is even" "${testArr1[@]}"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_contains "this is even" ""
+	runSL b_arr_contains "this is even" ""
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 }
@@ -77,55 +77,55 @@ testArr1=("this is" "a test entry" "4" "my dear friends!")
 	declare -A t6=( ["diffkey"]=42 ["holy moly"]="foo bar" [evil]=666  )
 	t6Spec="$(declare -p "t6")"
 
-	runB b_arr_mapsAreEqual "$t1Spec" "$t2Spec"
+	runSL b_arr_mapsAreEqual "$t1Spec" "$t2Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t2Spec" "$t1Spec"
+	runSL b_arr_mapsAreEqual "$t2Spec" "$t1Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t1Spec" "$t1Spec"
+	runSL b_arr_mapsAreEqual "$t1Spec" "$t1Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t2Spec" "$t2Spec"
+	runSL b_arr_mapsAreEqual "$t2Spec" "$t2Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t3Spec" "$t3Spec"
+	runSL b_arr_mapsAreEqual "$t3Spec" "$t3Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t1Spec" "$t3Spec"
+	runSL b_arr_mapsAreEqual "$t1Spec" "$t3Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t3Spec" "$t1Spec"
+	runSL b_arr_mapsAreEqual "$t3Spec" "$t1Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t1Spec" "$t5Spec"
+	runSL b_arr_mapsAreEqual "$t1Spec" "$t5Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t5Spec" "$t1Spec"
+	runSL b_arr_mapsAreEqual "$t5Spec" "$t1Spec"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t3Spec" "$t4Spec"
+	runSL b_arr_mapsAreEqual "$t3Spec" "$t4Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t4Spec" "$t3Spec"
+	runSL b_arr_mapsAreEqual "$t4Spec" "$t3Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t6Spec" "$t5Spec"
+	runSL b_arr_mapsAreEqual "$t6Spec" "$t5Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_arr_mapsAreEqual "$t5Spec" "$t6Spec"
+	runSL b_arr_mapsAreEqual "$t5Spec" "$t6Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 }

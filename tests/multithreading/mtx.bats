@@ -24,7 +24,7 @@ function runSingleMutexTest {
 
 	#1st try should obtain the mutex
 	echo "1.1"
-	runB b_mtx_try "$mutex"
+	runSL b_mtx_try "$mutex"
 	[ -d "$mutex" ]
 	[ $status -eq 0 ]
 	[ -n "$output" ]
@@ -32,62 +32,62 @@ function runSingleMutexTest {
 
 	#2nd try with the same block Id should work (we have the mutex already)
 	echo "1.2"
-	runB b_mtx_try "$mutex"
+	runSL b_mtx_try "$mutex"
 	[ -d "$mutex" ]
 	[ $status -eq 0 ]
 	[[ "$output" == "$t1Ret" ]]
 
 	#different block ID/process ID should fail
 	echo "2"
-	runB b_mtx_try "$mutex" 1
+	runSL b_mtx_try "$mutex" 1
 	[ $status -eq 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 
 	#further tries that should fail with varying params
 	echo "3"
-	runB b_mtx_try "$mutex" "foo"
+	runSL b_mtx_try "$mutex" "foo"
 	[ $status -eq 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 	echo "4"
-	runB b_mtx_try "$mutex" 666 1
+	runSL b_mtx_try "$mutex" 666 1
 	[ $status -eq 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 	echo "5"
-	runB b_mtx_try "$mutex" "$PPID"
+	runSL b_mtx_try "$mutex" "$PPID"
 	[ $status -eq 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 
 	#totally invalid
 	echo "6"
-	runB b_mtx_try "/tmp"
+	runSL b_mtx_try "/tmp"
 	[ $status -ne 0 ]
 	[ $status -ne 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 	echo "7"
-	runB b_mtx_try "/tmp" "888888"
+	runSL b_mtx_try "/tmp" "888888"
 	[ $status -ne 0 ]
 	[ $status -ne 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 	echo "8"
-	runB b_mtx_try "/tmp" "" 1
+	runSL b_mtx_try "/tmp" "" 1
 	[ $status -ne 0 ]
 	[ $status -ne 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 	echo "9"
-	runB b_mtx_try "/tmp" "1"
+	runSL b_mtx_try "/tmp" "1"
 	[ $status -ne 0 ]
 	[ $status -ne 1 ]
 	[ -n "$output" ]
 	[ -d "$mutex" ]
 	echo "10"
-	runB b_mtx_try "/tmp" "$$"
+	runSL b_mtx_try "/tmp" "$$"
 	[ $status -ne 0 ]
 	[ $status -ne 1 ]
 	[ -n "$output" ]
@@ -95,21 +95,21 @@ function runSingleMutexTest {
 	echo "11"
 
 	#temp release
-	runB b_mtx_forceRelease "$mutex"
+	runSL b_mtx_forceRelease "$mutex"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	[ ! -e $mutex ]
 	echo "12"
 
 	#test stale mutex with imaginary block ID/pid
-	runB b_mtx_try "$mutex" 9999999
+	runSL b_mtx_try "$mutex" 9999999
 	[ -d "$mutex" ]
 	[ $status -eq 0 ]
 	[[ "$output" == "b_mtx_release"* ]]
 	echo "13"
 
 	#it should fail without "claim stale"
-	runB b_mtx_try "$mutex" "" 1
+	runSL b_mtx_try "$mutex" "" 1
 	[ -d "$mutex" ]
 	[ $status -ne 0 ]
 	[ -n "$output" ]
@@ -117,7 +117,7 @@ function runSingleMutexTest {
 	echo "14"
 
 	#now the mutex is "stale" as there's no such pid, i.e. we should be able to obtain it with our block ID/pid:
-	runB b_mtx_try "$mutex" "" 0
+	runSL b_mtx_try "$mutex" "" 0
 	[ -d "$mutex" ]
 	[ $status -eq 0 ]
 	[ -n "$output" ]
@@ -126,7 +126,7 @@ function runSingleMutexTest {
 	#cleanup: test the callback function (b_mtx_release)
 	if [ $cleanup -eq 0 ] ; then
 		#test the trap callback
-		runB eval "$t1Ret"
+		runSL eval "$t1Ret"
 		[ $status -eq 0 ]
 		[ -z "$output" ]
 		[ ! -e "$mutex" ]
@@ -137,7 +137,7 @@ function runSingleMutexTest {
 }
 
 @test "b_mtx_create" {
-	runB b_mtx_create
+	runSL b_mtx_create
 	[ $status -eq 0 ]
 	[[ "$output" == "/tmp/"* ]]
 	[ ! -e "$output" ]
@@ -145,7 +145,7 @@ function runSingleMutexTest {
 	local base="$(mktemp -d)"
 	local base2="$base/ some spaces"
 
-	runB b_mtx_create "$base2"
+	runSL b_mtx_create "$base2"
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "$base2/"* ]]
@@ -189,7 +189,7 @@ function fileWriter {
 	#echo "$mutex $blockId Started." >> /tmp/mtx.log
 
 	#get mutex
-	runB b_mtx_waitFor "$mutex" "$blockId" "$@"
+	runSL b_mtx_waitFor "$mutex" "$blockId" "$@"
 	#echo "$mutex $blockId wait passed. status: $status output $output" >> /tmp/mtx.log
 	echo "$blockId WAIT OUTPUT: $output WAIT END"
 	echo "$blockId WAIT STATUS: $status"
@@ -206,7 +206,7 @@ function fileWriter {
 
 	#release mutex
 	echo "$blockId fw2"
-	runB eval "$relOut"
+	runSL eval "$relOut"
 	#echo "$mutex $blockId Released" >> /tmp/mtx.log
 	[ $status -eq 0 ]
 	echo "$blockId fw3"
@@ -254,7 +254,7 @@ function assertOutFileOk {
 
 	#test timeout incl. time measurements
 	#get the mutex
-	runB b_mtx_waitFor "$mtx"
+	runSL b_mtx_waitFor "$mtx"
 	[ $status -eq 0 ]
 	echo 1
 	[[ "$output" == "b_mtx_release "* ]]
@@ -262,7 +262,7 @@ function assertOutFileOk {
 	echo 2
 	#try to get it again with a timeout, this time as pid=1
 	local startTime="$(date +%s%3N)"
-	runB b_mtx_waitFor "$mtx" 1 0 1000
+	runSL b_mtx_waitFor "$mtx" 1 0 1000
 	local endTime="$(date +%s%3N)"
 	local diff=$(( $endTime - $startTime ))
 	echo 3
@@ -274,7 +274,7 @@ function assertOutFileOk {
 	[ $diff -gt 500 ]
 
 	local startTime="$(date +%s%3N)"
-	runB b_mtx_waitFor "$mtx" 1 0 500
+	runSL b_mtx_waitFor "$mtx" 1 0 500
 	local endTime="$(date +%s%3N)"
 	local diff=$(( $endTime - $startTime ))
 	[ $status -eq 1 ]
@@ -285,7 +285,7 @@ function assertOutFileOk {
 	[ $diff -gt 100 ]
 
 	#cleanup
-	runB b_mtx_release "$mtx"
+	runSL b_mtx_release "$mtx"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	[ ! -e "$mtx" ]
@@ -305,7 +305,7 @@ function assertOutFileOk {
 
 	#default param run
 	#NOTE: we set claim stale = 0/true for some more hardcore testing - this isn't recommended for users, but should work anyway
-	echo "Starting swarm runB 1:"
+	echo "Starting swarm runSL 1:"
 	runFileWriterSwarm $numThreads "$out" "$line" "$mtx" 0
 	echo "Done."
 	assertOutFileOk "$out" $numThreads "$line"

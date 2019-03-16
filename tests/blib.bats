@@ -15,7 +15,7 @@ function setup {
 VERSION_STR_REGEX='[0-9\.]+'
 
 @test "library usage: general" {
-	runB source "$BLIB"
+	runSC source "$BLIB"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
@@ -30,11 +30,11 @@ VERSION_STR_REGEX='[0-9\.]+'
 }
 
 @test "b_printStackTrace" {
-	runB b_printStackTrace 0
+	runSL b_printStackTrace 0
 	[ $status -eq 0 ]
 	[[ "$output" == *"b_printStackTrace"* ]]
 
-	runB b_printStackTrace
+	runSL b_printStackTrace
 	[ $status -eq 0 ]
 	[[ "$output" != *"b_printStackTrace"* ]]
 }
@@ -175,12 +175,12 @@ function testErrorSituation {
 
 	testGetterSetter "b_setErrorHandler" "testErrHandler $reaction" 1
 
-	runB b_getErrorHandler
+	runSL b_getErrorHandler
 	[ $status -eq 0 ]
 	[[ "$output" == "testErrHandler $reaction" ]]
 
 	echo "straight error test"
-	runB straightError
+	runSL straightError
 	echo "STAT: $status"
 	echo "OUT: $output"
 	if [ $reaction -ne 0 ] ; then
@@ -195,14 +195,14 @@ function testErrorSituation {
 		local func="errorCond$i"
 
 		echo "normal: $func $err"
-		runB $func "$err"
+		runSL $func "$err"
 		echo "STAT: $status"
 		echo "OUT: $output"
 		[ $status -eq $eStatus ]
 		[[ "$output" == "$eStatusStr $func" ]]
 
 		echo "nested: $func $err"
-		runB nestedErrorCond "$func" "$err"
+		runSL nestedErrorCond "$func" "$err"
 		echo "STAT: $status"
 		echo "OUT: $output"
 		case $reaction in
@@ -246,11 +246,11 @@ function testAllErrorSituations {
 
 @test "error handling: B_E, B_ERR, b_setErrorHandler" {
 	#do we have aliases available?
-	runB shopt -p expand_aliases
+	runSL shopt -p expand_aliases
 	[ $status -eq 0 ]
 	[[ "$output" == "shopt -s expand_aliases" ]]
 	
-	runB alias B_E
+	runSL alias B_E
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 
@@ -264,14 +264,14 @@ function testAllErrorSituations {
 	B_RC=1
 }
 
-function runBE {
+function runSLE {
 	B_E
 }
 
 @test "chained errors" {
 	#some chained errors followed by a non-error condition **must** cause B_E to exit on the non-error as B_ERR should still be filled
 	
-	#runB in this environment:
+	#runSL in this environment:
 	b_setBE 1
 	set +e
 	errorCond5 0
@@ -285,7 +285,7 @@ function runBE {
 
 	echo 2
 	#this should cause an error:
-	runB runBE
+	runSL runSLE
 	[ $status -ne 0 ]
 	echo 2.2
 	[[ "$output" == *"$oldErr"* ]]
@@ -293,39 +293,39 @@ function runBE {
 	echo 3
 	[ 1 -eq 1 ] || B_ERR="Never happens."
 	#this should also cause an error:
-	runB runBE
+	runSL runSLE
 	[ $status -ne 0 ]
 	echo 3.2
 	[[ "$output" == *"$oldErr"* ]]
 }
 
 @test "b_defaultErrorHandler" {
-	runB "b_defaultErrorHandler" 0 0 0
+	runSL "b_defaultErrorHandler" 0 0 0
 	[ $status -eq 2 ]
 	[[ "$output" == *"ERROR"* ]]
 	[[ "$output" == *"Stack Trace"* ]]
 
-	runB "b_defaultErrorHandler" 1 0 0
+	runSL "b_defaultErrorHandler" 1 0 0
 	[ $status -eq 1 ]
 	[[ "$output" == *"ERROR"* ]]
 	[[ "$output" == *"Stack Trace"* ]]
 
-	runB "b_defaultErrorHandler" 0 1 0
+	runSL "b_defaultErrorHandler" 0 1 0
 	[ $status -eq 2 ]
 	[[ "$output" != *"ERROR"* ]]
 	[[ "$output" == *"Stack Trace"* ]]
 
-	runB "b_defaultErrorHandler" 0 0 1
+	runSL "b_defaultErrorHandler" 0 0 1
 	[ $status -eq 2 ]
 	[[ "$output" == *"ERROR"* ]]
 	[[ "$output" != *"Stack Trace"* ]]
 
-	runB "b_defaultErrorHandler" 0 1 1
+	runSL "b_defaultErrorHandler" 0 1 1
 	[ $status -eq 2 ]
 	[ -z "$output" ]
 }
 
-#should be run with runB
+#should be run with runSL
 function testResetErrorHandler {
 	local cur=""
 	local i=
@@ -353,7 +353,7 @@ function testResetErrorHandler {
 }
 
 @test "b_resetErrorHandler" {
-	runB testResetErrorHandler
+	runSL testResetErrorHandler
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
@@ -369,11 +369,11 @@ function loudFunc {
 }
 
 @test "b_silence" {
-	runB b_silence "loudFunc" 1
+	runSL b_silence "loudFunc" 1
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_silence "loudFunc" 0
+	runSL b_silence "loudFunc" 0
 	[ $status -ne 0 ]
 	[[ "$output" == "ERROR: loudFunc errored out."$'\n'"Stack Trace:"* ]]
 
@@ -396,55 +396,55 @@ function loudFunc {
 
 @test "b_info" {
 	local info="foo bar"
-	runB b_info "$info"
+	runSL b_info "$info"
 	[ $status -eq 0 ]
 	[[ "$output" == *"$info"* ]]
 }
 
 @test "b_version" {
-	runB b_version
+	runSL b_version
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	[[ "$output" =~ $VERSION_STR_REGEX ]]
 
-	runB b_version 1
+	runSL b_version 1
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	[[ "$output" =~ [0-9]+ ]]
 
-	runB b_version 2
+	runSL b_version 2
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	[[ "$output" =~ [0-9]+ ]]
 }
 
 @test "b_enforceUser" {
-	runB b_enforceUser "non existent blal user"
+	runSL b_enforceUser "non existent blal user"
 	echo "out: $output"
 	[ $status -ne 0 ]
 
-	runB b_enforceUser "$(whoami)"
+	runSL b_enforceUser "$(whoami)"
 	echo "out: $output"
 	[ $status -eq 0 ]
 }
 
 @test "b_isFunction" {
-	runB b_isFunction "non existent func"
+	runSL b_isFunction "non existent func"
 	[ $status -ne 0 ]
 	
-	runB b_isFunction "non_existent_func"
+	runSL b_isFunction "non_existent_func"
 	[ $status -ne 0 ]
 
 	local testvar="foo"
-	runB b_isFunction testvar
+	runSL b_isFunction testvar
 	[ $status -ne 0 ]
 
-	runB b_isFunction "b_isFunction"
+	runSL b_isFunction "b_isFunction"
 	[ $status -eq 0 ]
 }
 
 @test "b_getBlibModules" {
-	runB b_getBlibModules
+	runSL b_getBlibModules
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 }
@@ -462,34 +462,34 @@ end?
 no!
 EOF
 set -e
-	runB b_listContains "$testList" "foo"
+	runSL b_listContains "$testList" "foo"
 	[ $status -eq 0 ]
 
-	runB b_listContains "$testList" "mother"
+	runSL b_listContains "$testList" "mother"
 	[ $status -ne 0 ]
 
-	runB b_listContains "$testList" "elem 2"
+	runSL b_listContains "$testList" "elem 2"
 	[ $status -eq 0 ]
 
-	runB b_listContains "$testList" ""
+	runSL b_listContains "$testList" ""
 	[ $status -ne 0 ]
 
-	runB b_listContains "$testList" " "
+	runSL b_listContains "$testList" " "
 	[ $status -ne 0 ]
 
-	runB b_listContains "$testList" "no!"
+	runSL b_listContains "$testList" "no!"
 	[ $status -eq 0 ]
 
-	runB b_listContains "$testList" "this is elem 1"
+	runSL b_listContains "$testList" "this is elem 1"
 	[ $status -eq 0 ]
 
-	runB b_listContains "$testList" "this is not elem 1"
+	runSL b_listContains "$testList" "this is not elem 1"
 	[ $status -ne 0 ]
 
-	runB b_listContains "$testList" " this is elem 1"
+	runSL b_listContains "$testList" " this is elem 1"
 	[ $status -ne 0 ]
 
-	runB b_listContains "$testList" "this is elem 1 "
+	runSL b_listContains "$testList" "this is elem 1 "
 	[ $status -ne 0 ]
 }
 
@@ -512,90 +512,90 @@ EOF
 
 set -e
 
-	runB b_checkDeps "bash"
+	runSL b_checkDeps "bash"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_checkDeps ""
+	runSL b_checkDeps ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_checkDeps "$testDeps"
+	runSL b_checkDeps "$testDeps"
 	[ $status -ne 0 ]
 	[[ "$output" == "$unmetDepsExpected" ]]
 }
 
 @test "b_blib_getDeps" {
-	runB b_blib_getDeps
+	runSL b_blib_getDeps
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 }
 
 @test "b_isModule" {
-	runB b_isModule
+	runSL b_isModule
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "cdoc"
+	runSL b_isModule "cdoc"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "os/osid"
+	runSL b_isModule "os/osid"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "blib"
+	runSL b_isModule "blib"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "foo/bar/holy"
+	runSL b_isModule "foo/bar/holy"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "blibnonexistent"
+	runSL b_isModule "blibnonexistent"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "blib nonexistent"
+	runSL b_isModule "blib nonexistent"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_isModule "holy moly"
+	runSL b_isModule "holy moly"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 }
 
 @test "b_import" {
-	runB b_import "non existing module"
+	runSL b_import "non existing module"
 	[ $status -ne 0 ]
 
-	runB b_import "non existing module" 0
+	runSL b_import "non existing module" 0
 	[ $status -ne 0 ]
 
-	runB b_import "non existing module" 1
+	runSL b_import "non existing module" 1
 	[ $status -ne 0 ]
 
-	runB b_import "ini" 0
+	runSC b_import "ini" 0
 	[ $status -eq 0 ]
 
 	#2nd try should be ok as well
-	runB b_import "ini" 0
+	runSC b_import "ini" 0
 	[ $status -eq 0 ]
 
 	#3rd with double source should also be ok
-	runB b_import "ini" 1
+	runSC b_import "ini" 1
 	[ $status -eq 0 ]
 
-	runB b_import "blib" 1
+	runSC b_import "blib" 1
 	[ $status -ne 0 ]
 
-	runB b_import "blib"
+	runSC b_import "blib"
 	[ $status -ne 0 ]
 
-	runB b_import "os/osid"
+	runSC b_import "os/osid"
 	[ $status -eq 0 ]
 
-	runB b_import "os/osid" 1
+	runSC b_import "os/osid" 1
 	[ $status -eq 0 ]
 }
 
@@ -620,14 +620,14 @@ function testGenerateStandaloneSucc {
 	
 	#generate file
 	echo a
-	runB b_generateStandalone "$@"
+	runSL b_generateStandalone "$@"
 	echo "$output" > "$codeFile"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 
-	#runB the generated file
+	#runSL the generated file
 	echo b
-	runB bash "$codeFile"
+	runSL bash "$codeFile"
 	echo "$output" > "$outFile"
 	[ $status -eq $eStatus ]
 	[ -n "$output" ]
@@ -649,14 +649,14 @@ function testGenerateStandaloneSucc {
 
 	#generate file
 	echo e
-	runB b_generateStandalone "$func" "$@"
+	runSL b_generateStandalone "$func" "$@"
 	echo "$output" > "$codeFile"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 
-	#runB the generated file
+	#runSL the generated file
 	echo f
-	runB bash "$codeFile" "${pars[@]}"
+	runSL bash "$codeFile" "${pars[@]}"
 	echo "$output" > "$outFile"
 	[ $status -eq $eStatus ]
 	[ -n "$output" ]
@@ -708,18 +708,18 @@ function genRecursionFunc {
 
 @test "b_generateStandalone" {
 	#some fail conditions
-	runB b_generateStandalone "non_existent_func" "func param 1" "func param 2" - "fs" -
+	runSL b_generateStandalone "non_existent_func" "func param 1" "func param 2" - "fs" -
 	[ $status -ne 0 ]
-	runB b_generateStandalone "b_isModule" "fs" - "non-existent-module" - "depB"
+	runSL b_generateStandalone "b_isModule" "fs" - "non-existent-module" - "depB"
 	[ $status -ne 0 ]
-	runB b_generateStandalone "b_isModule" "fs" - "fs" - "non-existent-func"
+	runSL b_generateStandalone "b_isModule" "fs" - "fs" - "non-existent-func"
 	[ $status -ne 0 ]
 
 	#success conditions
-	runB b_generateStandalone "b_isModule" "fs" - -
+	runSL b_generateStandalone "b_isModule" "fs" - -
 	[ $status -eq 0 ]
 	#skipping the -
-	runB b_generateStandalone "b_isModule" "fs"
+	runSL b_generateStandalone "b_isModule" "fs"
 	[ $status -eq 0 ]
 
 	local outFile1="$(mktemp)"
@@ -755,66 +755,66 @@ function meFunc {
 @test "b_execFuncAs" {
 	[ -z "$UTD_PW_FREE_USER" ] && skip "UTD_PW_FREE_USER would have to be specified in the user test data file $USER_DATA_FILE for this to work."
 
-	runB whoami
+	runSL whoami
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	local curUser="$output"
 
 	#some failing tests
-	runB b_execFuncAs "$UTD_PW_FREE_USER" "nonExistingFunc" - -
+	runSL b_execFuncAs "$UTD_PW_FREE_USER" "nonExistingFunc" - -
 	[ $status -ne 0 ]
-	runB b_execFuncAs "$curUser" "nonExistingFunc" - -
+	runSL b_execFuncAs "$curUser" "nonExistingFunc" - -
 	[ $status -ne 0 ]
-	runB b_execFuncAs "nonExistingUser" "nonExistingFunc" - -
+	runSL b_execFuncAs "nonExistingUser" "nonExistingFunc" - -
 	[ $status -ne 0 ]
-	runB b_execFuncAs "nonExistingUser" "meFunc" - -
+	runSL b_execFuncAs "nonExistingUser" "meFunc" - -
 	[ $status -ne 0 ]
 
 	#successful tests
 	
 	#NOTE: we don't need to test it in depth as b_generateStandalone is used internally --> only the user switching is relevant
-	runB b_execFuncAs "$UTD_PW_FREE_USER" "meFunc" "Yes" "Or?" - -
+	runSL b_execFuncAs "$UTD_PW_FREE_USER" "meFunc" "Yes" "Or?" - -
 	[ $status -eq 0 ]
 	[[ "$output" == "Yes_ME IS_${UTD_PW_FREE_USER}_YES ITS_ME_Or?" ]]
 
 	#it should also behave fine with the current user (even if it doesn't make sense)
-	runB b_execFuncAs "$curUser" "meFunc" "Yes" "Or?" - -
+	runSL b_execFuncAs "$curUser" "meFunc" "Yes" "Or?" - -
 	[ $status -eq 0 ]
 	[[ "$output" == "Yes_ME IS_${curUser}_YES ITS_ME_Or?" ]]
 
-	runB b_execFuncAs "$curUser" "b_fs_getLineCount" "/etc/passwd" - "fs" - "b_fs_getLastModifiedInDays"
+	runSC b_execFuncAs "$curUser" "b_fs_getLineCount" "/etc/passwd" - "fs" - "b_fs_getLastModifiedInDays"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	[ $output -gt 0 ]
 }
 
 @test "command line usage: general" {
-	runB "$BLIB"
+	runSL "$BLIB"
 	[[ "${lines[0]}" == "Usage: blib [command] [command parameters]" ]]
 	[ $status -ne 0 ]
 
-	runB "$BLIB" help
+	runSL "$BLIB" help
 	[[ "${lines[0]}" == "Usage: blib [command] [command parameters]" ]]
 	[ $status -ne 0 ]
 
-	runB "$BLIB" "foo"
+	runSL "$BLIB" "foo"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB "$BLIB" "foo" "bar"
+	runSL "$BLIB" "foo" "bar"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 }
 
 @test "command line usage: version" {
-	runB "$BLIB" version
+	runSL "$BLIB" version
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	[[ "$output" =~ $VERSION_STR_REGEX ]]
 }
 
 @test "command line usage: info" {
-	runB "$BLIB" "info" "blib"
+	runSL "$BLIB" "info" "blib"
 	[ $status -eq 0 ]
 	echo 1
 	[[ "$output" == *"blib"* ]]
@@ -830,7 +830,7 @@ function meFunc {
 	[[ "$output" == *"dirname"* ]]
 	echo 6
 
-	runB "$BLIB" "info" "os/qubes4/dom0"
+	runSL "$BLIB" "info" "os/qubes4/dom0"
 	[ $status -eq 0 ]
 	echo 7
 	[[ "$output" == *"os/qubes4/dom0"* ]]
@@ -843,7 +843,7 @@ function meFunc {
 	[[ "$output" == *"qvm-prefs"* ]]
 	echo 10
 
-	runB "$BLIB" "info" "http"
+	runSL "$BLIB" "info" "http"
 	[ $status -eq 0 ]
 	[[ "$output" == *"Dependencies"* ]]
 	[[ "$output" == *"Functions"* ]]
@@ -853,22 +853,22 @@ function meFunc {
 	[[ "$output" == *"curl"* ]]
 	echo 12
 
-	runB "$BLIB" "blib" "invalid param"
+	runSL "$BLIB" "blib" "invalid param"
 	[ $status -ne 0 ]
 	echo 13
 
-	runB "$BLIB" "info" "non existent lib"
+	runSL "$BLIB" "info" "non existent lib"
 	[ $status -ne 0 ]
 }
 
 @test "command line usage: list" {
-	runB "$BLIB" "list"
+	runSL "$BLIB" "list"
 	[ $status -eq 0 ]
 	[[ "$output" == *"blib"* ]]
 	[[ "$output" == *"ini"* ]]
 	[[ "$output" == *"os/osid"* ]]
 
-	runB "$BLIB" "list" "invalid param"
+	runSL "$BLIB" "list" "invalid param"
 	[ $status -ne 0 ]
 }
 
@@ -884,7 +884,7 @@ function testGendoc {
 	[ -f "$out" ] && rm -f "$out"
 
 	echo a
-	runB "$BLIB" gendoc $format
+	runSL "$BLIB" gendoc $format
 	if [ $exp -eq 0 ]; then
 		[ $status -eq 0 ]
 		[ -f "$out" ]
@@ -907,7 +907,7 @@ function testGendoc {
 	[ -f "$outTest" ] && rm -f "$outTest"
 
 	echo d
-	runB "$BLIB" gendoc -t $format
+	runSL "$BLIB" gendoc -t $format
 	echo "$output"
 	if [ $exp -eq 0 ]; then
 		[ $status -eq 0 ]

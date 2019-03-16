@@ -22,70 +22,70 @@ function teardown {
 }
 
 @test "b_fs_isEmptyDir" {
-	runB b_fs_isEmptyDir "/this/should/not/exist"
+	runSL b_fs_isEmptyDir "/this/should/not/exist"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_fs_isEmptyDir "/tmp"
+	runSL b_fs_isEmptyDir "/tmp"
 	[ $status -eq 1 ]
 	[ -z "$output" ]
 
-	runB b_fs_isEmptyDir "/tmp/"
+	runSL b_fs_isEmptyDir "/tmp/"
 	[ $status -eq 1 ]
 	[ -z "$output" ]
 
-	runB b_fs_isEmptyDir "/etc/hosts"
+	runSL b_fs_isEmptyDir "/etc/hosts"
 	#maybe somewhat strange, but this _directory_ doesn't exist (the file does)
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_fs_isEmptyDir "/etc/hosts/"
+	runSL b_fs_isEmptyDir "/etc/hosts/"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	#maybe somewhat strange, but this _directory_ doesn't exist (the file does)
-	runB b_fs_isEmptyDir "$EMPTY_TEST_FILE"
+	runSL b_fs_isEmptyDir "$EMPTY_TEST_FILE"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_fs_isEmptyDir "$EMPTY_TEST_DIR"
+	runSL b_fs_isEmptyDir "$EMPTY_TEST_DIR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
 
 @test "b_fs_getLastModifiedInDays" {
-	runB b_fs_getLastModifiedInDays "/tmp/doesntexist_we_hope"
+	runSL b_fs_getLastModifiedInDays "/tmp/doesntexist_we_hope"
 	[ $status -ne 0 ]
 
-	runB b_fs_getLastModifiedInDays "$EMPTY_TEST_FILE"
+	runSL b_fs_getLastModifiedInDays "$EMPTY_TEST_FILE"
 	[ $status -eq 0 ]
 	[ $output -eq 0 ]
 	
-	runB b_fs_getLastModifiedInDays "$EMPTY_TEST_DIR"
+	runSL b_fs_getLastModifiedInDays "$EMPTY_TEST_DIR"
 	[ $status -eq 0 ]
 	[ $output -eq 0 ]
 }
 
 @test "b_fs_getLineCount" {
-	runB b_fs_getLineCount "/tmp/nonexisting file !!"
+	runSL b_fs_getLineCount "/tmp/nonexisting file !!"
 	[ $status -ne 0 ]
 
-	runB b_fs_getLineCount "$EMPTY_TEST_DIR"
+	runSL b_fs_getLineCount "$EMPTY_TEST_DIR"
 	[ $status -ne 0 ]
 
-	runB b_fs_getLineCount "$EMPTY_TEST_FILE"
+	runSL b_fs_getLineCount "$EMPTY_TEST_FILE"
 	[ $status -eq 0 ]
 	[ $output -eq 0 ]
 
 	local testFile="$(mktemp)"
-	runB b_fs_getLineCount "$testFile"
+	runSL b_fs_getLineCount "$testFile"
 	[ $status -eq 0 ]
 	[ $output -eq 0 ]
 	
 	echo "line 1 foo bar!" >> "$testFile"
 	echo "line 2 foo bar!" >> "$testFile"
 	echo "line 3 foo bar!" >> "$testFile"
-	runB b_fs_getLineCount "$testFile"
+	runSL b_fs_getLineCount "$testFile"
 	[ $status -eq 0 ]
 	[ $output -eq 3 ]
 
@@ -110,19 +110,19 @@ function createFileAfter {
 
 	#already existing file
 	startTimer
-	runB b_fs_waitForFile "$tfile"
+	runSL b_fs_waitForFile "$tfile"
 	[ $(endTimer) -le 1 ]
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	startTimer
-	runB b_fs_waitForFile "$tfile" 1
+	runSL b_fs_waitForFile "$tfile" 1
 	[ $(endTimer) -le 1 ]
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	startTimer
-	runB b_fs_waitForFile "$tfile" 2
+	runSL b_fs_waitForFile "$tfile" 2
 	[ $(endTimer) -le 1 ]
 	[ $status -eq 0 ]
 	[ -z "$output" ]
@@ -137,7 +137,7 @@ function createFileAfter {
 	echo 4
 	[ $(endTimer) -le 1 ]
 	echo 5
-	runB b_fs_waitForFile "$tfile" 7
+	runSL b_fs_waitForFile "$tfile" 7
 	local end="$(endTimer)"
 	echo "out4: $output"
 	echo "end4: $end"
@@ -154,7 +154,7 @@ function createFileAfter {
 	echo c
 	[ $(endTimer) -le 1 ]
 	echo d
-	runB b_fs_waitForFile "$tfile"
+	runSL b_fs_waitForFile "$tfile"
 	end="$(endTimer)"
 	echo "out5: $output"
 	echo "end5: $end"
@@ -166,7 +166,7 @@ function createFileAfter {
 	#missing file, not created
 	rm -f "$tfile"
 	startTimer
-	runB b_fs_waitForFile "$tfile" 1
+	runSL b_fs_waitForFile "$tfile" 1
 	end="$(endTimer)"
 	echo "out6: $output"
 	echo "end6: $end"
@@ -183,38 +183,38 @@ function createFileAfter {
 @test "b_fs_getMountpoints" {
 	#invalid devices
 	echo 1
-	runB b_fs_getMountpoints "holymoly"
+	runSL b_fs_getMountpoints "holymoly"
 	[ $status -ne 0 ]
 	echo 2
-	runB b_fs_getMountpoints "/dev/holymoly"
+	runSL b_fs_getMountpoints "/dev/holymoly"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 3
-	runB b_fs_getMountpoints "/fooBROKEN"
+	runSL b_fs_getMountpoints "/fooBROKEN"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 4
-	runB b_fs_getMountpoints "/boot"
+	runSL b_fs_getMountpoints "/boot"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 5
-	runB b_fs_getMountpoints "/boot/"
+	runSL b_fs_getMountpoints "/boot/"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 6
-	runB b_fs_getMountpoints "boot"
+	runSL b_fs_getMountpoints "boot"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 7
-	runB b_fs_getMountpoints "/home"
+	runSL b_fs_getMountpoints "/home"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 8
-	runB b_fs_getMountpoints "/home/"
+	runSL b_fs_getMountpoints "/home/"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 	echo 9
-	runB b_fs_getMountpoints "home"
+	runSL b_fs_getMountpoints "home"
 	[ -z "$output" ]
 	[ $status -ne 0 ]
 
@@ -222,7 +222,7 @@ function createFileAfter {
 	local dev="$(findmnt -n -o SOURCE -T /)"
 	
 	echo 10
-	runB b_fs_getMountpoints "$dev"
+	runSL b_fs_getMountpoints "$dev"
 	[[ "$output" == "/" ]]
 	[ $status -eq 0 ]
 }
@@ -256,52 +256,52 @@ function loopDevCleanup {
 
 	#some failing tests:
 	
-	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "/tmp/nonexistingFile_" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "/tmp/nonexistingFile_" - "fs" -
 	[[ "$output" == *"ERROR"* ]]
 	[ $status -ne 0 ]
 
-	runB b_execFuncAs "root" b_fs_mountIfNecessary "/dev/doesntexist" "$tmpDir" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "/dev/doesntexist" "$tmpDir" - "fs" -
 	[[ "$output" == *"ERROR"* ]]
 	[ $status -ne 0 ]
 	
 	#successful tests:
 	
-	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
 	local loopDev="$output"
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 
-	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
-	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
-	runB b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile2" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile2" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 	local loopDev2="$output"
 	[[ "$loopDev2" != "$loopDev" ]]
 
-	runB b_fs_getMountpoints "$loopDev"
+	runSL b_fs_getMountpoints "$loopDev"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runB b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	runB b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	runB b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" - "fs" -
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	runB b_fs_getMountpoints "$loopDev"
+	runSL b_fs_getMountpoints "$loopDev"
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
@@ -310,12 +310,12 @@ function loopDevCleanup {
 
 	#cleanup:
 	
-	runB b_execFuncAs "root" loopDevCleanup "$loopDev" - -
+	runSL b_execFuncAs "root" loopDevCleanup "$loopDev" - -
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_fs_getMountpoints "$loopDev"
+	runSL b_fs_getMountpoints "$loopDev"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
@@ -328,90 +328,90 @@ function loopDevCleanup {
 
 @test "b_fs_parseSize" {
 	#failing
-	runB b_fs_parseSize "zzM"
+	runSL b_fs_parseSize "zzM"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_fs_parseSize "10f"
+	runSL b_fs_parseSize "10f"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_fs_parseSize "M"
+	runSL b_fs_parseSize "M"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_fs_parseSize "B"
+	runSL b_fs_parseSize "B"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_fs_parseSize "B"
+	runSL b_fs_parseSize "B"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_fs_parseSize "B" 1
+	runSL b_fs_parseSize "B" 1
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_fs_parseSize ""
+	runSL b_fs_parseSize ""
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
 	#succeeding
-	runB b_fs_parseSize "0"
+	runSL b_fs_parseSize "0"
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[[ "$output" == "0" ]]
 
-	runB b_fs_parseSize "123"
+	runSL b_fs_parseSize "123"
 	[ $status -eq 0 ]
 	[[ "$output" == "123" ]]
 
-	runB b_fs_parseSize "-123"
+	runSL b_fs_parseSize "-123"
 	[ $status -eq 0 ]
 	[[ "$output" == "-123" ]]
 
-	runB b_fs_parseSize "123K"
+	runSL b_fs_parseSize "123K"
 	[ $status -eq 0 ]
 	[[ "$output" == "125952" ]]
 
-	runB b_fs_parseSize "123KB"
+	runSL b_fs_parseSize "123KB"
 	[ $status -eq 0 ]
 	[[ "$output" == "123000" ]]
 
-	runB b_fs_parseSize "123M"
+	runSL b_fs_parseSize "123M"
 	[ $status -eq 0 ]
 	[[ "$output" == "128974848" ]]
 
-	runB b_fs_parseSize "123m"
+	runSL b_fs_parseSize "123m"
 	[ $status -eq 0 ]
 	[[ "$output" == "128974848" ]]
 
-	runB b_fs_parseSize "123MB"
+	runSL b_fs_parseSize "123MB"
 	[ $status -eq 0 ]
 	[[ "$output" == "123000000" ]]
 
-	runB b_fs_parseSize "123G"
+	runSL b_fs_parseSize "123G"
 	[ $status -eq 0 ]
 	[[ "$output" == "132070244352" ]]
 
-	runB b_fs_parseSize "123GB"
+	runSL b_fs_parseSize "123GB"
 	[ $status -eq 0 ]
 	[[ "$output" == "123000000000" ]]
 
-	runB b_fs_parseSize "123gb"
+	runSL b_fs_parseSize "123gb"
 	[ $status -eq 0 ]
 	[[ "$output" == "123000000000" ]]
 
-	runB b_fs_parseSize "123T"
+	runSL b_fs_parseSize "123T"
 	[ $status -eq 0 ]
 	[[ "$output" == "135239930216448" ]]
 
-	runB b_fs_parseSize "123TB"
+	runSL b_fs_parseSize "123TB"
 	[ $status -eq 0 ]
 	[[ "$output" == "123000000000000" ]]
 	#skipping peta for now as it is likely to lead to integer overflow
 
-	runB b_fs_parseSize "-123kb"
+	runSL b_fs_parseSize "-123kb"
 	[ $status -eq 0 ]
 	[[ "$output" == "-123000" ]]
 }

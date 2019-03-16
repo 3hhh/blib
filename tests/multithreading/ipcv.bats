@@ -122,15 +122,15 @@ function execWriterReaderTest {
 
 @test "b_ipcv_save" {
 	#mostly tests for failing outcomes, successful ones can be found at 1 writer, multiple readers
-	runB b_ipcv_save "invalid/ns" "T_DATE"
+	runSL b_ipcv_save "invalid/ns" "T_DATE"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_ipcv_save"/holymoly" "T_DATE"
+	runSL b_ipcv_save"/holymoly" "T_DATE"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_ipcv_save "valid-ns" "T_DATEFOO"
+	runSL b_ipcv_save "valid-ns" "T_DATEFOO"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
@@ -138,7 +138,7 @@ function execWriterReaderTest {
 	T_DATE=1
 	T_COUNTER="foo bar"
 	declare -A T_ARR=( ["el"]="this is" ["el 2"]="a test" ["l foo"]="myfriend?!" )
-	runB b_ipcv_save "test-ns" "T_DATE" "T_COUNTER" "T_ARR"
+	runSL b_ipcv_save "test-ns" "T_DATE" "T_COUNTER" "T_ARR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
@@ -148,24 +148,24 @@ function execWriterReaderTest {
 	T_DATE=2
 	T_COUNTER="asd"
 
-	runB b_ipcv_load "invalid/ns/more" "T_DATE"
+	runSL b_ipcv_load "invalid/ns/more" "T_DATE"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_ipcv_load "invalid/ns/more" "T_DATE"
+	runSL b_ipcv_load "invalid/ns/more" "T_DATE"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
 	#existing namespace, non-existing var
-	runB b_ipcv_load "test-ns" "T_foo"
+	runSL b_ipcv_load "test-ns" "T_foo"
 	[ $status -eq 1 ]
 	[ -z "$output" ]
 	
-	runB b_ipcv_load "test-ns" "T_foo" "T_foo2" "T_foo3"
+	runSL b_ipcv_load "test-ns" "T_foo" "T_foo2" "T_foo3"
 	[ $status -eq 3 ]
 	[ -z "$output" ]
 
-	runB b_ipcv_load "test-ns" "T_foo" "T_DATE" "T_foo3" "T_ARR" "T_COUNTER"
+	runSC b_ipcv_load "test-ns" "T_foo" "T_DATE" "T_foo3" "T_ARR" "T_COUNTER"
 	[ $status -eq 2 ]
 	[ -z "$output" ]
 	b_ipcv_load "test-ns" "T_foo" "T_DATE" "T_foo3" "T_ARR" "T_COUNTER" || [ $? -eq 2 ]
@@ -179,7 +179,7 @@ function execWriterReaderTest {
 	[[ "${T_ARR["l foo"]}" == "myfriend?!" ]]
 
 	#loadNamespace
-	runB b_ipcv_loadNamespace "/invalid"
+	runSL b_ipcv_loadNamespace "/invalid"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
@@ -197,7 +197,7 @@ function execWriterReaderTest {
 	[ $T_DATE -eq 1 ]
 	[[ "$T_COUNTER" == "foo bar" ]]
 
-	runB b_ipcv_unset "test-ns" "T_COUNTER"
+	runSL b_ipcv_unset "test-ns" "T_COUNTER"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
@@ -207,16 +207,16 @@ function execWriterReaderTest {
 	b_ipcv_loadNamespace "test-ns"
 	[ $T_DATE -eq 1 ]
 	[[ "$T_COUNTER" == "moly" ]]
-	runB declare -p "T_ARR"
+	runSL declare -p "T_ARR"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 
 	T_COUNTER=1
-	runB b_ipcv_save "test-ns" "T_COUNTER" "T_DATE"
+	runSL b_ipcv_save "test-ns" "T_COUNTER" "T_DATE"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_ipcv_unsetNamespace "test-ns"
+	runSL b_ipcv_unsetNamespace "test-ns"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
@@ -224,7 +224,7 @@ function execWriterReaderTest {
 	T_COUNTER="moly"
 	unset T_ARR
 
-	runB b_ipcv_loadNamespace "test-ns"
+	runSL b_ipcv_loadNamespace "test-ns"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	b_setBE 1
@@ -232,10 +232,10 @@ function execWriterReaderTest {
 	b_resetErrorHandler
 	[[ "$T_DATE" == "holy" ]]
 	[[ "$T_COUNTER" == "moly" ]]
-	runB declare -p "T_ARR"
+	runSL declare -p "T_ARR"
 	[ $status -ne 0 ]
 
-	runB b_ipcv_load "test-ns" "T_DATE" "T_COUNTER" "T_ARR"
+	runSL b_ipcv_load "test-ns" "T_DATE" "T_COUNTER" "T_ARR"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	b_setBE 1
@@ -243,16 +243,16 @@ function execWriterReaderTest {
 	b_resetErrorHandler
 	[[ "$T_DATE" == "holy" ]]
 	[[ "$T_COUNTER" == "moly" ]]
-	runB declare -p "T_ARR"
+	runSL declare -p "T_ARR"
 	[ $status -ne 0 ]
 }
 
 @test "1 writer, multiple readers" {
-	runB execWriterReaderTest 0
+	runSL execWriterReaderTest 0
 	echo "$output"
 	[ $status -eq 0 ]
 
-	runB execWriterReaderTest 1
+	runSL execWriterReaderTest 1
 	echo "$output"
 	[ $status -eq 0 ]
 }

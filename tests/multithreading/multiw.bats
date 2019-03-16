@@ -45,11 +45,11 @@ function testWrite {
 	local doneFiles="$3"
 	local progFiles="$4"
 	
-	echo "$msg" | { runB b_multiw_write "$file"
+	echo "$msg" | { runSL b_multiw_write "$file"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	}
-	runB cat "$file"
+	runSL cat "$file"
 	[ $status -eq 0 ]
 	[[ "$output" == "$msg" ]]
 	[ -h "$file" ]
@@ -58,18 +58,18 @@ function testWrite {
 
 @test "b_multiw_write & b_multiw_remove - basics" {
 	#some failing tests
-	runB b_multiw_write
+	runSL b_multiw_write
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	echo "bar" | { runB b_multiw_write
+	echo "bar" | { runSL b_multiw_write
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	}
 
 	#existing files should fail
 	local tfile="$(mktemp)"
-	echo "bar" | { runB b_multiw_write "$tfile"
+	echo "bar" | { runSL b_multiw_write "$tfile"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	}
@@ -86,22 +86,22 @@ function testWrite {
 	b_multiw_setMaxHangTime 3
 
 	#test removal
-	runB b_multiw_remove "$tfile"
+	runSL b_multiw_remove "$tfile"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	[ ! -e "$tfile" ]
 	assertMultiwFiles "$tfile" 0 0
 
-	runB b_multiw_remove "$tfile"
+	runSL b_multiw_remove "$tfile"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_multiw_remove "/tmp/"
+	runSL b_multiw_remove "/tmp/"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	[ -d "/tmp/" ]
 
-	runB b_multiw_remove
+	runSL b_multiw_remove
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 }
@@ -205,7 +205,7 @@ function getMostRecentCandidates {
 	echo "Symlink check passed."
 
 	#cleanup
-	runB b_multiw_remove "$tfile"
+	runSL b_multiw_remove "$tfile"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]

@@ -24,7 +24,7 @@ function checkOS {
 	local eStatus=1
 	[[ "$udata" =~ $targetOSRegex ]] && eStatus=0
 
-	runB $func
+	runSL $func
 	[ $status -eq $eStatus ]
 	[ -z "$output" ]
 }

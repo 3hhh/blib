@@ -14,57 +14,57 @@ function setup {
 }
 
 @test "b_str_stripQuotes" {
-	runB b_str_stripQuotes "foobar moep"
+	runSL b_str_stripQuotes "foobar moep"
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar moep" ]]
 
-	runB b_str_stripQuotes "foobar' moep"
+	runSL b_str_stripQuotes "foobar' moep"
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar' moep" ]]
 
-	runB b_str_stripQuotes "foobar' m'oep"
+	runSL b_str_stripQuotes "foobar' m'oep"
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar' m'oep" ]]
 
-	runB b_str_stripQuotes 'f"oobar m'"'"'oep"'
+	runSL b_str_stripQuotes 'f"oobar m'"'"'oep"'
 	[ $status -eq 0 ]
 	[[ "$output" == 'f"oobar m'"'"'oep"' ]]
 
-	runB b_str_stripQuotes '"foobar moep"'
+	runSL b_str_stripQuotes '"foobar moep"'
 	[ $status -eq 0 ]
 	[[ "$output" == 'foobar moep' ]]
 
-	runB b_str_stripQuotes "'foobar moep'"
+	runSL b_str_stripQuotes "'foobar moep'"
 	[ $status -eq 0 ]
 	[[ "$output" == 'foobar moep' ]]
 
-	runB b_str_stripQuotes '"foobar moep'"'"
+	runSL b_str_stripQuotes '"foobar moep'"'"
 	[ $status -eq 0 ]
 	[[ "$output" == '"foobar moep'"'" ]]
 
-	runB b_str_stripQuotes "'"'"foobar moep"'
+	runSL b_str_stripQuotes "'"'"foobar moep"'
 	[ $status -eq 0 ]
 	[[ "$output" == "'"'"foobar moep"' ]]
 }
 
 @test "b_str_trim" {
-	runB b_str_trim "foobar moep"
+	runSL b_str_trim "foobar moep"
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar moep" ]]
 
-	runB b_str_trim "	foobar	moep"
+	runSL b_str_trim "	foobar	moep"
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar	moep" ]]
 
-	runB b_str_trim "foobar  moep "
+	runSL b_str_trim "foobar  moep "
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar  moep" ]]
 
-	runB b_str_trim "  	foobar  moep	   "
+	runSL b_str_trim "  	foobar  moep	   "
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar  moep" ]]
 
-	runB b_str_trim " 		foobar   moep				     "
+	runSL b_str_trim " 		foobar   moep				     "
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar   moep" ]]
 }

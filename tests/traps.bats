@@ -14,21 +14,27 @@ function setup {
 }
 
 @test "b_traps_getCodeFor" {
-	runB b_traps_getCodeFor "SIGTERM"
+	runSL b_traps_getCodeFor "SIGTERM"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_traps_getCodeFor "SIGINT"
+	runSL b_traps_getCodeFor "SIGINT"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runB b_traps_getCodeFor "SIGFOO"
+	runSL b_traps_getCodeFor "SIGFOO"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runB b_traps_getCodeFor "EXIT"
+	runSL b_traps_getCodeFor "EXIT"
 	[ $status -eq 0 ]
-	[[ "$output" == "bats_teardown_trap" ]]
+	echo "$output"
+	[[ "$output" == "printRelevantState"* ]]
+
+	runSL b_traps_getCodeFor "exit"
+	[ $status -eq 0 ]
+	echo "$output"
+	[[ "$output" == "printRelevantState"* ]]
 }
 
 function trapAddRemove {
@@ -85,7 +91,7 @@ echo anonymous'
 @test "b_traps_add & b_traps_remove (valid)" {
 	#since bats already uses EXIT, we stick to SIGTERM
 	local out=""
-	runB trapAddRemove
+	runSL trapAddRemove
 	echo "stat: $status"
 	echo "$output"
 	[ $status -eq 0 ]
@@ -93,25 +99,31 @@ echo anonymous'
 }
 
 @test "b_traps_add (invalid)" {
-	runB b_traps_add "echo foo" SIGFOO "tag"
+	runSL b_traps_add "echo foo" SIGFOO "tag"
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_traps_add "echo foo" SIGASD
+	runSL b_traps_add "echo foo" SIGASD
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 }
 
 @test "b_traps_remove (invalid)" {
-	runB b_traps_remove SIGFOO "tag"
+	#NOTE: trap inheritance seems to work with runSC, but not with runSL - not sure why atm (run has set +ET)
+
+	runSL b_traps_remove SIGFOO "tag"
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_traps_remove SIGFOO
+	runSC b_traps_remove SIGFOO "tag"
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_traps_remove SIGINT
+	runSC b_traps_remove SIGFOO
+	[ -n "$output" ]
+	[ $status -ne 0 ]
+
+	runSC b_traps_remove SIGINT
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
@@ -121,19 +133,24 @@ echo anonymous'
 	b_traps_add "echo tag" SIGINT "tag"
 	[ $? -eq 0 ]
 
-	runB b_traps_remove SIGINT
+	runSC b_traps_getCodeFor SIGINT
+	[ $status -eq 0 ]
+	[[ "$output" == *"tag"* ]]
+
+	runSC b_traps_remove SIGINT
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_traps_remove SIGINT "tag2"
+	runSC b_traps_remove SIGINT "tag2"
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_traps_remove SIGINT "tag2"
+	runSC b_traps_remove SIGINT "tag2"
 	[ -n "$output" ]
 	[ $status -ne 0 ]
 
-	runB b_traps_remove SIGINT "tag"
+	runSC b_traps_remove SIGINT "tag"
+	echo "$output"
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
