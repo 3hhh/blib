@@ -200,27 +200,20 @@ declare -p | {
 function runStateSaving {
 local IGNORE_PRE_FD="$1"
 local IGNORE_POST_FD="$2"
-local IGNORE_RET=77
 shift
 shift
-
-#escape
-printf -v IGNORE_PRE_FD '%q' "$IGNORE_PRE_FD"
-printf -v IGNORE_POST_FD '%q' "$IGNORE_POST_FD"
 
 #save pre state & make sure post state is saved using an exit trap
 #NOTE: we're likely overriding the bats EXIT trap here, but
 #  a) bats still has the ERR trap
 #  b) we're running inside a subshell (c.f. run()) and bats still has the EXIT trap on the parent
-printRelevantState > $IGNORE_PRE_FD
+#  c) run sets +eET anyway?!
+printRelevantState > "$IGNORE_PRE_FD"
+printf -v IGNORE_POST_FD '%q' "$IGNORE_POST_FD"
 trap "printRelevantState > $IGNORE_POST_FD" exit
 
-#exec
+#exec & set proper exit code
 "$@"
-IGNORE_RET=$?
-
-#set proper return code
-return $IGNORE_RET
 }
 
 #+__runSL [commands]
