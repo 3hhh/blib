@@ -167,6 +167,39 @@ local now="$(date +%s)"
 echo $(( $now - $TIMER_START ))
 }
 
+#+__funcTimeout [timeout] [function] [args]
+#+Run the given function with a timeout inside a subshell.
+#+[timeout]: Timeout in seconds after which to terminate the function.
+#+[function]: The function to execute.
+#+[args]: Function arguments.
+#+returns: An exit code of 124, if the function timed out. Otherwise returns whatever the function returned.
+function funcTimeout {
+local timeout=$1
+shift
+
+#NOTE: we also close fd3 for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs
+"$@" 3>&- &
+local mainPid=$!
+
+( local cnt=0
+while [ $cnt -lt $timeout ] ; do
+	[ ! -d /proc/$mainPid ] && exit 1
+	cnt=$(( $cnt +1 ))
+	sleep 1
+done
+kill $mainPid &> /dev/null
+) 3>&- &
+local killPid=$!
+
+local ret=
+wait $mainPid &> /dev/null
+ret=$?
+[ $ret -eq 143 ] && return 124
+
+wait $killPid
+[ $? -eq 0 ] && return 124 || return $ret
+}
+
 #printRelevantState
 #Prints the parts that appear relevant from the runtime state. May drop parts that it doesn't understand. Should be used by [runStateSaving](#runStateSaving) only.
 function printRelevantState {
