@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+# -*- encoding: utf8 -*-
+#
+# Small tool to watch Qubes OS events as they happen.
+#
+# Copyright (C) 2019  David Hobach  LGPLv3
+# 0.3
+#
+#
+# Relevant doc:
+# - https://github.com/QubesOS/qubes-core-admin-client/blob/master/qubesadmin/events/utils.py
+# - https://dev.qubes-os.org/projects/core-admin-client/en/latest/qubesadmin.events.html#module-qubesadmin.events
+# - https://www.qubes-os.org/doc/admin-api/
+# - https://dev.qubes-os.org/projects/core-admin-client/en/latest/_modules/qubesadmin/tests/tools/qvm_shutdown.html
+# - https://github.com/QubesOS/qubes-core-admin-client/blob/master/qubesadmin/tools/qvm_backup.py
+# - https://dev.qubes-os.org/projects/core-admin-client/en/latest/_modules/qubesadmin/events.html
+# - https://docs.python.org/3.5/library/asyncio-dev.html (python 3.5)!
+
+import asyncio
+import signal
+import sys
+
+import qubesadmin.events
+import qubesadmin.tools
+
+#marker for the end of a record and its replacement in case it occurs inside the record
+end_marker='          \n'
+end_marker_repl='         \n'
+
+def printing_handler(subject, event_name, **kwargs):
+    #we make sure subject & event name don't have newlines, kwargs doesn't contain the end of record marker
+    print(str(subject).replace('\n','\\n'))
+    print(str(event_name).replace('\n','\\n'))
+    print(str(kwargs).replace(end_marker,end_marker_repl))
+    #dedicated "end of record" marker for parsers:
+    print(end_marker,end='',flush=True)
+
+def main(args=None, app=None):
+    parser=qubesadmin.tools.QubesArgumentParser()
+    args = parser.parse_args(args)
+    try:
+        loop=asyncio.get_event_loop()
+        events = qubesadmin.events.EventsDispatcher(args.app)
+        events.add_handler('*',printing_handler)
+        events_listener = asyncio.ensure_future(events.listen_for_events())
+        loop.add_signal_handler(signal.SIGINT,events_listener.cancel)
+        loop.add_signal_handler(signal.SIGTERM,events_listener.cancel)
+        loop.add_signal_handler(signal.SIGPIPE,events_listener.cancel)
+        loop.run_until_complete(events_listener)
+    except Exception as e:
+        print(e,file=sys.stderr)
+    finally:
+        loop.close()
+
+if __name__ == '__main__':
+    sys.exit(main())
