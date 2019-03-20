@@ -14,6 +14,9 @@ load ../../test_common
 #TEST_STATE["DOM0_TESTVM_1"]=""
 #TEST_STATE["DOM0_TESTVM_2"]=""
 
+#event counter for b_dom0_enterEventLoop
+T_EVENT_CNT=0
+
 #getDom0Fixture [file name]
 function getDom0Fixture {
 	echo "$FIXTURES_DIR/os/qubes4/dom0/$1"
@@ -199,6 +202,61 @@ function skipIfNoTestVMs {
 	runSL b_dom0_exists "$UTD_QUBES_TESTVM"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
+}
+
+function checkEventLoopConnection {
+	local name="$2"
+	[[ "$name" == "connection-established" ]] && return 22
+	echo "name: $name"
+	return 33
+}
+
+function waitForTestVMStartup {
+	local subject="$1"
+	local name="$2"
+	local info="$3"
+	T_EVENT_CNT=$(( $T_EVENT_CNT +1 ))
+	[ $T_EVENT_CNT -gt 50 ] && return 66
+	[[ "$subject" == "$UTD_QUBES_TESTVM" ]] && [[ "$name" == "domain-start" ]] && [[ "$info" == *"start_guid"* ]] && return 12
+	return 0
+}
+
+@test "b_dom0_enterEventLoop" {
+	skipIfNoTestVMs
+
+	runSL funcTimeout 5 b_dom0_enterEventLoop "checkEventLoopConnection"
+	[ $status -eq 22 ]
+	[ -z "$output" ]
+
+	#make sure it is shut down
+	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	#enter event loop in background
+	{ set +e ; funcTimeout 60 b_dom0_enterEventLoop "waitForTestVMStartup" ; } &
+	local pid=$!
+
+	#start
+	runSL b_dom0_ensureRunning "$UTD_QUBES_TESTVM"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	#check whether we saw a respective event
+	local ret=0
+	wait "$pid" || ret=$?
+	echo "process ret: $ret"
+	[ $ret -eq 12 ]
+
+	#make sure there's no leftover process after the last event
+	#processes can take a few ms to terminate gracefully though
+	sleep 0.1
+	local out=
+	out="$(ps aux | grep "qwatch")"
+	echo "leftover process check (should be one line):"
+	echo "$out"
+	out="$(echo "$out" | wc -l)"
+	[[ "$out" == "1" ]]
 }
 
 @test "b_dom0_qvmRun" {

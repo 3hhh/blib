@@ -4,8 +4,8 @@
 #+
 #+ **Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.3
+#+Copyright (C) 2019  David Hobach  LGPLv3
+#+0.4
 
 b_import fs
 b_import proc
@@ -44,6 +44,8 @@ timeout
 dd
 tee
 xxd
+python3
+kill
 EOF
 
 echo -n "$deps"
@@ -936,4 +938,73 @@ bid="$(b_dom0_getQvmBlockInfo "" "id" "frontend-dev" "$devName" "used by" "$vm")
 
 #detach & set exit code
 qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
+}
+
+#+b_dom0_enterEventLoop [callback function]
+#+Enter a blocking loop to react to Qubes OS events.
+#+[callback function]: Name of the function to call for _every_ Qubes OS event. Since the number of events may be high, the function should do appropriate filtering at high performance.
+#+The callback function should be declared as follows:
+#+
+#+    callback_function_name [subject] [event name] [event info]
+#+    [subject]: The subject name Qubes OS provides. Usually the VM for which the
+#+		event was reported. 'None' appears to mean 'dom0'.
+#+    [event name]: Name of the event for which the callback function was called.
+#+    [event info]: May contain additional information about the event (e.g.
+#+                  arguments).
+#+    returns:  Nothing. A non-zero exit code will abort further processing.
+#+
+#+If you want to obtain an overview of Qubes OS events, please use the `qwatch` utility manually.
+#+returns: Nothing, but uses the exit code of the last callback function execution as its own. [B_E](#B_E) is only called on exceptional errors.
+#+@B_E
+function b_dom0_enterEventLoop {
+local qwatch="${BLIB_STORE["BLIB_UTIL_DIR"]}/qubes/qwatch"
+local qwatchRecordEndLine="          "
+local callback="$1"
+
+local line=
+local cnt=0
+local subj=
+local eventName=
+local eventInfo=
+local ret=
+
+#fd3 is explicitly closed for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs
+#exec 3>&-
+
+coproc python3 "$qwatch" 2> /dev/null
+while IFS= read -ru ${COPROC[0]} line ; do
+
+	case $cnt in
+		0)
+			subj="$line"
+			;;
+		1)
+			eventName="$line"
+			;;
+		2)
+			eventInfo="$line"
+			;;
+		*)
+			if [[ "$line" == "$qwatchRecordEndLine" ]] ; then
+				$callback "$subj" "$eventName" "$eventInfo"
+				ret=$?
+				if [ $ret -ne 0 ] ; then
+					kill $COPROC_PID &> /dev/null
+					return $ret
+				fi
+				cnt=0
+				continue
+			else
+				#the event info may span multiple lines, the others not
+				eventInfo="$eventInfo"$'\n'"$line"
+			fi
+			;;
+	esac
+
+	cnt=$(( $cnt +1 ))
+done
+
+#we should never get here as qwatch executes forever
+B_ERR="Execution error: $qwatch"
+B_E
 }
