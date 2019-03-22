@@ -52,7 +52,7 @@ function skipIfNoTestVMs {
 	[ -n "$output" ]
 
 	#start the needed test VMs
-	runSL b_dom0_startDispVM
+	runSL b_dom0_startDispVM "$UTD_QUBES_DISPVM_TEMPLATE"
 	echo "stat: $status"
 	echo "output: $output"
 	[ $status -eq 0 ]
@@ -60,7 +60,7 @@ function skipIfNoTestVMs {
 	TEST_STATE["DOM0_TESTVM_1"]="$output"
 	echo "arr1: ${TEST_STATE["DOM0_TESTVM_1"]}"
 
-	runSL b_dom0_startDispVM
+	runSL b_dom0_startDispVM "$UTD_QUBES_DISPVM_TEMPLATE"
 	[ $status -eq 0 ]
 	echo "output: $output"
 	[[ "$output" == "disp"* ]]

@@ -48,6 +48,11 @@ UTD_QUBES_TESTVM="d-testing"
 #+Can safely be ignored if you don't run Qubes OS-related tests.
 UTD_QUBES_TESTVM_PERSISTENT="testing-pers"
 
+#+UTD_QUBES_DISPVM_TEMPLATE
+#+Qubes OS disposable VM template to use for testing. The test code will create disposable VMs from that template. It will _not_ modify the template itself.
+#+If no template is specified, the Qubes OS default template is used.
+UTD_QUBES_DISPVM_TEMPLATE=""
+
 #+UTD_QUBES_DOM0_WD
 #+Full path to a folder in Qubes dom0 that can be created and deleted at will (working directory). Do **not** use an existing folder here!
 #+
