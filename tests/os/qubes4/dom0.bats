@@ -22,15 +22,8 @@ function getDom0Fixture {
 	echo "$FIXTURES_DIR/os/qubes4/dom0/$1"
 }
 
-function skipIfNotDom0 {
-	skipIfNoUserData
-	[[ "$UTD_QUBES" != "dom0" ]] && skip "Not running in Qubes OS dom0."
-
-	return 0
-}
-
 function setup {
-	skipIfNotDom0
+	skipIfNotQubesDom0
 	loadBlib
 	b_import "os/qubes4/dom0"
 

@@ -77,6 +77,15 @@ function skipIfNoPandoc {
 return 0
 }
 
+#+__skipIfNotQubesDom0
+#+Skip the test if we're not running inside Qubes OS dom0.
+function skipIfNotQubesDom0 {
+	skipIfNoUserData
+	[[ "$UTD_QUBES" != "dom0" ]] && skip "Not running in Qubes OS dom0."
+
+	return 0
+}
+
 #+__loadBlibTestState
 #+Load the [TEST_STATE](#TEST_STATE) with the data that was saved last via [saveBlibState](#saveBlibState). If you want to use [TEST_STATE](#TEST_STATE), call this function during test setup.
 function loadBlibTestState {
