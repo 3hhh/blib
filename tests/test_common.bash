@@ -9,8 +9,8 @@
 #+### Global Variables ###
 
 #main paths
-MAIN_DIR="$(readlink -f "${BATS_TEST_DIRNAME%/tests*}")"
-TESTS_DIR="$MAIN_DIR/tests"
+TESTS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+MAIN_DIR="${TESTS_DIR%/tests*}"
 DOC_DIR="$MAIN_DIR/doc"
 #path to the blib script for sourcing and calls
 BLIB="$MAIN_DIR/blib"
