@@ -191,6 +191,7 @@ function testErrorSituation {
 		[[ "$output" == "0 straightError" ]]
 	fi
 
+	local i=
 	for ((i=1; i < 13; i++)) ; do
 		local func="errorCond$i"
 
@@ -641,6 +642,7 @@ function testGenerateStandaloneSucc {
 	local func="$1"
 	shift
 	local pars=()
+	local par=
 	for par in "$@" ; do
 		[[ "$par" == "-" ]] && break
 		pars+=("$par")

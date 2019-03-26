@@ -81,6 +81,7 @@ function setup {
 	#hammer it with binary data
 	#NOTE: at least UTF-8 has many byte --> character combinations (well filled), so it isn't totally unlikely that we randomly get a valid UTF-8 string (still looking like garbage); the default is ASCII though --> a lot less likely
 	local tmp="$(mktemp)"
+	local i=
 	for ((i=0; i<100; i++)) ; do
 		dd if="$randSource" bs=100 count=1 of="$tmp" 2> /dev/null
 		echo "input data: $(base64 "$tmp")"

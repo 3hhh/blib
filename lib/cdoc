@@ -192,6 +192,7 @@ function blib_cdoc_normalizeFileList {
 local inList="$1"
 
 local fname=""
+local fnew=
 while IFS= read -r fname ; do
 	if [ -f "$fname" ] ; then
 		echo "$fname"

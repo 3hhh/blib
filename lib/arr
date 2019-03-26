@@ -39,7 +39,7 @@ return 0
 #+[array]: expanded array to check, e.g. "${arr\[@\]}"
 #+returns: an exit code of 0, if the element was found and 1 otherwise
 function b_arr_contains {
-local e
+local e=
 for e in "${@:2}"; do [ "$e" == "$1" ] && return 0; done
 return 1
 }

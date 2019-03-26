@@ -14,6 +14,7 @@ function setup {
 }
 
 function genFileList {
+	local par=
 	for par in "$@" ; do
 		echo "$FIXTURES_DIR/cdoc/$par"
 	done
