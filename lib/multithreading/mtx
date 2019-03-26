@@ -67,7 +67,7 @@ fi
 
 #+b_mtx_release [mutex] [block ID]
 #+Release the given mutex so that it can be used by other block IDs/threads.
-#+[mutex]: A mutex obtained via b_mtx_create.
+#+[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create).
 #+[block ID]: The block ID for which to release the mutex (default: $$).
 #+returns: Sets a non-zero exit code if the mutex could not be removed as another process is blocking it and a zero exit code on successful removal.
 function b_mtx_release {
@@ -87,7 +87,7 @@ rmdir "$mutex" &> /dev/null
 
 #+b_mtx_forceRelease [mutex]
 #+Release the given mutex so that it can be used by other blockIDs/threads. Warning: This function can remove mutexes from other threads and should generally *only* be used for the removal of mutexes which are known to be stale by the calling application.
-#+[mutex]: A mutex obtained via b_mtx_create.
+#+[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create).
 #+returns: Nothing and sets a zero exit code.
 function b_mtx_forceRelease {
 local mutex="$1"
@@ -97,31 +97,59 @@ return 0
 
 #blib_mtx_getBlockIdFor [mutex]
 #Retrieve the block ID of the process blocking the given mutex (if any). The function is _not_ thread safe.
-#[mutex]: A mutex obtained via b_mtx_create.
+#[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create).
 #returns: The block ID of the process blocking the given mutex and sets an exit code of 0. If no process is blocking the given mutex, an exit code of 1 is set. On errors an exit code of 2 is set.
 function blib_mtx_getBlockIdFor {
 local mutex="$1"
 
-#any process blocking?
+#no process blocking?
 [ ! -d "$mutex" ] && return 1
 
 #try to read
 local cnt=0
+local file=
 for file in "$mutex/"* ; do
 	local bn="${file##*/}"
-	[ -z "$bn" ] && return 2
-	[[ "$bn" == "*" ]] && return 2
+	[ -z "$bn" ] && continue
+	[[ "$bn" == "*" ]] && continue
 	echo "$bn"
 	cnt=$(( $cnt +1 ))
 	[ $cnt -gt 1 ] && return 2
 done
+
+[ $cnt -ne 1 ] && return 2
+
+return 0
+}
+
+#+b_mtx_pass [mutex] [block ID]
+#+Pass a blocked mutex to another block ID (i.e. change the block ID of the given mutex).
+#+You should only do this if you currently own the mutex and the new process is ready to take over.
+#+[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create).
+#+[block ID]: The block ID to set for the given mutex.
+#+returns: Sets a zero exit code on success and a non-zero exit code otherwise.
+#+@B_E
+function b_mtx_pass {
+local mutex="$1"
+local blockId="$2"
+local blockFile="$mutex/$blockId"
+local oldBlockId=
+oldBlockId="$(blib_mtx_getBlockIdFor "$mutex")" || { B_ERR="The mutex $mutex does not exist or we had issues identifying it." ; B_E }
+local oldBlockFile="$mutex/$oldBlockId"
+
+touch "$blockFile" &> /dev/null || { B_ERR="Failed to write to $blockFile. Maybe the mutex $mutex was released in the meantime?" ; B_E }
+if ! rm -f "$oldBlockFile" &> /dev/null ; then
+	rm -f "$blockFile" &> /dev/null
+	B_ERR="Failed to remove the old block ID $oldBlockFile."
+	B_E
+fi
 
 return 0
 }
 
 #+b_mtx_try [mutex] [block ID] [claim stale] [claim own]
 #+Attempt to obtain the given mutex. Return immediately even if it cannot be obtained.
-#+[mutex]: A mutex obtained via b_mtx_create. You may also use a static and otherwise unused directory path as mutex and share it across all relevant processes.
+#+[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create). You may also use a static and otherwise unused directory path as mutex and share it across all relevant processes.
 #+[block ID]: The ID to use by which to block (default: running (sub)shell process id $$). This should be the process ID of the process attempting to obtain the mutex or you should know what you're doing. If you're in a subshell that should deploy a mutex against other subshells, store their $BASHPID and call the function with that.
 #+[claim stale]: If set to 0, claim the mutex even if it is still blocked by some other process, but that process isn't running anymore. If set to 1 (default), the function returns without obtaining the mutex. In general this should only be used in situations where a mutex has a high probability of being stale (e.g. application start).
 #+[claim own]: If set to 0 (default), claim the mutex if it appears to be blocked by the provided block ID. If set to 1, consider it blocked even then.

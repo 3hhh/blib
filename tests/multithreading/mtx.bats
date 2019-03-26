@@ -174,6 +174,63 @@ function runSingleMutexTest {
 	rm -rf "$m1"
 }
 
+#waitingProc [mutex] [block id] [message] [out file] [release]
+function waitingProc {
+	local mtx="$1"
+	local bid="$2"
+	local msg="$3"
+	local out="$4"
+	local rel="${5:-0}"
+	local mtxRel=
+
+	mtxRel="$(b_mtx_waitFor "$mtx" "$bid")" || { B_ERR="Unexpected exit." ; B_E }
+	echo "$msg" >> "$out"
+	[ $rel -eq 0 ] && eval "$mtxRel"
+}
+
+@test "b_mtx_pass" {
+	#failing
+	local m1=
+	m1="$(b_mtx_create)"
+	[ ! -e "$m1" ]
+	runSL b_mtx_pass "$m1" "nonexisting-bid"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	#success
+	#idea: let a number of processes wait for each other, pass to a dedicated one (proc #5 here) and check whether the result is the expected one
+	local out="$(mktemp)"
+	waitingProc "$m1" "$BASHPID" "blocking proc" "$out" 1 &
+	local passPid=
+	#wait some time for the blocking proc to get the mutex
+	sleep 0.2
+
+	local i=
+	for ((i=1; i < 11; i++)); do
+		waitingProc "$m1" "$BASHPID" "waiting proc $i" "$out" &
+		[ $i -eq 5 ] && passPid="$!"
+		pids="$pids $!"
+	done
+
+	runSL b_mtx_pass "$m1" "$passPid"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	#wait for them to finish
+	wait $pids
+
+	runSL cat "$out"
+	[ $status -eq 0 ]
+	echo "$output"
+	[[ "${lines[0]}" == "blocking proc" ]]
+	[[ "${lines[1]}" == "waiting proc 5" ]]
+	[ ${#lines[@]} -eq 11 ]
+
+	#cleanup
+	rm -f "$out"
+}
+
 #fileWriter [file] [string] [mutex] [claim stale] [maximum time]
 function fileWriter {
 	local file="$1"
@@ -223,6 +280,7 @@ function runFileWriterSwarm {
 	shift
 	local pids=""
 	#create x threads
+	local i=
 	for ((i=0; i < $x; i++)); do
 		fileWriter "$@" &
 		pids="$pids $!"
