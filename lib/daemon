@@ -4,7 +4,7 @@
 #+
 #+Each background process is assumed to implement a `daemon_main` function and must be identified by a unique String.
 #+
-#+If you need to exchange data with the background service, please have a look at the [ipcv](#ipcv) or [ipcm](#ipcm) modules.
+#+If you need to exchange data with the background service, please have a look at the [multithreading/ipcv] or [multithreading/ipcm] modules.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
 #+0.3
