@@ -27,7 +27,7 @@ function daemon_main {
 	[[ "$loopFlag" != "0" ]] && [[ "$loopFlag" != "1" ]] && B_ERR="Parameter passing failed." && B_E
 	[[ "$msg" != "test" ]] && B_ERR="Failed to get the second parameter." && B_E
 
-	[ -z "$B_DAEMON_ID" ] && B_ERR="Couldn't find the daemon ID." && B_E
+	[[ "$B_DAEMON_ID" != "$T_DAEMON" ]] && B_ERR="Couldn't find the correct daemon ID." && B_E
 
 	#test stdin (shouldn't hang)
 	cat -
