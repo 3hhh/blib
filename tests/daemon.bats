@@ -74,6 +74,8 @@ function postDaemonStartChecks {
 	[ -n "$errFile" ] && err="$(< "$errFile")"
 	local quiet="$4"
 
+	[ -z "$B_DAEMON_ID" ]
+
 	runSL b_daemon_getPid "$did"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
@@ -111,6 +113,8 @@ function postDaemonStartChecks {
 function postDaemonStopChecks {
 	local did="$1"
 	local quiet="$2"
+
+	[ -z "$B_DAEMON_ID" ]
 
 	runSL b_daemon_getPid "$did"
 	echo "$output"
