@@ -1,0 +1,259 @@
+#!/bin/bash
+#
+#+Module providing access to a single background process providing some service (daemon). Exiting the foreground control process will _not_ terminate the background process. Attempting to start multiple background daemons will be prevented in a thread-safe way.
+#+
+#+Each background process is assumed to implement a `daemon_main` function and must be identified by a unique String.
+#+
+#+If you need to exchange data with the background service, please have a look at the [ipcv](#ipcv) or [ipcm](#ipcm) modules.
+#+
+#+Copyright (C) 2019  David Hobach  LGPLv3
+#+0.3
+
+b_import "multithreading/mtx"
+b_import "proc"
+
+BLIB_STORE["BLIB_DAEMON_QUIET"]=
+BLIB_STORE["BLIB_DAEMON_MAIN"]=
+BLIB_STORE["BLIB_DAEMON_STDOUT"]=
+BLIB_STORE["BLIB_DAEMON_STDERR"]=
+BLIB_STORE["BLIB_DAEMON_UMASK"]=
+
+#where to store mutexes
+BLIB_STORE["BLIB_DAEMON_MTX_DIR"]="/tmp/blib_daemon"
+
+#+### Global Variables ###
+
+#+B_DAEMON_ID
+#+Contains the ID of the daemon, if and only if the current process is the daemon process.
+B_DAEMON_ID=""
+
+#+### Functions ###
+
+#+b_daemon_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_daemon_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+kill
+umask
+mkdir
+EOF
+
+echo -n "$deps"
+}
+
+#blib_daemon_info [message]
+function blib_daemon_info {
+local msg="$1"
+[ ${BLIB_STORE["BLIB_DAEMON_QUIET"]} -ne 0 ] && b_info "$msg"
+return 0
+}
+
+#+b_daemon_init [quiet flag] [main name] [stdout file] [stderr file] [umask setting]
+#+Init the module paramters. It is necessary to call this method _before_ using any other of this module unless you want to use the default paramters.
+#+[quiet flag]: If set to 0 (default), don't print anything to stdout during the execution of start|stop|restart|status. Otherwise use [b_info](#b_info) to print informational messages.
+#+[main name]: Name of the main loop function to execute in the background process. Returning from that function will exit the background process. Default: `daemon_main`
+#+[stdout file]: Where the background process should write its stdout stream to (default: /dev/null).
+#+[stderr file]: Where the background process should write its stderr stream to (default: /dev/null).
+#+[umask settings]: The umask settings to apply to the daemon (default: 0).
+#+returns: Nothing.
+#+@StateChanging
+function b_daemon_init {
+BLIB_STORE["BLIB_DAEMON_QUIET"]="${1:-0}"
+BLIB_STORE["BLIB_DAEMON_MAIN"]="${2:-daemon_main}"
+BLIB_STORE["BLIB_DAEMON_STDOUT"]="${3:-/dev/null}"
+BLIB_STORE["BLIB_DAEMON_STDERR"]="${4:-/dev/null}"
+BLIB_STORE["BLIB_DAEMON_UMASK"]="${5:-0}"
+}
+#set default parameters
+b_daemon_init
+
+#blib_daemon_assertGoodId [id]
+#Check whether the ID conforms to what we need.
+function blib_daemon_assertGoodId {
+local id="$1"
+local allowedRe='^[0-9a-zA-Z\.\+_:~-]+$'
+[[ "$id" =~ $allowedRe ]] || { B_ERR="The given ID $id doesn't match the allowed regex $allowedRe." ; B_E }
+return 0
+}
+
+#+b_daemon_start [id] [arg 1] ... [arg n]
+#+Start the background process.
+#+If you need to start it as a different user, simply run this function as a different user with e.g. (b_execFuncAs)[#b_execFuncAs]. Please keep in mind that control processes must have the permission to send signals to the daemon PID though.
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+[arg i]: An arbitrary number of arguments which can be passed to the main loop.
+#+returns: Sets a zero exit code on success. Otherwise sets a non-zero exit code. In particular [B_E](#B_E) is called, if the daemon is already running.
+#+@B_E
+function b_daemon_start {
+local id="$1"
+blib_daemon_assertGoodId "$id"
+shift
+local mtx="${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}/$id"
+
+local stdout=
+local stderr=
+local pid=
+
+blib_daemon_info "Starting ${id}..."
+
+#escape
+printf -v stdout '%q' "${BLIB_STORE["BLIB_DAEMON_STDOUT"]}"
+printf -v stderr '%q' "${BLIB_STORE["BLIB_DAEMON_STDERR"]}"
+
+#block the mutex with our own block id
+mkdir -p "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}." ; B_E }
+b_mtx_try "$mtx" "$$" 0 1 &> /dev/null || { B_ERR="The daemon $id appears to be running already." ; B_E }
+
+#start daemon
+#NOTE: FD3 is closed for bats only
+(	B_DAEMON_ID="$id"
+
+	#change working dir & umask appear to be "good daemon behaviour", c.f. http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
+	cd /
+	umask ${BLIB_STORE["BLIB_DAEMON_UMASK"]}
+
+	"${BLIB_STORE["BLIB_DAEMON_MAIN"]}" "$@"
+) < /dev/null > $stdout 2> $stderr 3>&- &
+disown
+pid=$!
+
+#change the mutex block ID to that of the daemon
+if ! (b_mtx_pass "$mtx" "$pid") ; then
+	b_daemon_stop "$id"
+	B_ERR="Failed to pass the mutex to the daemon $id."
+	B_E
+fi
+
+blib_daemon_info "${id} started."
+return 0
+}
+
+#+b_daemon_stop [id] [kill timeout]
+#+Stop the background process.
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+[kill timeout]: Time in seconds after which the background process will be killed, if it remains unresponsive (default: 2).
+#+returns: Sets a zero exit code, if the daemon terminated by itself. An exit code of 2 indicates that the daemon had to be killed. An exit code of 3 means that it wasn't running. [B_E](#B_E) is called on unexpected errors.
+#+@B_E
+function b_daemon_stop {
+local id="$1"
+local timeout="$2"
+
+blib_daemon_info "Stopping ${id}..."
+
+#get pid
+local pid=
+pid="$(B_RC=6 ; b_daemon_statusPid "$id")"
+case $? in
+	0)
+	  ;;
+	6)
+	  B_ERR="Unexpected error: $pid"
+	  B_E
+	  ;;
+	*)
+	  blib_daemon_info "${id} wasn't running."
+	  return 3
+	  ;;
+esac
+
+#kill daemon
+local ret=0
+kill "$pid" &> /dev/null
+b_proc_waitForPid "$pid" "$timeout"
+if b_proc_pidExists "$pid" ; then
+	kill -9 "$pid" &> /dev/null
+	blib_daemon_info "${id} had to be killed."
+	ret=2
+fi
+
+#release mutex
+b_mtx_forceRelease "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}/$id"
+
+blib_daemon_info "${id} stopped."
+return $ret
+}
+
+#+b_daemon_restart [id] [kill timeout] [arg 1] ... [arg n]
+#+Restart the background process.
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+[kill timeout]: See [b_daemon_stop](#b_daemon_stop).
+#+[arg i]: An arbitrary number of arguments which can be passed to the main loop.
+#+returns: See [b_daemon_start](#b_daemon_start).
+#+@B_E
+function b_daemon_restart {
+local id="$1"
+local timeout="$2"
+shift
+shift
+
+local ret=
+blib_daemon_info "Restarting ${id}..."
+
+b_daemon_stop "$id" "$timeout"
+#NOTE: we ignore the exit codes 2 & 3
+b_daemon_start "$id" "$@"
+ret=$?
+
+blib_daemon_info "${id} restarted."
+return $ret
+}
+
+#+b_daemon_statusPid [id]
+#+Check the status of the background process.
+#+Doesn't print informational messages to stdout.
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+returns: The PID and sets a zero exit code, if the daemon is running and a non-zero exit code otherwise. [B_E](#B_E) is only called on exceptional errors.
+#+@B_E
+function b_daemon_statusPid {
+local id="$1"
+local pid=
+local ret=
+pid="$(B_RC=6 ; b_daemon_getPid "$id")"
+case $? in
+	0)
+	  b_proc_pidExists "$pid"
+	  ret=$?
+	  ;;
+	6)
+	  B_ERR="Unexpected error: $pid"
+	  B_E
+	  ;;
+	*)
+	  ret=1
+	  ;;
+esac
+
+[ $ret -eq 0 ] && echo "$pid"
+return $ret
+}
+
+#+b_daemon_status [id]
+#+Check the status of the background process and print informational messages to stdout (if configured).
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+returns: Sets a zero exit code, if the daemon is running and a non-zero exit code otherwise. [B_E](#B_E) is only called on exceptional errors.
+#+@B_E
+function b_daemon_status {
+local id="$1"
+local ret=
+b_daemon_statusPid "$id" > /dev/null
+ret=$?
+[ $ret -eq 0 ] && blib_daemon_info "$id is running." || blib_daemon_info "$id is stopped."
+return $ret
+}
+
+#+b_daemon_getPid [id]
+#+Get the process ID of the background process.
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+returns: The process ID and sets a zero exit code, if it could be obtained. Please note that the process may be dead anyway (use [b_daemon_statusPid](#b_daemon_statusPid) for that). Otherwise a non-zero exit code is set. [B_E](#B_E) is only called on exceptional errors.
+#+@B_E
+function b_daemon_getPid {
+local id="$1"
+blib_daemon_assertGoodId "$id"
+local mtx="${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}/$id"
+local ret=
+blib_mtx_getBlockIdFor "$mtx"
+ret=$?
+[ $ret -ne 0 ] && [ $ret -ne 1 ] && B_ERR="Unexpected pid retrieval failure (code: $ret)." && B_E
+return $ret
+}
