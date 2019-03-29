@@ -505,14 +505,13 @@ B_E
 return $ret
 }
 
-#blib_dom0_checkRunning [vm] [start]
+#blib_dom0_checkRunningSingle [start] [vm]
 #Helper function for b_dom0_ensureRunning & b_dom0_isRunning
-#[start]: if set to 0, start the VM if needed
-#returns: Sets a zero exit code, if the VM was successfully started or was running and a non-zero exit code otherwise. [B_E](#B_E) will only be called for internal errors.
+#returns: see b_dom0_ensureRunning & b_dom0_isRunning
 #@B_E
-function blib_dom0_checkRunning {
-local vm="$1"
-local toStart="$2"
+function blib_dom0_checkRunningSingle {
+local toStart="$1"
+local vm="$2"
 local addParams=""
 local out=""
 local maxWait=""
@@ -526,30 +525,57 @@ local maxWait=""
 
 #don't wait forever as it may be hanging
 out="$(timeout $maxWait qvm-run -p $addParams -u root "$vm" 'echo "succ"' < /dev/null 2>&1)" 
-[ $? -eq 124 ] && B_ERR="Failed to check the run status of the VM $vm (request timed out)." && B_E
 [[ "$out" == "succ" ]]
 }
 
-#+b_dom0_ensureRunning [vm]
-#+Start the given VM if needed.
-#+[vm]: The VM to start.
-#+returns: Sets a zero exit code, if the VM was successfully started or was running and a non-zero exit code otherwise. [B_E](#B_E) will only be called for internal errors.
-#+@B_E
-function b_dom0_ensureRunning {
-local vm="$1"
-blib_dom0_checkRunning "$vm" 0
+#blib_dom0_checkRunningMultiple [start] [vm 1] ... [vm n]
+#[start]: if set to 0, start the VM if needed
+#returns: see b_dom0_ensureRunning & b_dom0_isRunning
+#@B_E
+function blib_dom0_checkRunningMultiple {
+local toStart="$1"
+shift
+
+local vm=
+local pids=()
+for vm in "$@" ; do
+	blib_dom0_checkRunningSingle "$toStart" "$vm" &
+	pids+=($!)
+done
+
+local i=
+local failedVMs=""
+local ret=0
+for ((i=0; i < $#; i++)) ; do
+	local pid="${pids[$i]}"
+	wait $pid
+	if [ $? -ne 0 ] ; then
+		failedVMs="$failedVMs ${@:$((i+1)):1}"
+		ret=$(( $ret +1 ))
+	fi
+done
+
+[ -n "$failedVMs" ] && B_ERR="Not running: $failedVMs" && B_E
+return 0
 }
 
-#+b_dom0_isRunning [vm]
-#+Check whether the given VM is running _and_ fully operational / not hanging / not booting.
-#+In contrast e.g. qvm-check --running [vm] appears to return true for VMs which are currently booting; qvm-ls doesn't check whether the OS of a VM is hanging.
-#+This should _not_ be checked too often as it may be expensive.
-#+[vm]: The VM to check.
-#+returns: Sets a zero exit code, if the VM is running and a non-zero exit code otherwise. A non-zero exit code may e.g. also indicate that the VM doesn't exist. [B_E](#B_E) will only be called for internal errors.
+#+b_dom0_ensureRunning [vm 1] ... [vm n]
+#+Start the given VMs if needed.
+#+[vm i]: The VM to start.
+#+returns: Nothing. [B_E](#B_E) will be called for VMs that could not be started (maybe they don't exist?).
+#+@B_E
+function b_dom0_ensureRunning {
+blib_dom0_checkRunningMultiple 0 "$@"
+}
+
+#+b_dom0_isRunning [vm 1] ... [vm n]
+#+Check whether the given VMs are running _and_ fully operational / not hanging / not booting.
+#+In contrast `qvm-check --running [vm]` returns true for VMs which are currently booting and `qvm-ls` doesn't check whether the OS of a VM is hanging.
+#+[vm i]: The VM to check.
+#+returns: Nothing. [B_E](#B_E) will be called for VMs that are not running (or don't exist?).
 #+@B_E
 function b_dom0_isRunning {
-local vm="$1"
-blib_dom0_checkRunning "$vm" 1
+blib_dom0_checkRunningMultiple 1 "$@"
 }
 
 #+b_dom0_exists [vm]
