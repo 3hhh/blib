@@ -555,7 +555,7 @@ for ((i=0; i < $#; i++)) ; do
 	fi
 done
 
-[ -n "$failedVMs" ] && B_ERR="Not running: $failedVMs" && B_E
+[ -n "$failedVMs" ] && B_ERR="Not running:$failedVMs" && B_E
 return 0
 }
 
