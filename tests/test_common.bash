@@ -287,7 +287,7 @@ rm -f "$stateBefore" "$stateAfter"
 #+[commands]: The commands to run.
 #+returns: whatever bats run returns
 function runSC {
-echo "run_$TEST_RUN_ID"
+echo "run_${TEST_RUN_ID}: $@"
 TEST_RUN_ID=$(( TEST_RUN_ID +1 ))
 run "$@"
 echo "status: $status"
