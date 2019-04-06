@@ -443,6 +443,35 @@ In Qubes VM.'
 	[[ "$output" != *"testFunc01:"* ]]
 }
 
+@test "b_dom0_testMultiple" {
+	skipIfNoTestVMs
+
+	runSL b_dom0_testMultiple "non-existent-vm" "-f" "/etc/hosts"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-Z" "/etc/hosts"
+	echo "$output"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-f" "/etc/hosts"
+	[ $status -eq 0 ]
+	[[ "$output" == "/etc/hosts" ]]
+
+	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-d" "/etc"$'\n'"/nonexisting"$'\n'"/usr/"
+	[ $status -eq 0 ]
+	[[ "$output" == "/etc"$'\n'"/usr/" ]]
+
+	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-d" "/etc"$'\n'"/usr/"$'\n'"/nonexisting"
+	[ $status -eq 0 ]
+	[[ "$output" == "/etc"$'\n'"/usr/" ]]
+
+	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-d" "/nonexisting"$'\n'"/nonexisting2/"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "b_dom0_parseQvmBlock & b_dom0_getQvmBlockInfo" {
 	local qvmBlock1='sys-usb:loop1        /foo/bar/bla.data           test (read-only=no, frontend-dev=xvdi)
 sys-us:loop2         /hallo/welt/foo.dd       test2 (read-only=yes, frontend-dev=xvdj)

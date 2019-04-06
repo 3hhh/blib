@@ -1034,3 +1034,56 @@ done
 B_ERR="Execution error: $qwatch"
 B_E
 }
+
+#+b_dom0_testMultiple [vm] [operator] [list]
+#+Run multiple `test` checks inside the given VM with a single `qvm-run` call.
+#+[vm]: Where to run the checks.
+#+[operator]: The test operator to use for the list of parameters, e.g. `-f`.
+#+[list]: Newline-separated list of parameters to check, e.g. a list of files for the `-f` operator.
+#+returns: The subset of the list that matched the operator and sets a zero exit code on success.
+#+@B_E
+function b_dom0_testMultiple {
+local vm="$1"
+local op="$2"
+local list="$3"
+
+local toExec=""
+local line=
+local lineEsc=
+while IFS= read -r line ; do
+	printf -v lineEsc '%q' "$line"
+	toExec="${toExec}test $op $lineEsc ; echo "'$?'
+	toExec="$toExec"$'\n'
+done <<< "$list"
+
+local out=
+out="$(b_dom0_execStrIn "$vm" "$toExec" 2> /dev/null)" || { B_ERR="Failed to run a command inside the VM $vm." ; B_E }
+out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
+
+#parse (untrusted!) VM output
+local ret=()
+while IFS= read -r line ; do
+	ret+=("$line")
+done <<< "$out"
+
+local i=0
+while IFS= read -r line ; do
+	if [[ "${ret[$i]}" == "0" ]] ; then
+		echo "$line"
+	elif [[ "${ret[$i]}" == "1" ]] ; then
+		:
+	elif [[ "${ret[$i]}" == "2" ]] ; then
+		B_ERR="The VM $vm claims that you used an invalid operator $op."
+		B_E
+	else
+		B_ERR="The VM $vm returned an unexpected value. Is this an attack?!"
+		B_E
+	fi
+
+	i=$(( $i+1 ))
+done <<< "$list"
+
+[ $i -ne ${#ret[@]} ] && B_ERR="The VM $vm returned an invalid number of list entries. Is this an attack?!" && B_E
+
+return 0
+}
