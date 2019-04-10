@@ -1,0 +1,157 @@
+#!/bin/bash
+#
+#+Stateful argument parser for bash.
+#+
+#+Regular arguments are parsed to [B_ARGS](#B_ARGS), options to [B_ARGS_OPTS](#B_ARGS_OPTS).
+#+
+#+The module can also check the correctness of options. All remaining correctness checks (e.g. for regular or option parameters) are left to the user of this module.
+#+
+#+Conventions:
+#+
+#+ * options always start with `-` and may occur everywhere
+#+ * everything after `--` is not considered an option
+#+
+#+Copyright (C) 2019  David Hobach  LGPLv3
+#+0.3
+
+#+### Global Variables ###
+
+#+B_ARGS
+#+Array of regular/non-option arguments in the order of their appearance.
+declare -ga B_ARGS
+
+#+B_ARGS_OPTS
+#+Map of options. The keys are the options themselves, the values the option parameters (if any). Multiple option parameters are separated by spaces.
+declare -gA B_ARGS_OPTS
+
+#internal state
+declare -gA BLIB_ARGS_OPTCNT
+BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]=0
+
+#+### Functions ###
+
+#+b_args_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_args_getDeps {
+return 0
+}
+
+#blib_args_clearState [include options]
+#Clears the internal state.
+function blib_args_clearState {
+local includeOptions="${1:-1}"
+
+unset B_ARGS
+declare -ga B_ARGS
+unset B_ARGS_OPTS
+declare -gA B_ARGS_OPTS
+
+if [ $includeOptions -eq 0 ] ; then
+	unset BLIB_ARGS_OPTCNT
+	declare -gA BLIB_ARGS_OPTCNT
+fi
+
+return 0
+}
+
+#+b_args_init [allow flag] [option 1] [option param count 1] ... [option n] [option param count n]
+#+Initialize the args module. It is recommended to call this function before using this module, if you want to achieve any non-default behaviour.
+#+[allow flag]: If set to 0, assume that non-specified options do not have any parameters (default). If set to 1, enforce that only the given options are allowed and otherwise error out.
+#+[option i]: An allowed option including its leading `-` prefix.
+#+[option param count i]: Number of expected parameters for that option. The parameters must directly follow the option. If less parameters are found, the parser will error out.
+#+returns: Nothing, always sets a zero exit code.
+#+@StateChanging
+#+@B_E
+function b_args_init {
+BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]="${1:-0}"
+shift
+
+blib_args_clearState 0
+
+#parse params to internal state
+while [ $# -gt 0 ] ; do
+	local opt="$1"
+	local optCnt="$2"
+	shift
+	shift
+	[ -z "$optCnt" ] && B_ERR="Option count for $opt missing." && B_E
+	[[ ! "$optCnt" =~ [0-9]+ ]] && B_ERR="Invalid option count for option $opt: $optCnt" && B_E
+
+	BLIB_ARGS_OPTCNT["$opt"]="$optCnt"
+done
+
+return 0
+}
+
+#+b_args_parse [arguments]
+#+Parse the given arguments.
+#+[arguments]: The arguments meant to be parsed, usually "$@".
+#+returns: Sets a zero exit code on success and calls [B_E](#B_E) otherwise.
+#+@StateChanging
+#+@B_E
+function b_args_parse {
+local i=
+local j=
+local par=
+local optPar=
+local foundFinalOption=1
+
+blib_args_clearState 1
+
+#parse
+for ((i=1;i<=$#;i++)) ; do
+	par="${!i}"
+
+	if [ $foundFinalOption -ne 0 ] && [[ "$par" == "--" ]] ; then
+		#final option indicator
+		foundFinalOption=0
+	elif [ $foundFinalOption -ne 0 ] && [[ "$par" == "-"* ]] ; then
+		#option
+		B_ARGS_OPTS["$par"]=""
+		local optParCnt="${BLIB_ARGS_OPTCNT["$par"]}"
+		[ -z "$optParCnt" ] && optParCnt=0
+		local maxInd=$(( $i + $optParCnt ))
+		[ $maxInd -gt $# ] && B_ERR="The option $par is assumed to have $optParCnt parameters." && B_E
+
+		for ((j=$i+1;j<=$maxInd;j++)) ; do
+			printf -v optPar "%q" "${!j}"
+			[ -z "${B_ARGS_OPTS["$par"]}" ] && B_ARGS_OPTS["$par"]="$optPar" || B_ARGS_OPTS["$par"]="${B_ARGS_OPTS["$par"]} $optPar"
+		done
+		i=$(( $i + $optParCnt ))
+	else
+		#regular
+		B_ARGS+=("$par")
+	fi
+done
+
+if [ ${BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]} -ne 0 ] ; then
+	local invalid=
+	invalid="$(b_args_assertOptions "${!BLIB_ARGS_OPTCNT[@]}")" || { B_ERR="Invalid options: $invalid" ; B_E }
+fi
+
+return 0
+}
+
+#+b_args_assertOptions [option 1] ... [option n]
+#+Assert that [B_ARGS_OPTS](#B_ARGS_OPTS) contains only the given allowed options (or less).
+#+[option i]: Option to check against.
+#+[returns]: Sets a zero exit code, if [B_ARGS_OPTS](#B_ARGS_OPTS) contains only allowed options and a non-zero exit code otherwise. Prints a list of invalid options.
+function b_args_assertOptions {
+declare -A expected
+local opt=
+
+for opt in "$@" ; do
+	expected["$opt"]=0
+done
+
+local invalidOpts=""
+for opt in "${!B_ARGS_OPTS[@]}" ; do
+	if [ -z "${expected["$opt"]}" ] ; then
+		[ -z "$invalidOpts" ] && invalidOpts="$opt" || invalidOpts="$invalidOpts"$'\n'"$opt"
+	fi
+done
+
+echo -n "$invalidOpts"
+[ -z "$invalidOpts" ]
+}

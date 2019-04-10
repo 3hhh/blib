@@ -218,7 +218,7 @@ declare -p | {
 	#maybe TODO: improve on that, but could be hard as declare -p behaves differently across different bash versions and various separators such as )'" and combinations are all valid depending on the context, i.e. one might have to write an entire parser
         local line=
         local reBeginDecl='^declare [-a-zA-Z]+ ([^=]+)=?(.*)$'
-        local reSkip='^(_|IGNORE_.*|BLIB_ERR_.*|B_ERR|RANDOM|SECONDS|BASHPID|FUNCNAME|PIPESTATUS|BASH_.*|BLIB_STORE_VOLATILE|BLIB_IPCM_STORE|BLIB_INI_FILE)$'
+        local reSkip='^(_|IGNORE_.*|BLIB_ERR_.*|B_ERR|RANDOM|SECONDS|BASHPID|FUNCNAME|PIPESTATUS|BASH_.*|BLIB_STORE_VOLATILE|BLIB_IPCM_STORE|BLIB_INI_FILE|B_ARGS|B_ARGS_OPTS|BLIB_ARGS_OPTCNT)$'
 	local name=
         while IFS= read -r line ; do
                 if [[ "$line" =~ $reBeginDecl ]] ; then
