@@ -128,4 +128,13 @@ testArr1=("this is" "a test entry" "4" "my dear friends!")
 	runSL b_arr_mapsAreEqual "$t5Spec" "$t6Spec"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
+
+	#one or more maps empty
+	runSL b_arr_mapsAreEqual "declare -A foo=()" "declare -A bar"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_arr_mapsAreEqual "declare -A foo" "declare -A bar=([ad]=1)"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
 }

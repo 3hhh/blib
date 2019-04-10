@@ -60,8 +60,9 @@ if [[ "$spec1" != "declare -A"* ]] || [[ "$spec2" != "declare -A"* ]] ; then
 fi
 
 #assign specs to local variables
-spec1="declare -A arr1=${spec1#*=}"
-spec2="declare -A arr2=${spec2#*=}"
+#special case: empty map which might not have an equal sign in its declaration
+[[ $spec1 == *"="* ]] && spec1="declare -A arr1=${spec1#*=}" || spec1="declare -A arr1"
+[[ $spec2 == *"="* ]] && spec2="declare -A arr2=${spec2#*=}" || spec2="declare -A arr2"
 eval "$spec1" || { B_ERR="First eval failed." ; B_E }
 eval "$spec2" || { B_ERR="Second eval failed." ; B_E }
 
