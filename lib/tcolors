@@ -13,12 +13,11 @@
 
 #+### Global Variables ###
 
-declare -gA B_TCOLORS
 #+B_TCOLORS
 #+Global map for human readable colors to tput style color identifiers.
 #+Currently supported values: black|red|green|yellow|blue|magenta|cyan|white
 #TODO in the future: add more (those not representable by single numbers)
-B_TCOLORS=(
+declare -gA B_TCOLORS=(
 	["black"]=0
 	["red"]=1
 	["green"]=2

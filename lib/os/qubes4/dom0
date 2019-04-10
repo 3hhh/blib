@@ -687,7 +687,7 @@ fi
 # - the format of the description is somewhat unclear: for simplicity I'll assume that it may contain at most 1 space
 # - read-only and frontend-dev may be swapped
 
-declare -A ret
+declare -A ret=()
 local i=0
 local line=""
 while IFS= read -r line ; do

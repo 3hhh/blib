@@ -143,7 +143,6 @@ function runSuccParse {
 	[ -z "$output" ]
 
 	#empty param
-	echo "HERE!!!!"
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
 	T_ARGS_OPTS=(["--foo"]="blibla" ["-asd"]="asdPar\ 1\  \ asdPar2" ["--another"]="" ["-b"]="")
 	runSuccParse "param 1" "" "-b" " spacy par  " --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final

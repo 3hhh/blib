@@ -7,12 +7,11 @@
 
 #+### Global Variables ###
 
-declare -gA B_TYPES_ENCODINGS
 #+B_TYPES_ENCODINGS
 #+Global map for human readable string encodings which can be used for [b_types_parseString](#b_typesParseString).
 #+Currently supported values: 7-bit|8-bit|16-bit-bigendian|16-bit-littleendian|32-bit-bigendian|32-bit-littleendian
 #+See the strings manpage for further explanations.
-B_TYPES_ENCODINGS=(
+declare -gA B_TYPES_ENCODINGS=(
 	["7-bit"]="s"
 	["8-bit"]="S"
 	["16-bit-bigendian"]="b"

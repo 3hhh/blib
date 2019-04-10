@@ -22,7 +22,7 @@ b_import "multithreading/ipcv"
 b_import "multithreading/mtx"
 
 #internal storage
-declare -gA BLIB_IPCM_STORE
+declare -gA BLIB_IPCM_STORE=()
 
 #namespace for ipcv
 BLIB_STORE["BLIB_IPCM_NS"]="blib-ipcm"

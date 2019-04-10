@@ -19,7 +19,7 @@
 
 #internal state corresponding to the ini file last read
 #key syntax: [section.name]
-declare -gA BLIB_INI_FILE
+declare -gA BLIB_INI_FILE=()
 
 #+### Functions ###
 
@@ -41,7 +41,7 @@ local iniFile="$1"
 
 #clear the internal state
 unset BLIB_INI_FILE
-declare -gA BLIB_INI_FILE
+declare -gA BLIB_INI_FILE=()
 
 #make sure the file exists
 [ ! -f "$iniFile" ] && B_ERR="Could not open the ini file $iniFile for reading." && B_E

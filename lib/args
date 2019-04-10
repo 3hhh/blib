@@ -18,14 +18,14 @@
 
 #+B_ARGS
 #+Array of regular/non-option arguments in the order of their appearance.
-declare -ga B_ARGS
+declare -ga B_ARGS=()
 
 #+B_ARGS_OPTS
 #+Map of options. The keys are the options themselves, the values the option parameters (if any). Multiple option parameters are separated by spaces.
-declare -gA B_ARGS_OPTS
+declare -gA B_ARGS_OPTS=()
 
 #internal state
-declare -gA BLIB_ARGS_OPTCNT
+declare -gA BLIB_ARGS_OPTCNT=()
 BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]=0
 
 #+### Functions ###
@@ -42,14 +42,14 @@ return 0
 function blib_args_clearState {
 local includeOptions="${1:-1}"
 
-unset B_ARGS
-declare -ga B_ARGS
-unset B_ARGS_OPTS
-declare -gA B_ARGS_OPTS
+#NOTE: bash 4.3 appears to require that =() in order to execute the declare, bash 4.4 does not
+B_ARGS=()
+unset -v B_ARGS_OPTS
+declare -gA B_ARGS_OPTS=()
 
 if [ $includeOptions -eq 0 ] ; then
-	unset BLIB_ARGS_OPTCNT
-	declare -gA BLIB_ARGS_OPTCNT
+	unset -v BLIB_ARGS_OPTCNT
+	declare -gA BLIB_ARGS_OPTCNT=()
 fi
 
 return 0

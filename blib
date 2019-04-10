@@ -58,8 +58,7 @@
 #map to store global blib data (we use it to hide global variables from the namespace)
 #meant for data that may cause stateless testing with [runSL](#runSL) to fail (i.e. state changes here are monitored)
 #most module data should go here
-declare -gA BLIB_STORE
-BLIB_STORE=(
+declare -gA BLIB_STORE=(
 	["BLIB_SCRIPT_DIR"]="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 	["BLIB_SCRIPT_NAME"]="blib"
 	["BLIB_LIB_DIR"]="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/lib"
@@ -74,8 +73,7 @@ BLIB_STORE=(
 
 #another map to store global blib data
 #meant for data that changes quite frequently, but shouldn't cause stateless testing with [runSL](#runSL) to fail (i.e. state changes here are _not_ monitored)
-declare -gA BLIB_STORE_VOLATILE
-BLIB_STORE_VOLATILE=(
+declare -gA BLIB_STORE_VOLATILE=(
 	["BLIB_MODULE_LIST_CACHE"]=""
 	["BLIB_CB_REF_LIST_CACHE"]=""
 	["BLIB_ERR_ESET"]=""

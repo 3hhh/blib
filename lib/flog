@@ -42,12 +42,11 @@ blib_flog_reset
 
 #+### Global Variables ###
 
-declare -gA B_FLOG_SEV
 #+B_FLOG_SEV
 #+Global map for human readable severities which may be used by users of this script.
 #+It was inspired by the severities of RFC5424.
 #+Currently supported values: emergency|alert|critical|crit|error|err|warning|warn|notice|informational|info|debug
-B_FLOG_SEV=(
+declare -gA B_FLOG_SEV=(
 	["emergency"]=0
 	["alert"]=1
 	["critical"]=2
@@ -62,10 +61,9 @@ B_FLOG_SEV=(
 	["debug"]=7
 	)
 
-declare -gA BLIB_FLOG_SEV2NAME
 #BLIB_FLOG_SEV2NAME
 #Maps the integers back to the names used within the log.
-BLIB_FLOG_SEV2NAME=(
+declare -gA BLIB_FLOG_SEV2NAME=(
 	[0]="EMERGENCY"
 	[1]="ALERT"
 	[2]="CRIT"
