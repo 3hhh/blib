@@ -12,7 +12,7 @@
 #+ * everything after `--` is not considered an option
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.3
+#+0.5
 
 #+### Global Variables ###
 
@@ -21,11 +21,14 @@
 declare -ga B_ARGS=()
 
 #+B_ARGS_OPTS
-#+Map of options. The keys are the options themselves, the values the option parameters (if any). Multiple option parameters are separated by spaces.
+#+Map of options. `[option]_[index]` is used as key with `[index]` starting at zero. The values are the option parameters (if any). Multiple option parameters are separated by spaces.
+#+The index will only increase if options are repeated.
 declare -gA B_ARGS_OPTS=()
 
-#internal state
+#number of expected option parameters per option
 declare -gA BLIB_ARGS_OPTCNT=()
+
+#allow flag
 BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]=0
 
 #+### Functions ###
@@ -97,6 +100,7 @@ local j=
 local par=
 local optPar=
 local foundFinalOption=1
+declare -A lastIndex=()
 
 blib_args_clearState 1
 
@@ -109,7 +113,16 @@ for ((i=1;i<=$#;i++)) ; do
 		foundFinalOption=0
 	elif [ $foundFinalOption -ne 0 ] && [[ "$par" == "-"* ]] ; then
 		#option
-		B_ARGS_OPTS["$par"]=""
+
+		#compute index
+		local ind="${lastIndex["$par"]}"
+		[ -z "$ind" ] && ind=-1
+		ind=$(( $ind +1 ))
+		lastIndex["$par"]=$ind
+		ind="${par}_$ind"
+
+		#store
+		B_ARGS_OPTS["$ind"]=""
 		local optParCnt="${BLIB_ARGS_OPTCNT["$par"]}"
 		[ -z "$optParCnt" ] && optParCnt=0
 		local maxInd=$(( $i + $optParCnt ))
@@ -117,11 +130,11 @@ for ((i=1;i<=$#;i++)) ; do
 
 		for ((j=$i+1;j<=$maxInd;j++)) ; do
 			printf -v optPar "%q" "${!j}"
-			[ -z "${B_ARGS_OPTS["$par"]}" ] && B_ARGS_OPTS["$par"]="$optPar" || B_ARGS_OPTS["$par"]="${B_ARGS_OPTS["$par"]} $optPar"
+			[ -z "${B_ARGS_OPTS["$ind"]}" ] && B_ARGS_OPTS["$ind"]="$optPar" || B_ARGS_OPTS["$ind"]="${B_ARGS_OPTS["$ind"]} $optPar"
 		done
 		i=$(( $i + $optParCnt ))
 	else
-		#regular
+		#regular argument
 		B_ARGS+=("$par")
 	fi
 done
@@ -148,6 +161,7 @@ done
 
 local invalidOpts=""
 for opt in "${!B_ARGS_OPTS[@]}" ; do
+	opt="${opt%_*}"
 	if [ -z "${expected["$opt"]}" ] ; then
 		[ -z "$invalidOpts" ] && invalidOpts="$opt" || invalidOpts="$invalidOpts"$'\n'"$opt"
 	fi

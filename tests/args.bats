@@ -111,7 +111,7 @@ function runSuccParse {
 
 	#successful
 	T_ARGS=("param 1" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo"]="blibla" ["-asd"]="asdPar\ 1\  \ asdPar2" ["--another"]="" ["-b"]="")
+	T_ARGS_OPTS=(["--foo_0"]="blibla" ["-asd_0"]="asdPar\ 1\  \ asdPar2" ["--another_0"]="" ["-b_0"]="")
 	runSuccParse "param 1" "-b" " spacy par  " --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final
 
 	runSL b_args_assertOptions
@@ -123,6 +123,7 @@ function runSuccParse {
 	[[ "$output" != *"some"* ]]
 
 	runSL b_args_assertOptions "--another"
+	echo "$output"
 	[ $status -ne 0 ]
 	[[ "$output" == *"-b"* ]]
 	[[ "$output" == *"--foo"* ]]
@@ -144,7 +145,7 @@ function runSuccParse {
 
 	#empty param
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo"]="blibla" ["-asd"]="asdPar\ 1\  \ asdPar2" ["--another"]="" ["-b"]="")
+	T_ARGS_OPTS=(["--foo_0"]="blibla" ["-asd_0"]="asdPar\ 1\  \ asdPar2" ["--another_0"]="" ["-b_0"]="")
 	runSuccParse "param 1" "" "-b" " spacy par  " --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final
 
 	#no params
@@ -154,13 +155,18 @@ function runSuccParse {
 
 	#--
 	T_ARGS=("param 1" "" " spacy par  " "--foo" "blibla" "-asd" "asdPar 1 " " asdPar2" "some text" "--another" "final")
-	T_ARGS_OPTS=(["-b"]="")
+	T_ARGS_OPTS=(["-b_0"]="")
 	runSuccParse "param 1" "" "-b" " spacy par  " -- --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final
 
 	#option with --param
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo"]="--foopar" ["-asd"]="asdPar\ 1\  \ asdPar2" ["--another"]="" ["-b"]="")
+	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-asd_0"]="asdPar\ 1\  \ asdPar2" ["--another_0"]="" ["-b_0"]="")
 	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -asd "asdPar 1 " " asdPar2" "some text" --another final
+
+	#multiple parameters
+	T_ARGS=("param 1" " spacy par  " "some text" "final")
+	T_ARGS_OPTS=(["--foo_0"]="foopar" ["--foo_1"]="another" ["-asd_0"]="asdPar\ 1\  \ asdPar2" ["--another_0"]="" ["--another_1"]="" ["-b_0"]="")
+	runSuccParse "param 1" "-b" " spacy par  " --foo "foopar" --foo "another" -asd "asdPar 1 " " asdPar2" "some text" --another final --another
 
 	#enforce
 	b_args_init 1 "-asd" 2 "-b" 0 "--holymoly" 0 "--foo" 1
@@ -173,6 +179,6 @@ function runSuccParse {
 	[[ "$output" != *"--holymoly"* ]]
 	[[ "$output" != *"some"* ]]
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo"]="--foopar" ["-asd"]="asdPar\ 1\  \ asdPar2" ["--holymoly"]="" ["-b"]="")
+	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-asd_0"]="asdPar\ 1\  \ asdPar2" ["--holymoly_0"]="" ["-b_0"]="")
 	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -asd "asdPar 1 " " asdPar2" "some text" final "--holymoly"
 }
