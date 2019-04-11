@@ -86,6 +86,7 @@ return 0
 
 #+b_args_parse [arguments]
 #+Parse the given arguments.
+#+Regular arguments are parsed to the array [B_ARGS](#B_ARGS), options to the map [B_ARGS_OPTS](#B_ARGS_OPTS).
 #+[arguments]: The arguments meant to be parsed, usually "$@".
 #+returns: Sets a zero exit code on success and calls [B_E](#B_E) otherwise.
 #+@StateChanging
