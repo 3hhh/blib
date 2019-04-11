@@ -21,7 +21,8 @@
 declare -ga B_ARGS=()
 
 #+B_ARGS_OPTS
-#+Map of options. `[option]_[index]` is used as key with `[index]` starting at zero. The values are the option parameters (if any). Multiple option parameters are separated by spaces.
+#+Map of options. `[option]_[index]` is used as key with `[index]` starting at zero. The values are the option parameters (if any). Multiple option parameters are separated by tabs.
+#+The latter separator can be changed via [b_args_setOptionParamSeparator](#b_args_setOptionParamSeparator) before calling [b_args_parse](#b_args_parse).
 #+The index will only increase if options are repeated.
 declare -gA B_ARGS_OPTS=()
 
@@ -31,6 +32,9 @@ declare -gA BLIB_ARGS_OPTCNT=()
 #allow flag
 BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]=0
 
+#multiple option parameter separator (default: tab)
+BLIB_STORE["BLIB_ARGS_OPSEP"]='	'
+
 #+### Functions ###
 
 #+b_args_getDeps
@@ -38,6 +42,21 @@ BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]=0
 #+returns: newline-separated list of dependencies of this module
 function b_args_getDeps {
 return 0
+}
+
+#+b_args_setOptionParamSeparator [separator]
+#+Set the separator for multiple option parameters.
+#+[separator]: String to use as separator for multiple option parameters.
+#+returns: Nothing.
+function b_args_setOptionParamSeparator {
+BLIB_STORE["BLIB_ARGS_OPSEP"]="$1"
+}
+
+#+b_args_getOptionParamSeparator
+#+Get the separator for multiple option parameters.
+#+returns: Nothing.
+function b_args_getOptionParamSeparator {
+echo "${BLIB_STORE["BLIB_ARGS_OPSEP"]}"
 }
 
 #blib_args_clearState [include options]
@@ -129,8 +148,9 @@ for ((i=1;i<=$#;i++)) ; do
 		[ $maxInd -gt $# ] && B_ERR="The option $par is assumed to have $optParCnt parameters." && B_E
 
 		for ((j=$i+1;j<=$maxInd;j++)) ; do
-			printf -v optPar "%q" "${!j}"
-			[ -z "${B_ARGS_OPTS["$ind"]}" ] && B_ARGS_OPTS["$ind"]="$optPar" || B_ARGS_OPTS["$ind"]="${B_ARGS_OPTS["$ind"]} $optPar"
+			optPar="${!j}"
+			[[ "$optPar" == *"${BLIB_STORE["BLIB_ARGS_OPSEP"]}"* ]] && B_ERR="The option parameter $optPar contains the option parameter separator ${BLIB_STORE["BLIB_ARGS_OPSEP"]}. This will cause argument parsing to fail." && B_E
+			[ -z "${B_ARGS_OPTS["$ind"]}" ] && B_ARGS_OPTS["$ind"]="$optPar" || B_ARGS_OPTS["$ind"]="${B_ARGS_OPTS["$ind"]}${BLIB_STORE["BLIB_ARGS_OPSEP"]}$optPar"
 		done
 		i=$(( $i + $optParCnt ))
 	else
