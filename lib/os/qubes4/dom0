@@ -46,6 +46,7 @@ tee
 xxd
 python3
 kill
+losetup
 EOF
 
 echo -n "$deps"
@@ -341,7 +342,6 @@ return 0
 
 #+b_dom0_createLoopDeviceIfNecessary [vm] [file]
 #+Create a loop device for the file in the given VM if no old one exists. Actually a wrapper for [b_fs_createLoopDeviceIfNecessary](#b_fs_createLoopDeviceIfNecessary).
-#+
 #+This usually requires root privileges.
 #+[vm]: VM where to execute.
 #+[file]: File for which to create a loop device.
@@ -825,6 +825,20 @@ done
 return 1
 }
 
+#blib_dom0_closeLoopFunc [loop device]
+function blib_dom0_closeLoopFunc {
+losetup -d "$1"
+}
+
+#blib_dom0_closeLoop [loop device]
+function blib_dom0_closeLoop {
+#ignore errors
+b_setBE 1
+b_execFuncAs "root" blib_dom0_closeLoopFunc "$1"
+b_resetErrorHandler
+return 0
+}
+
 #+b_dom0_attachFile [dom0 file] [target VM] [rw flag]
 #+Attach the given file from dom0 (!) as block device to the target VM.
 #+The function may attempt to acquire root privileges (and thus display a password prompt).
@@ -845,12 +859,15 @@ local loDeviceName=""
 #unfortunately qvm-block l has issues for files, so we create a loop device first and use that one
 #also see: R3.0: qvm-block doesn't work well on files (https://groups.google.com/forum/#!msg/qubes-users/IotETu-gsm4/FO2GOu5pBwAJ)
 #for 4.0rc1 I'm not even sure whether it supports files...
-loDevice="$(b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$dom0File" - "fs")" || { B_ERR="Failed to create a loop device from $dom0File" ; B_E }
+loDevice="$(b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$dom0File" - "fs")" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to create a loop device from $dom0File" ; B_E }
 loDeviceName="${loDevice##*/}"
-[ -z "$loDeviceName" ] && B_ERR="Failed to extract the device name from $loDevice." && B_E
+[ -z "$loDeviceName" ] && { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to extract the device name from $loDevice." ; B_E }
 
 #run qvm-block
-qvm-block a $addOptions "$targetVM" "dom0:${loDeviceName}" || { B_ERR="Failed to attach the loop device $loDeviceName to the VM $targetVM." ; B_E }
+qvm-block a $addOptions "$targetVM" "dom0:${loDeviceName}" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to attach the loop device $loDeviceName to the VM $targetVM." ; B_E }
+
+#set the autoclear flag so that the kernel will remove the loop once Qubes stops using it (works since kernel 3.7 / lazy detaching)
+blib_dom0_closeLoop "$loDevice"
 
 #retrieve info
 local frontend=""
