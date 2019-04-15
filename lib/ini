@@ -79,7 +79,7 @@ return 0
 #+get the value for the ini entry with the given name as String in raw format
 #+[name]: name/key of the ini entry to retrieve
 #+[section]: section where to look for the entry with the given name (default: without section)
-#+returns: value of the ini entry matching exactly the given section and name incl. any whitespace; a non-zero exit code is set if such an entry wasn't found or another error occurred
+#+returns: value of the ini entry matching exactly the given section and name incl. any whitespace; a non-zero exit code is set if such an entry wasn't found
 function b_ini_get {
 local name="$1"
 local section="$2"
@@ -95,7 +95,7 @@ echo "${BLIB_INI_FILE["$id"]}"
 #+get the value for the ini entry with the given name as String and remove all whitespace around the returned String
 #+[name]: name/key of the ini entry to retrieve
 #+[section]: section where to look for the entry with the given name (default: without section)
-#+returns: value of the ini entry matching exactly the given section and name excl. any whitespace around; a non-zero exit code is set if such an entry wasn't found or another error occurred
+#+returns: value of the ini entry matching exactly the given section and name excl. any whitespace around; a non-zero exit code is set if such an entry wasn't found
 function b_ini_getString {
 local ret=""
 ret="$(b_ini_get "$1" "$2")"
@@ -109,13 +109,13 @@ local re='^[[:blank:]]*(.*[^[:blank:]]+)[[:blank:]]*$'
 #+get the value for the ini entry with the given name as integer
 #+[name]: see [b_ini_get](#b_ini_get)
 #+[section]: see [b_ini_get](#b_ini_get)
-#+returns: see [b_ini_get](#b_ini_get); additionally it is checked whether the return value is an integer (if not, a non-zero exit code is set and the return value is undefined)
+#+returns: see [b_ini_get](#b_ini_get); additionally it is checked whether the return value is an integer (if not, a non-zero exit code of 2 is set and the return value is undefined)
 function b_ini_getInt {
 local retStr=""
 retStr="$(b_ini_get "$1" "$2")"
 [ $? -ne 0 ] && return 1
 
-[[ "$retStr" =~ ^([0-9]+)[[:blank:]]*$ ]] && echo "${BASH_REMATCH[1]}" || return 1
+[[ "$retStr" =~ ^([0-9]+)[[:blank:]]*$ ]] && echo "${BASH_REMATCH[1]}" || return 2
 
 return 0
 }
@@ -124,7 +124,7 @@ return 0
 #+get the value for the ini entry with the given name as boolean
 #+[name]: see [b_ini_get](#b_ini_get)
 #+[section]: see [b_ini_get](#b_ini_get)
-#+returns: see [b_ini_get](#b_ini_get); 0 is returned via echo for true, 1 for false; the exit code indicates a potential error during parsing or a missing entry (and *not* true/false)
+#+returns: see [b_ini_get](#b_ini_get); 0 is returned via echo for true, 1 for false; the exit code indicates a potential error during parsing (2) or a missing entry (1) and _not_ true/false
 function b_ini_getBool {
 local retStr=""
 retStr="$(b_ini_get "$1" "$2")"
@@ -139,6 +139,6 @@ elif [[ "$retStr" =~ $falseRegex ]] ; then
 	echo 1
 	return 0
 else
-	return 1
+	return 2
 fi
 }
