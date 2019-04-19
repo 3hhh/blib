@@ -210,7 +210,7 @@ function basicDaemonTests {
 		[[ "$output" == *"started"* ]]
 	fi
 
-	runSL b_daemon_restart "$did" "" 0 "$msg"
+	runSL b_daemon_restart "$did" "" "" 0 "$msg"
 	[ $status -eq 0 ]
 	if [ $quiet -eq 0 ] ; then
 		[ -z "$output" ] ;
@@ -270,7 +270,7 @@ function daemon_main2 {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	
-	runSL b_daemon_stop "$T_DAEMON" 1
+	runSL b_daemon_stop "$T_DAEMON" "" 1
 	[ $status -eq 2 ]
 	[ -z "$output" ]
 

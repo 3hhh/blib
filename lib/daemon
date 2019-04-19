@@ -129,15 +129,17 @@ blib_daemon_info "${id} started."
 return 0
 }
 
-#+b_daemon_stop [id] [kill timeout]
+#+b_daemon_stop [id] [termination signal] [kill timeout]
 #+Stop the background process.
 #+[id]: Unique identifying String of the daemon to distinguish it from others.
-#+[kill timeout]: Time in seconds after which the background process will be killed, if it remains unresponsive (default: 2).
+#+[termination signal]: A number specifying the signal to send to the daemon (default: 15 / SIGTERM). See `kill -l` for an overview.
+#+[kill timeout]: Time in seconds after which the background process will be killed, if it remains unresponsive to the termination signal (default: 0 = wait indefinitely).
 #+returns: Sets a zero exit code, if the daemon terminated by itself. An exit code of 2 indicates that the daemon had to be killed. An exit code of 3 means that it wasn't running. [B_E](#B_E) is called on unexpected errors.
 #+@B_E
 function b_daemon_stop {
 local id="$1"
-local timeout="$2"
+local signal="${2:-15}"
+local timeout="${3:-0}"
 
 blib_daemon_info "Stopping ${id}..."
 
@@ -159,7 +161,7 @@ esac
 
 #kill daemon
 local ret=0
-kill "$pid" &> /dev/null
+kill -s "$signal" "$pid" &> /dev/null
 b_proc_waitForPid "$pid" "$timeout"
 if b_proc_pidExists "$pid" ; then
 	kill -9 "$pid" &> /dev/null
@@ -174,23 +176,24 @@ blib_daemon_info "${id} stopped."
 return $ret
 }
 
-#+b_daemon_restart [id] [kill timeout] [arg 1] ... [arg n]
+#+b_daemon_restart [id] [termination signal] [kill timeout] [arg 1] ... [arg n]
 #+Restart the background process.
 #+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+[termination signal]: See [b_daemon_stop](#b_daemon_stop).
 #+[kill timeout]: See [b_daemon_stop](#b_daemon_stop).
 #+[arg i]: An arbitrary number of arguments which can be passed to the main loop.
 #+returns: See [b_daemon_start](#b_daemon_start).
 #+@B_E
 function b_daemon_restart {
 local id="$1"
-local timeout="$2"
-shift
-shift
+local signal="$2"
+local timeout="$3"
+shift 3
 
 local ret=
 blib_daemon_info "Restarting ${id}..."
 
-b_daemon_stop "$id" "$timeout"
+b_daemon_stop "$id" "$signal" "$timeout"
 #NOTE: we ignore the exit codes 2 & 3
 b_daemon_start "$id" "$@"
 ret=$?
