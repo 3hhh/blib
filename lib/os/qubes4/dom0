@@ -657,7 +657,7 @@ local mpEsc=""
 printf -v mpEsc '%q' "$mp"
 printf -v mapperNameEsc '%q' "$mapperName"
 
-local cmd="[ -n \"$mp\" ] && { umount $mpEsc || exit 2 ; } ; cryptsetup close $mapperNameEsc"
+local cmd="[ -n \"$mp\" ] && { umount -A -R $mpEsc || exit 2 ; } ; cryptsetup close $mapperNameEsc"
 b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close inside the VM $vm." ; B_E }
 #we use the b_dom0_qvmRun exit code as ours
 }
