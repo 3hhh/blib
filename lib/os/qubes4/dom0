@@ -307,20 +307,22 @@ local dev="$2"
 b_silence "b_dom0_execFuncIn" "$vm" "" "b_fs_getMountpoints" "$dev" "-" "fs" "-"
 }
 
-#+b_dom0_mountIfNecessary [vm] [device] [mount point]
+#+b_dom0_mountIfNecessary [vm] [device] [mount point] [enforce]
 #+Mount the given device in the target VM if it isn't already mounted there. Actually a wrapper for [b_fs_mountIfNecessary](#b_fs_mountIfNecessary).
 #+[vm]: VM where to execute.
 #+[device]: Full path to the device (incl. /dev/) to mount.
 #+[mount point]: Full path where to mount the device. If no mount point is specified, a /tmp/ mount point is chosen. Non-existing directories are created. Is ignored if another mount point already exists.
+#+[enforce]: If set to 0, enforce the given mount point to be used in addition to potentially existing ones (default: 1).
 #+returns: The chosen mount point or a newline-separated list of existing mount points on success; sets a non-zero exit code on failure. As these strings are returned from the VM, extra care must be taken when parsing them.
 #+@B_E
 function b_dom0_mountIfNecessary {
 local vm="$1"
 local dev="$2"
 local mp="$3"
+local enforce="$4"
 local out=""
 
-out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "$dev" "$mp" - "fs" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E }
+out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "$dev" "$mp" "$enforce" - "fs" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E }
 
 #make sure the untrusted VM output is not binary (otherwise bash will run into big trouble)
 out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }

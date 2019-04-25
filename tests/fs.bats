@@ -231,7 +231,7 @@ function createFileAfter {
 function loopDevCleanup {
 	local loopDev="$1"
 
-	umount "$loopDev" || { B_ERR="Failed to umount the loop device $loopDev." ; B_E }
+	umount -A "$loopDev" || { B_ERR="Failed to umount the loop device $loopDev." ; B_E }
 	losetup -d "$loopDev" || { B_ERR="Failed to remove the loop device $loopDev." ; B_E }
 }
 
@@ -301,21 +301,36 @@ function loopDevCleanup {
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
+
+	local mps="$tmpDir2"$'\n'"$tmpDir"
+	local mps2="$tmpDir"$'\n'"$tmpDir2"
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" 0 - "fs" -
+	[ $status -eq 0 ]
+	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
+
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" 0 - "fs" -
+	[ $status -eq 0 ]
+	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
+
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "/tmp/random" - "fs" -
+	[ $status -eq 0 ]
+	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
+
 	runSL b_fs_getMountpoints "$loopDev"
 	[ $status -eq 0 ]
-	[[ "$output" == "$tmpDir" ]]
+	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
 
 	local out="$(cat "$tmpDir/SUCCESS.txt")"
 	[[ "$out" == "We did it!" ]]
 
 	#cleanup:
-	
 	runSL b_execFuncAs "root" loopDevCleanup "$loopDev" - -
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	runSL b_fs_getMountpoints "$loopDev"
+	echo "$output"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
@@ -323,7 +338,6 @@ function loopDevCleanup {
 	rm -f "$tmpLoopFile2"
 	rm -rf "$tmpDir"
 	rm -rf "$tmpDir2"
-
 }
 
 @test "b_fs_parseSize" {
