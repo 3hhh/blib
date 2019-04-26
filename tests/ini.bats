@@ -166,12 +166,9 @@ function runInvalidDefaultTests {
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 	[[ "$output" != *"Could not open"* ]]
-
-	#make sure it's available for follow up tests
-
 }
 
-#function to make sure the ini is loaded to the current namespace (runSL seems to load it to a subshell)
+#function to make sure the ini is loaded to the current namespace (runSL loads it to a subshell)
 function forceIniLoad {
 	local iniFile="$1"
 
@@ -256,4 +253,26 @@ function runInvalidDefaultTests {
 	runValid01Tests
 }
 
+@test "b_ini_assertNames" {
+	runValidDefaultTests "valid_02.ini"
 
+	runSL b_ini_assertNames "" "holy" -- "my section" "foo" "tata" "more whitespace" -- "another sec" "ramm"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_ini_assertNames "" "holy" "more holy" -- "my section" "foo" "tata" "more whitespace" -- "another sec" "ramm" "other"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_ini_assertNames "" "more holy" -- "my section" "tata" -- "another sec" "ramm" "other"
+	echo "$output"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+	[[ "$output" == *"Additional"* ]]
+	[[ "$output" == *"holy"* ]]
+	[[ "$output" == *"my section"* ]]
+	[[ "$output" == *"foo"* ]]
+	[[ "$output" == *"more whitespace"* ]]
+	[[ "$output" != *"another sec"* ]]
+}

@@ -21,6 +21,9 @@
 #key syntax: [section.name]
 declare -gA BLIB_INI_FILE=()
 
+#the ini file last read successfully
+BLIB_STORE_VOLATILE["BLIB_INI_FILE"]=""
+
 #+### Functions ###
 
 #+b_ini_getDeps
@@ -63,6 +66,7 @@ while IFS= read -r line ; do
 	if [[ "$line" =~ $sectionRegex ]] ; then
 		#section header
 		lastSection="${BASH_REMATCH[1]}"
+		[[ "$lastSection" == *"."* ]] && B_ERR="Sections with dots in their names are currently not supported, sorry." && B_E
 	elif [[ "$line" =~ $keyValRegex ]] ; then
 		#key, value pair
 		local id="$lastSection.${BASH_REMATCH[1]}"
@@ -72,6 +76,7 @@ while IFS= read -r line ; do
 	fi
 done < "$iniFile"
 
+BLIB_STORE_VOLATILE["BLIB_INI_FILE"]="$iniFile"
 return 0
 }
 
@@ -141,4 +146,46 @@ elif [[ "$retStr" =~ $falseRegex ]] ; then
 else
 	return 2
 fi
+}
+
+#+b_ini_assertNames [section 1] [name 1] ... [name n] -- [section 2] [name 1] ... [name m]
+#+Assert that the given sections contains _at most_ the given names and no additional ones.
+#+This is a useful function to detect user mistakes and should be called right after [b_ini_read](#b_ini_read).
+#+Multiple sections can be separated with "--".
+#+[section]: see [b_ini_get](#b_ini_get)
+#+[name]: see [b_ini_get](#b_ini_get)
+#+returns: Sets a zero exit code if and only if the last read ini file doesn't contain any additional names. Otherwise [B_E](#B_E) is triggered. [B_ERR](#B_ERR) will list the invalid names.
+#+@B_E
+function b_ini_assertNames {
+local section="$1"
+shift
+
+#parse params
+declare -A allowed=()
+local cur=
+while [ $# -gt 0 ] ; do
+	cur="$1"
+
+	if [[ "$cur" == "--" ]] ; then
+		section="$2"
+		shift
+	else
+		allowed["$section.$cur"]=0
+	fi
+
+	shift
+done
+
+#check
+local invalid=""
+for cur in "${!BLIB_INI_FILE[@]}" ; do
+	if [ -z "${allowed["$cur"]}" ] ; then
+		local sec="${cur%%.*}"
+		local name="${cur#*.}"
+		invalid="$invalid"$'\n'"[$sec] $name"
+	fi
+done
+
+[ -n "$invalid" ] && B_ERR="Additional data in ${BLIB_STORE_VOLATILE["BLIB_INI_FILE"]}: $invalid" && B_E
+return 0
 }
