@@ -24,6 +24,9 @@ declare -gA BLIB_INI_FILE=()
 #the ini file last read successfully
 BLIB_STORE_VOLATILE["BLIB_INI_FILE"]=""
 
+#separator character
+BLIB_STORE["BLIB_INI_SEP"]="]"
+
 #+### Functions ###
 
 #+b_ini_getDeps
@@ -66,10 +69,10 @@ while IFS= read -r line ; do
 	if [[ "$line" =~ $sectionRegex ]] ; then
 		#section header
 		lastSection="${BASH_REMATCH[1]}"
-		[[ "$lastSection" == *"."* ]] && B_ERR="Sections with dots in their names are currently not supported, sorry." && B_E
+		[[ "$lastSection" == *"${BLIB_STORE["BLIB_INI_SEP"]}"* ]] && B_ERR="Sections with ${BLIB_STORE["BLIB_INI_SEP"]} in their names are currently not supported, sorry." && B_E
 	elif [[ "$line" =~ $keyValRegex ]] ; then
 		#key, value pair
-		local id="$lastSection.${BASH_REMATCH[1]}"
+		local id="${lastSection}${BLIB_STORE["BLIB_INI_SEP"]}${BASH_REMATCH[1]}"
 		BLIB_INI_FILE["$id"]="${BASH_REMATCH[2]}"
 	else
 		B_ERR="The ini file $iniFile seems to be malformed. Line: $line" ; B_E
@@ -88,7 +91,7 @@ return 0
 function b_ini_get {
 local name="$1"
 local section="$2"
-local id="$section.$name"
+local id="${section}${BLIB_STORE["BLIB_INI_SEP"]}$name"
 
 echo "${BLIB_INI_FILE["$id"]}"
 
@@ -170,7 +173,7 @@ while [ $# -gt 0 ] ; do
 		section="$2"
 		shift
 	else
-		allowed["$section.$cur"]=0
+		allowed["${section}${BLIB_STORE["BLIB_INI_SEP"]}$cur"]=0
 	fi
 
 	shift
@@ -180,8 +183,8 @@ done
 local invalid=""
 for cur in "${!BLIB_INI_FILE[@]}" ; do
 	if [ -z "${allowed["$cur"]}" ] ; then
-		local sec="${cur%%.*}"
-		local name="${cur#*.}"
+		local sec="${cur%%${BLIB_STORE["BLIB_INI_SEP"]}*}"
+		local name="${cur#*${BLIB_STORE["BLIB_INI_SEP"]}}"
 		invalid="$invalid"$'\n'"[$sec] $name"
 	fi
 done
