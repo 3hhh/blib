@@ -499,7 +499,7 @@ local oldOpts=""
 b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -cz -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -xz --one-top-level=$dstName --strip-components=1 -f -"
 ret=$?
 eval "$oldOpts"
-b_resetErrorHandler
+b_resetErrorHandler 1
 B_E
 
 [ $ret -ne 0 ] && B_ERR="Failed to run the copy operation." && B_E
@@ -836,7 +836,7 @@ losetup -d "$1"
 function blib_dom0_closeLoop {
 #ignore errors
 b_setBE 1
-b_execFuncAs "root" blib_dom0_closeLoopFunc "$1"
+b_execFuncAs "root" blib_dom0_closeLoopFunc "$1" &> /dev/null
 b_resetErrorHandler
 return 0
 }

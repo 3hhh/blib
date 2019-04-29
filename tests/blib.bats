@@ -346,9 +346,15 @@ function testResetErrorHandler {
 	b_resetErrorHandler
 	cur="$(b_getErrorHandler)"
 	[[ "$cur" != "b_defaultErrorHandler" ]] && exit 35
+	B_ERR="foo"
 	b_resetErrorHandler
 	cur="$(b_getErrorHandler)"
 	[[ "$cur" != "b_defaultErrorHandler" ]] && exit 36
+	[ -z "$B_ERR" ] || exit 37
+
+	B_ERR="foobar"
+	b_resetErrorHandler 1
+	[[ "$B_ERR" == "foobar" ]] || exit 38
 
 	return 0
 }
@@ -387,7 +393,7 @@ function loudFunc {
 	b_silence loudFunc 0
 	stat=$?
 	set -e
-	b_resetErrorHandler
+	b_resetErrorHandler 1
 	echo c
 	[ $stat -ne 0 ]
 	echo d

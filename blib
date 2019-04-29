@@ -310,11 +310,14 @@ BLIB_ERR_HANDLER_LAST+=( "${BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]}" )
 BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]="$1"
 }
 
-#+b_resetErrorHandler
+#+b_resetErrorHandler [reset B_ERR]
 #+Set the error handler to whatever it was before the last call to [b_setErrorHandler](#b_setErrorHandler) or [b_setBE](#b_setBE).
+#+[reset B_ERR]: Whether or not to also reset [B_ERR](#B_ERR) (default: true/0).
 #+returns: nothing, always sets a zero exit code
 #+@StateChanging
 function b_resetErrorHandler {
+local resetBerr="${1:-0}"
+
 local lastInd=$(( ${#BLIB_ERR_HANDLER_LAST[@]} -1 ))
 local last="b_defaultErrorHandler"
 if [ $lastInd -ge 0 ] ; then
@@ -322,6 +325,8 @@ if [ $lastInd -ge 0 ] ; then
 	unset BLIB_ERR_HANDLER_LAST[$lastInd]
 fi
 BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]="$last"
+
+[ $resetBerr -eq 0 ] && B_ERR=""
 return 0
 }
 
@@ -347,7 +352,7 @@ local ret=
 b_setBE 1
 blib_execFuncInCurrentContext "$@" &> /dev/null
 ret=$?
-b_resetErrorHandler
+b_resetErrorHandler 1
 B_E
 return $ret
 }
