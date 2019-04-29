@@ -249,7 +249,7 @@ function waitForTestVMStartup {
 	#processes can take a few ms to terminate gracefully though
 	sleep 0.1
 	local out=
-	out="$(ps aux | grep "qwatch")"
+	out="$(pgrep -f "qwatch")"
 	echo "leftover process check (should be one line):"
 	echo "$out"
 	out="$(echo "$out" | wc -l)"
