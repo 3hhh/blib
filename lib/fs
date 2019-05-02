@@ -125,10 +125,12 @@ if [ -n "$mp" ] ; then
 		if ! findmnt --source "$dev" --mountpoint "$mp" &> /dev/null ; then
 			local cur=
 			while IFS= read -r cur ; do
-				[ -n "$cur" ] && break
+				if [ -n "$cur" ] ; then
+					mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E }
+					ret="$mp"$'\n'"$ret"
+					break
+				fi
 			done <<< "$ret"
-			mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E }
-			ret="$mp"$'\n'"$ret"
 		fi
 	fi
 fi
