@@ -117,15 +117,19 @@ local enforce="${3:-1}"
 local ret=
 ret="$(b_fs_getMountpoints "$dev")"
 
-if [ $enforce -eq 0 ] && [ -n "$mp" ] ; then
-	#NOTE: we use findmnt as devices and mount points can come in many notations
-	if ! findmnt --source "$dev" --mountpoint "$mp" &> /dev/null ; then
-		local cur=
-		while IFS= read -r cur ; do
-			[ -n "$cur" ] && break
-		done <<< "$ret"
-		mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E }
-		ret="$mp"$'\n'"$ret"
+if [ -n "$mp" ] ; then
+	mkdir -p "$mp" || { B_ERR="Failed to create the parent directories of $mp." ; B_E }
+
+	if [ $enforce -eq 0 ] ; then
+		#NOTE: we use findmnt as devices and mount points can come in many notations
+		if ! findmnt --source "$dev" --mountpoint "$mp" &> /dev/null ; then
+			local cur=
+			while IFS= read -r cur ; do
+				[ -n "$cur" ] && break
+			done <<< "$ret"
+			mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E }
+			ret="$mp"$'\n'"$ret"
+		fi
 	fi
 fi
 
@@ -136,8 +140,6 @@ fi
 
 if [ -z "$mp" ] ; then
 	mp="$(mktemp -d)" || { B_ERR="Failed to create a temporary directory." ; B_E }
-else
-	mkdir -p "$mp" || { B_ERR="Failed to create the parent directories of $mp." ; B_E }
 fi
 
 mount "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the device $dev to $mp." ; B_E }

@@ -323,6 +323,10 @@ function loopDevCleanup {
 	local out="$(cat "$tmpDir/SUCCESS.txt")"
 	[[ "$out" == "We did it!" ]]
 
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "/tmp/nonexisting-dir" 0 - "fs" -
+	[ $status -eq 0 ]
+	[[ "$output" == *"/tmp/nonexisting-dir"* ]]
+
 	#cleanup:
 	runSL b_execFuncAs "root" loopDevCleanup "$loopDev" - -
 	echo "$output"
