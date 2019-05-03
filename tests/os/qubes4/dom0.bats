@@ -248,13 +248,11 @@ function waitForTestVMStartup {
 
 	#make sure there's no leftover process after the last event
 	#processes can take a few ms to terminate gracefully though
-	sleep 0.1
-	local out=
-	out="$(pgrep -f "qwatch")"
-	echo "leftover process check (should be one line):"
-	echo "$out"
-	out="$(echo "$out" | wc -l)"
-	[[ "$out" == "1" ]]
+	sleep 0.3
+	run pgrep -f "qwatch"
+	echo "$output"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
 }
 
 @test "b_dom0_qvmRun" {
