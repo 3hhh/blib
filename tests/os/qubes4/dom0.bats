@@ -213,9 +213,10 @@ function waitForTestVMStartup {
 	local subject="$1"
 	local name="$2"
 	local info="$3"
+	local time="$4"
 	T_EVENT_CNT=$(( $T_EVENT_CNT +1 ))
 	[ $T_EVENT_CNT -gt 50 ] && return 66
-	[[ "$subject" == "$UTD_QUBES_TESTVM" ]] && [[ "$name" == "domain-start" ]] && [[ "$info" == *"start_guid"* ]] && return 12
+	[[ "$subject" == "$UTD_QUBES_TESTVM" ]] && [[ "$name" == "domain-start" ]] && [[ "$info" == *"start_guid"* ]] && [[ "$time" =~ ^[0-9]{13}$ ]] && return 12
 	return 0
 }
 

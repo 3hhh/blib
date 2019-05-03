@@ -19,6 +19,7 @@
 import asyncio
 import signal
 import sys
+import time
 
 import qubesadmin.events
 import qubesadmin.tools
@@ -29,6 +30,7 @@ end_marker_repl='         \n'
 
 def printing_handler(subject, event_name, **kwargs):
     #we make sure subject & event name don't have newlines, kwargs doesn't contain the end of record marker
+    print(int(time.time() * 1000))
     print(str(subject).replace('\n','\\n'))
     print(str(event_name).replace('\n','\\n'))
     print(str(kwargs).replace(end_marker,end_marker_repl))

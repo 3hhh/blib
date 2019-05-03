@@ -990,12 +990,13 @@ qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
 #+[callback function]: Name of the function to call for _every_ Qubes OS event. Since the number of events may be high, the function should do appropriate filtering at high performance.
 #+The callback function should be declared as follows:
 #+
-#+    callback_function_name [subject] [event name] [event info]
+#+    callback_function_name [subject] [event name] [event info] [timestamp]
 #+    [subject]: The subject name Qubes OS provides. Usually the VM for which the
 #+		event was reported. 'None' appears to mean 'dom0'.
 #+    [event name]: Name of the event for which the callback function was called.
 #+    [event info]: May contain additional information about the event (e.g.
 #+                  arguments).
+#+    [timestamp]: When the event was received in ms since EPOCH.
 #+    returns:  Nothing. A non-zero exit code will abort further processing.
 #+
 #+If you want to obtain an overview of Qubes OS events, please use the `qwatch` utility manually.
@@ -1008,6 +1009,7 @@ local callback="$1"
 
 local line=
 local cnt=0
+local timestamp=
 local subj=
 local eventName=
 local eventInfo=
@@ -1021,17 +1023,20 @@ while IFS= read -ru ${COPROC[0]} line ; do
 
 	case $cnt in
 		0)
-			subj="$line"
+			timestamp="$line"
 			;;
 		1)
-			eventName="$line"
+			subj="$line"
 			;;
 		2)
+			eventName="$line"
+			;;
+		3)
 			eventInfo="$line"
 			;;
 		*)
 			if [[ "$line" == "$qwatchRecordEndLine" ]] ; then
-				$callback "$subj" "$eventName" "$eventInfo"
+				$callback "$subj" "$eventName" "$eventInfo" "$timestamp"
 				ret=$?
 				if [ $ret -ne 0 ] ; then
 					kill $COPROC_PID &> /dev/null
