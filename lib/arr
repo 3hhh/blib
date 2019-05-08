@@ -22,15 +22,23 @@ echo -n "$deps"
 #+b_arr_join [delimiter] [array]
 #+Join the given array; elements are separated with the given delimiter. The array is not checked to exist.
 #+[delimiter]: String to use as delimiter.
-#+[array]: expanded array to join, e.g. "${arr\[@\]}"
+#+[array]: Expanded array to join, e.g. "${arr\[@\]}".
 #+returns: Joined version of the array. The exit code is always zero.
 function b_arr_join {
-local d=$1
+local d="$1"
 shift
 echo -n "$1"
 shift
 printf "%s" "${@/#/"$d"}"
 return 0
+}
+
+#+b_arr_toList [array]
+#+Create a newline-separated list from the given array.
+#+[array]: Expanded array to join, e.g. "${arr\[@\]}".
+#+returns: List version of the array. The exit code is always zero.
+function b_arr_toList {
+b_arr_join $'\n' "$@"
 }
 
 #+b_arr_contains [element] [array]

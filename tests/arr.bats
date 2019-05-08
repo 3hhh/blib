@@ -15,7 +15,7 @@ function setup {
 
 testArr1=("this is" "a test entry" "4" "my dear friends!")
 
-@test "b_arr_join" {
+@test "b_arr_join & b_arr_toList" {
 	runSL b_arr_join ";-)" "${testArr1[@]}"
 	[ $status -eq 0 ]
 	[[ "$output" == "this is;-)a test entry;-)4;-)my dear friends!" ]]
@@ -31,6 +31,10 @@ testArr1=("this is" "a test entry" "4" "my dear friends!")
 	runSL b_arr_join "MEGA" ""
 	[ $status -eq 0 ]
 	[ -z "$output" ]
+
+	runSL b_arr_toList "${testArr1[@]}"
+	[ $status -eq 0 ]
+	[[ "$output" == "this is"$'\n'"a test entry"$'\n'"4"$'\n'"my dear friends!" ]]
 }
 
 @test "b_arr_contains" {
