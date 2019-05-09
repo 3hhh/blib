@@ -580,6 +580,31 @@ function b_dom0_isRunning {
 blib_dom0_checkRunningMultiple 1 "$@"
 }
 
+#+b_dom0_isHalted [vm 1] ... [vm n]
+#+Check whether the given VMs are halted.
+#This is not necessarily the inverse of [b_dom0_isRunning](#b_dom0_isRunning) as VMs may e.g. be paused.
+#+[vm i]: The VM to check.
+#+returns: Nothing. [B_E](#B_E) will be called for VMs that are not running (or don't exist?).
+#+@B_E
+function b_dom0_isHalted {
+local halted=
+halted="$(qvm-ls --halted -O NAME --raw-list)" || { B_ERR="Failed to execute qvm-ls." ; B_E }
+
+local vm=
+declare -A haltedMap
+while IFS= read -r vm ; do
+	haltedMap["$vm"]=0
+done <<< "$halted"
+
+local ret=""
+for vm in "$@" ; do
+	[ -z "${haltedMap["$vm"]}" ] && ret="$ret $vm"
+done
+
+[ -n "$ret" ] && B_ERR="Not halted:$ret" && B_E
+return 0
+}
+
 #+b_dom0_exists [vm]
 #+Check whether the given VM exists.
 #+[vm]: The VM to check.

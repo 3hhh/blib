@@ -97,11 +97,16 @@ function skipIfNoTestVMs {
 
 }
 
-@test "b_dom0_isRunning" {
+@test "b_dom0_isRunning & b_dom0_isHalted" {
 	skipIfNoTestVMs
 
 	runSL b_dom0_isRunning "non-existent-vm"
-	echo "output: $output"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"non-existent-vm"* ]]
+
+	runSL b_dom0_isHalted "non-existent-vm"
+	echo "$output"
 	[ $status -ne 0 ]
 	[[ "$output" == *"non-existent-vm"* ]]
 
@@ -109,22 +114,62 @@ function skipIfNoTestVMs {
 	[ $status -ne 0 ]
 	[[ "$output" == *"non existent vm"* ]]
 
+	runSL b_dom0_isHalted "non existent vm"
+	[ $status -ne 0 ]
+	[[ "$output" == *"non existent vm"* ]]
+
 	runSL b_dom0_isRunning "${TEST_STATE["DOM0_TESTVM_1"]}"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
+
+	runSL b_dom0_isHalted "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -ne 0 ]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
 
 	runSL b_dom0_isRunning "${TEST_STATE["DOM0_TESTVM_2"]}" "${TEST_STATE["DOM0_TESTVM_1"]}"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_dom0_isRunning "${TEST_STATE["DOM0_TESTVM_2"]}" "${TEST_STATE["DOM0_TESTVM_1"]}" "nonex"
+	runSL b_dom0_isHalted "${TEST_STATE["DOM0_TESTVM_2"]}" "${TEST_STATE["DOM0_TESTVM_1"]}"
 	[ $status -ne 0 ]
-	[[ "$output" == *"nonex"* ]]
-	[[ "$output" != *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
-	[[ "$output" != *"${TEST_STATE["DOM0_TESTVM_2"]}"* ]]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_2"]}"* ]]
+
+	runSL qvm-pause "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -eq 0 ]
+
+	runSL b_dom0_isRunning "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -ne 0 ]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
+
+	runSL b_dom0_isHalted "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -ne 0 ]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
+
+	runSL qvm-unpause "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -eq 0 ]
+
+	runSL b_dom0_isRunning "${TEST_STATE["DOM0_TESTVM_1"]}"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_dom0_isHalted "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -ne 0 ]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
 
 	#make sure it is shut down
 	runSL qvm-shutdown --wait --timeout 10 "$UTD_QUBES_TESTVM"
+
+	runSL b_dom0_isHalted "$UTD_QUBES_TESTVM"
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_dom0_isHalted "$UTD_QUBES_TESTVM" "${TEST_STATE["DOM0_TESTVM_2"]}"
+	[ "$status" -ne 0 ]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_2"]}"* ]]
+	[[ "$output" != *"${UTD_QUBES_TESTVM}"* ]]
 
 	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM" "${TEST_STATE["DOM0_TESTVM_2"]}"
 	echo "out: $output"
@@ -223,6 +268,9 @@ function waitForTestVMStartup {
 @test "b_dom0_enterEventLoop" {
 	skipIfNoTestVMs
 
+	run pgrep -f "qwatch"
+	local orig="$output"
+
 	runSL funcTimeout 5 b_dom0_enterEventLoop "checkEventLoopConnection"
 	[ $status -eq 22 ]
 	[ -z "$output" ]
@@ -251,8 +299,7 @@ function waitForTestVMStartup {
 	sleep 0.3
 	run pgrep -f "qwatch"
 	echo "$output"
-	[ $status -ne 0 ]
-	[ -z "$output" ]
+	[[ "$output" == "$orig" ]]
 }
 
 @test "b_dom0_qvmRun" {
