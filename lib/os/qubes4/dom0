@@ -588,7 +588,7 @@ blib_dom0_checkRunningMultiple 1 "$@"
 #+@B_E
 function b_dom0_isHalted {
 local halted=
-halted="$(qvm-ls --halted -O NAME --raw-list)" || { B_ERR="Failed to execute qvm-ls." ; B_E }
+halted="$(qvm-ls --halted --raw-list)" || { B_ERR="Failed to execute qvm-ls." ; B_E }
 
 local vm=
 declare -A haltedMap
