@@ -6,8 +6,11 @@
 #+
 #+If you need to exchange data with the background service, please have a look at the [multithreading/ipcv] or [multithreading/ipcm] modules.
 #+
+#+Known Issue:
+#+Since the daemon cannot detach from its session via `setsid` in bash, the daemon will remain in the process group of its parent. So killing the parent with e.g. Ctrl-C will cause the parent group including the daemon to terminate. As a workaround, users may either ignore SIGINT requests or make sure the parent exits as soon as possible (recommended).
+#+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.3
+#+0.4
 
 b_import "multithreading/mtx"
 b_import "proc"
@@ -38,6 +41,8 @@ read -r -d '' deps << 'EOF'
 kill
 umask
 mkdir
+rm
+mktemp
 EOF
 
 echo -n "$deps"
@@ -106,17 +111,34 @@ mkdir -p "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}" || { B_ERR="Failed to create ${B
 b_mtx_try "$mtx" "$$" 0 1 &> /dev/null || { B_ERR="The daemon $id appears to be running already." ; B_E }
 
 #start daemon
-#NOTE: FD3 is closed for bats only
-(	B_DAEMON_ID="$id"
+#NOTE: we "double fork" to make sure the parent is dead; this should make sure that the daemon can never acquire /dev/console, cf. https://stackoverflow.com/questions/881388/what-is-the-reason-for-performing-a-double-fork-when-creating-a-daemon
+local pidFile=
+pidFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+{ {	B_DAEMON_ID="$id"
 
-	#change working dir & umask appear to be "good daemon behaviour", c.f. http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
+	#close all non-standard FDs
+	eval exec {3..255}\>\&-
+
+	#change working dir & umask appear to be "good daemon behaviour", cf. http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
 	cd /
 	umask ${BLIB_STORE["BLIB_DAEMON_UMASK"]}
 
+	#we _should_ execute setsid here, but that's not available in bash
+	#--> we keep the same session as the parent and thus might be killed with it
+
 	"${BLIB_STORE["BLIB_DAEMON_MAIN"]}" "$@"
-) < /dev/null > $stdout 2> $stderr 3>&- &
-disown
-pid=$!
+} < /dev/null > $stdout 2> $stderr &
+disown -h $!
+echo "$!" > "$pidFile"
+} &
+
+#wait for intermediate process to die
+wait $!
+
+#get the pid of the child
+local pid="$(<"$pidFile")"
+[ -z "$pid" ] && B_ERR="Failed to retrieve the PID of the daemon just started from $pidFile." && B_E
+rm -f "$pidFile" &> /dev/null
 
 #change the mutex block ID to that of the daemon
 if ! (b_mtx_pass "$mtx" "$pid") ; then
