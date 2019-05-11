@@ -133,7 +133,7 @@ echo "$!" > "$pidFile"
 } &
 
 #wait for intermediate process to die
-wait $!
+wait $! || { B_ERR="The intermediate process returned a non-zero exit code." ; B_E }
 
 #get the pid of the child
 local pid="$(<"$pidFile")"
