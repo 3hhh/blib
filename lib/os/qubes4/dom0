@@ -48,6 +48,7 @@ xxd
 python3
 kill
 losetup
+setsid
 EOF
 
 echo -n "$deps"
@@ -1044,7 +1045,8 @@ local eventName=
 local eventInfo=
 local ret=
 
-coproc python3 "$qwatch" 2> /dev/null
+#NOTE: setsid ensures that Ctrl-C to a foreground process doesn't kill qwatch (as it's part of the process group), but allows the foreground process to decide what to do
+coproc setsid python3 "$qwatch" 2> /dev/null
 BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]="$COPROC_PID"
 while IFS= read -ru ${COPROC[0]} line ; do
 
