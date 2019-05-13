@@ -17,6 +17,7 @@ BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
 if command -v "qubes-prefs" &> /dev/null ; then
 	BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E }
 fi
+BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]=""
 
 #+### Functions ###
 
@@ -1025,7 +1026,10 @@ qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
 #+    returns:  Nothing. A non-zero exit code will abort further processing.
 #+
 #+If you want to obtain an overview of Qubes OS events, please use the `qwatch` utility manually.
-#+returns: Nothing, but uses the exit code of the last callback function execution as its own. [B_E](#B_E) is only called on exceptional errors.
+#+
+#+[b_dom0_disconnectEventLoop](#b_dom0_disconnectEventLoop) can be used to disconnect from the event loop asynchronously, e.g. from exit traps.
+#+returns: Nothing, but uses the exit code of the last callback function execution as its own. Sets an exit code of 0, if the event loop was terminated by [b_dom0_disonnectEventLoop](#b_dom0_disconnectEventLoop). [B_E](#B_E) is only called on exceptional errors.
+#+@StateChanging
 #+@B_E
 function b_dom0_enterEventLoop {
 local qwatch="${BLIB_STORE["BLIB_UTIL_DIR"]}/qubes/qwatch"
@@ -1040,10 +1044,8 @@ local eventName=
 local eventInfo=
 local ret=
 
-#fd3 is explicitly closed for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs
-#exec 3>&-
-
 coproc python3 "$qwatch" 2> /dev/null
+BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]="$COPROC_PID"
 while IFS= read -ru ${COPROC[0]} line ; do
 
 	case $cnt in
@@ -1079,9 +1081,21 @@ while IFS= read -ru ${COPROC[0]} line ; do
 	cnt=$(( $cnt +1 ))
 done
 
-#we should never get here as qwatch executes forever
-B_ERR="Execution error: $qwatch"
-B_E
+if [ -z "${BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]}" ] ; then
+	#terminated by b_dom0_disconnectEventLoop
+	return 0
+else
+	B_ERR="$qwatch terminated unexpectedly."
+	B_E
+fi
+}
+
+#+b_dom0_disconnectEventLoop
+#+Send a termination request to a dom0 event loop started with [b_dom0_enterEventLoop](#b_dom0_enterEventLoop). This is useful to exit the event loop from outside of it.
+#+returns: A non-zero exit code indicates that either no active event loop existed or the signal sending failed. Never errors out to be suitable for e.g. exit traps.
+#+@StateChanging
+function b_dom0_disconnectEventLoop {
+[ -n "${BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]}" ] && kill "${BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]}" &> /dev/null && BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]=""
 }
 
 #+b_dom0_testMultiple [vm] [operator] [list]
