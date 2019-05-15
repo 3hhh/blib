@@ -76,7 +76,7 @@ local blockId="${2:-$$}"
 local blockFile="$mutex/$blockId"
 
 #remove the block file
-rm "$blockFile" &> /dev/null
+rm -f "$blockFile" &> /dev/null
 #try to remove the mutex regardless of whether this was successful or not
 
 #remove the mutex dir and thus the mutex
