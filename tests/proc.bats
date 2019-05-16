@@ -3,7 +3,7 @@
 #+Bats tests for the arr module.
 #+
 #+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.1
+#+0.2
 
 #load common test code
 load test_common
@@ -37,6 +37,29 @@ function setup {
 
 function testProcess {
 	sleep 1
+}
+
+function childTest {
+	testProcess &
+	local pid="$!"
+	b_proc_childExists "$pid" || exit 1
+	sleep 0.1
+	b_proc_childExists "$pid" || exit 2
+
+	wait "$pid"
+	b_proc_childExists "$pid" && exit 3
+	exit 0
+}
+
+@test "b_proc_childExists" {
+	runSL b_proc_childExists "$$"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL childTest
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
 }
 
 @test "b_proc_waitForPid" {

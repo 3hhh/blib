@@ -3,7 +3,7 @@
 #+Collection of process and thread related functions.
 #+
 #+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.1
+#+0.2
 
 #+### Functions ###
 
@@ -30,10 +30,19 @@ local pid="$1"
 [ -n "$pid" ] && [ -d "/proc/$pid" ]
 }
 
+#+b_proc_childExists [pid]
+#+Check whether the given process ID exists _and_ is a _direct_ child of the calling bash process.
+#+[pid]: process ID to check
+#+returns: A zero exit code, if the caller is a parent of the given pid.
+function b_proc_childExists {
+local pid="$1"
+b_listContains "$(jobs -p)" "$pid"
+}
+
 #+b_proc_waitForPid [pid] [maximum time]
 #+Wait for the given process to exit. If it doesn't exist, exit immediately.
-#+[pid]: process ID of the process to wait for
-#+[maximum time]: maximum time in seconds to wait for the process to exit (default: 0 = indefinitely)
+#+[pid]: Process ID of the process to wait for. Doesn't need to be a child.
+#+[maximum time]: Maximum time in seconds to wait for the process to exit (default: 0 = indefinitely).
 #+returns: Nothing, always sets a zero exit code. Use [b_proc_pidExists](#b_proc_pidExists) if you need to know whether the process finished.
 function b_proc_waitForPid {
 local pid="$1"
