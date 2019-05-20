@@ -640,9 +640,11 @@ local encType="${7:-luks}"
 local keyFileEsc=""
 local mpEsc=""
 local mapperNameEsc=""
+local devEsc=""
 printf -v keyFileEsc '%q' "$keyFile"
 printf -v mpEsc '%q' "$mp"
 printf -v mapperNameEsc '%q' "$mapperName"
+printf -v devEsc '%q' "$dev"
 
 #set cryptsetup options
 local copt=""
@@ -651,9 +653,9 @@ local copt=""
 
 #run
 if [ -n "$mp" ] ; then
-	local cmd="cryptsetup open --type $encType $copt \"${dev}\" $mapperNameEsc || exit 1 ; mkdir -p $mpEsc && mount /dev/mapper/$mapperNameEsc $mpEsc"
+	local cmd="cryptsetup open --type $encType $copt $devEsc $mapperNameEsc || exit 1 ; mkdir -p $mpEsc && mount /dev/mapper/$mapperNameEsc $mpEsc"
 else
-	local cmd="cryptsetup open --type $encType $copt \"${dev}\" $mapperNameEsc"
+	local cmd="cryptsetup open --type $encType $copt $devEsc $mapperNameEsc"
 fi
 
 if [ -n "$keyFile" ] ; then
@@ -684,7 +686,7 @@ local mpEsc=""
 printf -v mpEsc '%q' "$mp"
 printf -v mapperNameEsc '%q' "$mapperName"
 
-local cmd="[ -n \"$mp\" ] && { umount -A -R $mpEsc || exit 2 ; } ; cryptsetup close $mapperNameEsc"
+local cmd="[ -n $mpEsc ] && { umount -A -R $mpEsc || exit 2 ; } ; cryptsetup close $mapperNameEsc"
 b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close inside the VM $vm." ; B_E }
 #we use the b_dom0_qvmRun exit code as ours
 }
