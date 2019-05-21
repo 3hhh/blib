@@ -489,6 +489,61 @@ In Qubes VM.'
 	[[ "$output" != *"testFunc01:"* ]]
 }
 
+@test "b_dom0_setVMDeps & b_dom0_getVMDeps" {
+	local invalidDeps="sed"$'\n'"nonexistingDep"$'\n'"test"
+
+	runSL b_dom0_getVMDeps
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+
+	runSC b_dom0_setVMDeps "$invalidDeps" 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	b_dom0_setVMDeps "$invalidDeps" 1
+	runSL b_dom0_getVMDeps
+	[ $status -eq 0 ]
+	[[ "$output" == "$invalidDeps" ]]
+
+	b_dom0_setVMDeps "$invalidDeps"
+	runSL b_dom0_getVMDeps
+	[ $status -eq 0 ]
+	[[ "$output" != "$invalidDeps" ]]
+	[[ "$output" == *"nonexistingDep"* ]]
+	[[ "$output" == *"mount"* ]]
+	[[ "$output" == *"sed"* ]]
+	[[ "$output" == *"test"* ]]
+
+	runSL b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" "[ 1 -eq 1 ]"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"dependency"* ]]
+	[[ "$output" == *"nonexistingDep"* ]]
+
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01Dep"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"dependency"* ]]
+	[[ "$output" == *"nonexistingDep"* ]]
+
+	b_dom0_setVMDeps "" 1
+	runSL b_dom0_getVMDeps
+	[ "$status" -eq 0 ]
+	[ -z "$output" ]
+
+	b_dom0_setVMDeps
+	runSL b_dom0_getVMDeps
+	[ "$status" -eq 0 ]
+	[ -n "$output" ]
+
+	runSL b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" "[ 1 -eq 1 ]"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "b_dom0_testMultiple" {
 	skipIfNoTestVMs
 

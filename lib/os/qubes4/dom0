@@ -5,7 +5,7 @@
 #+ **Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.4
+#+0.5
 
 b_import fs
 b_import proc
@@ -18,6 +18,19 @@ if command -v "qubes-prefs" &> /dev/null ; then
 	BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E }
 fi
 BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]=""
+
+#VM dependencies introduced by functions of this module
+#NOTE: cryptsetup & losetup are not available to all users and thus left out from the defaults (dependency check may otherwise fail)
+BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]="rm
+mkdir
+mv
+tar
+umount
+mount
+test"
+
+#overall VM dependencies (incl. user input)
+BLIB_STORE["BLIB_DOM0_VM_DEPS"]="${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"
 
 #+### Functions ###
 
@@ -49,9 +62,36 @@ python3
 kill
 losetup
 setsid
+sort
 EOF
 
 echo -n "$deps"
+}
+
+#+b_dom0_setVMDeps [list] [keep defaults]
+#+Set the dependencies for all VMs used with this module to the given list of binaries.
+#+These dependencies are checked before _any_ execution of commands in _any_ VM; in particular whenever [b_dom0_qvmRun](#b_dom0_qvmRun), [b_dom0_execIn](#b_dom0_execIn), [b_dom0_execStrIn](#b_dom0_execStrIn) or [b_dom0_execFuncIn](#b_dom0_execFuncIn) are called.
+#+[list]: Newline-separated list of binaries or commands that VMs must be able to execute.
+#+[keep defaults]: If set to 0 (default), merge the default list of dependencies with the supplied one. Otherwise only keep the supplied list of dependencies.
+#+returns: Nothing.
+#+@StateChanging
+function b_dom0_setVMDeps {
+local list="$1"
+local keepDef="${2:-0}"
+
+if [ $keepDef -eq 0 ] ; then
+	BLIB_STORE["BLIB_DOM0_VM_DEPS"]="$( echo "${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"$'\n'"$list" | sort -u )"
+else
+	BLIB_STORE["BLIB_DOM0_VM_DEPS"]="$list"
+fi
+return 0
+}
+
+#+b_dom0_getVMDeps
+#+Getter for [b_dom0_setVMDeps](#b_dom0_setVMDeps).
+#+returns: The current list of dependencies for VMs.
+function b_dom0_getVMDeps {
+echo "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
 }
 
 #+b_dom0_qvmRun [parameter 1] ... [parameter n]
@@ -67,6 +107,7 @@ echo -n "$deps"
 #+   * stdout has the VM output and the exit code is the one of the VM
 #+   * distinguished exit conditions (executed command failed vs. qvm-run failed)
 #+   * workarounds for known Qubes bugs wrt qvm-run may be implemented here (e.g. qubes issues #3083, #4476, #4633 in the past)
+#+   * VM dependencies set with [b_dom0_setVMDeps](#b_dom0_setVMDeps) are checked
 #+
 #+Please note that calling this function will make your script wait for the execution of the commands in the client VM.
 #+
@@ -116,9 +157,12 @@ local addParams="-p"
 # * we add a special 8 byte prefix to see whether we had success executing the command using qvm-run or not (distinguish a generic qvm-run failure from the command returning an exit code of 1)
 # * this doesn't work with ASCII characters as bash's string removal doesn't really work for binary data
 # * we could also use mkfifo instead of mktemp, but the performance advantage seems to be irrelevant & things get more messy
-local prefix="\x12\x13\x14\x12\x13\x14\x66\x66"
+# * last byte \x66 = dependency check passed, last byte \x67 = dependency check failed
+local prefix="\x12\x13\x14\x12\x13\x14\x66"
 local tPrefix="$(mktemp)"
-cmd="printf \"%b\" \"$prefix\" ; $cmd"
+local depsEsc=
+printf -v depsEsc '%q' "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
+cmd="$(declare -f "b_checkDeps") ; b_checkDeps $depsEsc &> /dev/null && printf '%b' \"$prefix\x66\" || { printf '%b' \"$prefix\x67\" ; exit 127 ; } ; $cmd"
 local ret=5
 local oldOpts=""
 [[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
@@ -136,7 +180,8 @@ eval "$oldOpts"
 #NOTE: this is hex, not some possibly interpreted string
 local prefixFound="$(cat "$tPrefix")"
 rm -f "$tPrefix" &> /dev/null
-[[ "$prefixFound" != "1213141213146666" ]] && B_ERR="Failed to execute qvm-run. Incorrect parameters passed?" && B_E
+[[ ! "$prefixFound" =~ ^121314121314666[67]$ ]] && B_ERR="Failed to execute qvm-run. Incorrect parameters passed?" && B_E
+[[ "$prefixFound" != *"6" ]] && B_ERR="The VM $vm failed the dependency check. Required commands:"$'\n'"${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}" && B_E
 
 return $ret
 }
