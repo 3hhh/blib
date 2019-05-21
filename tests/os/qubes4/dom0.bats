@@ -516,6 +516,10 @@ In Qubes VM.'
 	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-d" "/nonexisting"$'\n'"/nonexisting2/"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
+
+	runSL b_dom0_testMultiple "${TEST_STATE["DOM0_TESTVM_1"]}" "-z" ""
+	[ $status -eq 0 ]
+	[ -z "$output" ]
 }
 
 @test "b_dom0_parseQvmBlock & b_dom0_getQvmBlockInfo" {

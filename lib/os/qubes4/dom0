@@ -1116,11 +1116,8 @@ local list="$3"
 
 local toExec=""
 local line=
-local lineEsc=
 while IFS= read -r line ; do
-	printf -v lineEsc '%q' "$line"
-	toExec="${toExec}test $op $lineEsc ; echo "'$?'
-	toExec="$toExec"$'\n'
+	printf -v toExec '%s\ntest %s %q &> /dev/null ; echo $?' "$toExec" "$op" "$line"
 done <<< "$list"
 
 local out=
