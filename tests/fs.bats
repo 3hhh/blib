@@ -412,6 +412,18 @@ function loopDevCleanup {
 	[ $status -eq 0 ]
 	[[ "$output" == "132070244352" ]]
 
+	runSL b_fs_parseSize "1G"
+	[ $status -eq 0 ]
+	[[ "$output" == "1073741824" ]]
+
+	runSL b_fs_parseSize "-1G"
+	[ $status -eq 0 ]
+	[[ "$output" == "-1073741824" ]]
+
+	runSL b_fs_parseSize "1KB"
+	[ $status -eq 0 ]
+	[[ "$output" == "1000" ]]
+
 	runSL b_fs_parseSize "123GB"
 	[ $status -eq 0 ]
 	[[ "$output" == "123000000000" ]]

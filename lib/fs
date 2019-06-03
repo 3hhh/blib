@@ -178,7 +178,7 @@ fi
 
 #+b_fs_parseSize [string] [check flag]
 #+Parse human-readable file system sizes that include units.
-#+[string]: A string denoting a file system size of the format [number][unit]. Unit may be one of KB 1000, K 1024, MB 1000*1000, M 1024*1024, GB 1000*1000*1000, G 1024*1024*1024, and so on for T, P. If no unit is provided, the number is assumed to denote bytes.
+#+[string]: A string denoting a file system size of the format [number][unit]. Unit may be one of KB 1000, K 1024, MB 1000*1000, M 1024*1024, GB 1000*1000*1000, G 1024*1024*1024, and so on for T, P. If no unit is provided, the number is assumed to denote bytes. The number must be an integer.
 #+[check flag]: Check whether the result makes sense (default: 0/true). This check will make integer overflows less likely.
 #+returns: The respective number of bytes meant with the given string. [B_E](#B_E) is called on parsing errors.
 #+@B_E
@@ -213,7 +213,7 @@ local prec=1
 local ret=$(( $num * $prec ))
 
 if [ $checkFlag -eq 0 ] ; then
-	if [[ $ret -lt 0 || ( $num -ne 0 && $ret -eq 0 ) || ( $num -ne 0 && $ret -le $prec ) ]] ; then
+	if [[ $ret -lt 0 || ( $num -ne 0 && $ret -eq 0 ) || ( $num -ne 0 && $ret -lt $prec ) ]] ; then
 		B_ERR="An integer overflow was detected."
 		B_E
 	fi
