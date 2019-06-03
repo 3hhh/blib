@@ -180,7 +180,7 @@ eval "$oldOpts"
 #NOTE: this is hex, not some possibly interpreted string
 local prefixFound="$(cat "$tPrefix")"
 rm -f "$tPrefix" &> /dev/null
-[[ ! "$prefixFound" =~ ^121314121314666[67]$ ]] && B_ERR="Failed to execute qvm-run. Incorrect parameters passed?" && B_E
+[[ ! "$prefixFound" =~ ^121314121314666[67]$ ]] && B_ERR="Failed to execute qvm-run. Maybe the VM $vm is not running or incorrect parameters were passed?" && B_E
 [[ "$prefixFound" != *"6" ]] && B_ERR="The VM $vm failed the dependency check. Required commands:"$'\n'"${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}" && B_E
 
 return $ret
