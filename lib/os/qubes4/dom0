@@ -451,6 +451,7 @@ b_silence "b_dom0_qvmRun" "$targetVM" "$cmd"
 function b_dom0_copy {
 local dom0Path="$1"
 local dom0FileName=""
+local dom0Dir=""
 local vm="$2"
 local vmUser=""
 local vmDir="$3"
@@ -463,6 +464,7 @@ local targetName=""
 
 #NOTE: we need basename here as it should also work for directories
 dom0FileName="$(basename "$dom0Path")" || { B_ERR="Failed to compute the basename for $dom0Path." ; B_E }
+dom0Dir="$(dirname "$dom0Path")" || { B_ERR="Failed to compute the dirname for $dom0Path." ; B_E }
 vmUser="$(qvm-prefs "$vm" "default_user")" || { B_ERR="Failed to run qvm-prefs." ; B_E }
 
 #compute the target name
@@ -476,21 +478,23 @@ fi
 #prep
 blib_dom0_copyPrepareTarget "$targetName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
 
-#make sure the file does not exist in ~/QubesIncoming/dom0
-local qubesInc="/home/$vmUser/QubesIncoming/dom0/$dom0FileName"
-printf -v qubesInc '%q' "$qubesInc"
-local cmd="rm -rf $qubesInc"
-b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to remove $qubesInc in the VM $vm." ; B_E }
-
-#copy to ~/QubesIncoming/dom0
-qvm-copy-to-vm "$vm" "$dom0Path" || { B_ERR="Failed to run qvm-copy-to-vm for the VM $vm." ; B_E }
-
-#move it to the right place
-printf -v vmDir '%q' "$vmDir"
+#escape
 printf -v targetName '%q' "$targetName"
-local cmd="[ -d $vmDir ] && mv -f $qubesInc $vmDir/$targetName"
-b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to move the data in ~/QubesIncoming/ to the right place." ; B_E }
+printf -v vmDir '%q' "$vmDir"
 
+#copy
+#
+#NOTES:
+# - performance testing (1G file):
+# 	- cat | qvm-run cat	68s
+#	- qvm-copy-to-vm	55s
+#	- dd | qvm-run dd 	15-20s (bs=64K ... 1M)
+#	- tar | qvm-run tar 	10-20s without compression, 30-50s with -z
+# - qvm-copy-to-vm has the disadvantage of requiring ~/QubesIncoming/dom0 file system size
+# - tar has "natural" directory support
+# - see b_dom0_crossCopy for further notes on the tar implementation
+tar -C "$dom0Dir" -c -f - "$dom0FileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$vm" "tar -C $vmDir -x --one-top-level=$targetName --strip-components=1 -f -" || { B_ERR="Failed to run tar inside the $vm VM." ; B_E }
+[ ${PIPESTATUS[0]} -ne 0 ] && B_ERR="Failed to run tar on $dom0Path in dom0." && B_E
 return 0
 }
 
@@ -513,7 +517,6 @@ local dstVM="$3"
 local dstVMDir="$4"
 local overwrite=${5:-0}
 local parentDir=${6:-0}
-local ret=5
 local dstName=""
 
 srcFileName="$(basename "$srcFile")" || { B_ERR="Failed to compute the basename for $srcFile." ; B_E }
@@ -540,18 +543,9 @@ printf -v dstName '%q' "$dstName"
 #basic idea: tar file or directory, pipe it via qvm-run / b_dom0_qvmRun to the destination VM and untar there
 #tar -f - means: write to stdout/read from stdin
 #the --one-top-level=[name] --strip-components=1 lets us define the name of the top-level element of the tar archive (surprisingly, this also worked for files when I tested it)
-b_setBE 1
-local oldOpts=""
-[[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
-b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -cz -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -xz --one-top-level=$dstName --strip-components=1 -f -"
-ret=$?
-eval "$oldOpts"
-b_resetErrorHandler 1
-B_E
-
-[ $ret -ne 0 ] && B_ERR="Failed to run the copy operation." && B_E
-
-return $ret
+b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -c -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -x --one-top-level=$dstName --strip-components=1 -f -" || { B_ERR="Failed to run tar inside the $destVM VM." ; B_E }
+[ ${PIPESTATUS[0]} -ne 0 ] && B_ERR="Failed to run tar on $srcFile inside the $srcVM VM." && B_E
+return 0
 }
 
 #blib_dom0_checkRunningSingle [start] [vm]
