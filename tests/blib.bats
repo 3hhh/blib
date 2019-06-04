@@ -848,7 +848,7 @@ function meFunc {
 	[[ "$output" == *"Dependencies"* ]]
 	[[ "$output" == *"Imports"* ]]
 	[[ "$output" == *"Functions"* ]]
-	[[ "$output" == *"qvm-prefs"* ]]
+	[[ "$output" == *"qubes-prefs"* ]]
 	echo 10
 
 	runSL "$BLIB" "info" "http"
