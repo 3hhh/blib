@@ -27,7 +27,8 @@ mv
 tar
 umount
 mount
-test"
+test
+mktemp"
 
 #overall VM dependencies (incl. user input)
 BLIB_STORE["BLIB_DOM0_VM_DEPS"]="${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"
@@ -62,6 +63,7 @@ kill
 losetup
 setsid
 sort
+tar
 EOF
 
 echo -n "$deps"
@@ -438,6 +440,21 @@ local cmd="[ $overwrite -eq 0 ] && rm -rf $targetPath ; mkdir -p $targetDir || e
 b_silence "b_dom0_qvmRun" "$targetVM" "$cmd"
 }
 
+#helper for blib_dom0_untarStdinTo running inside the VM
+function blib_dom0_untarStdinToVmFunc {
+local dir="$1"
+local name="$2"
+local tmp=
+
+#NOTE: We shouldn't use any uncommon tar options as tar is _not_ portable. E.g. GNU tar supports the option --one-top-level, which would be rather useful here, but bsdtar does not. And some Linux distros ship bsdtar...
+#--> that's why we do the mktemp stuff
+tmp="$(mktemp -p "$dir" -d)" || exit 1
+tar -C "$tmp" -x -f - || { rm -rf "$tmp" ; exit 2 ; }
+mv "$tmp"/* "$dir/$name" || { rm -rf "$tmp" ; exit 3 ; }
+rm -rf "$tmp"
+return 0
+}
+
 #blib_dom0_untarStdinTo [vm] [directory] [name]
 #Untar stdin content (may be a file or directory) to the given VM at the given directory.
 #[directory]: Parent directory where to untar.
@@ -455,7 +472,8 @@ local nameEsc=
 printf -v dirEsc '%q' "$dir"
 printf -v nameEsc '%q' "$name"
 
-b_silence b_dom0_qvmRun --stdin "$vm" "tar -C $dirEsc -x --one-top-level=$nameEsc --strip-components=1 -f -"
+b_silence b_dom0_qvmRun --stdin "$vm" "$(declare -f "blib_dom0_untarStdinToVmFunc") ; blib_dom0_untarStdinToVmFunc $dirEsc $nameEsc" || { B_ERR="Failed to untar inside the VM $vm. Exit code: $?" ; B_E }
+return 0
 }
 
 #+b_dom0_copy [dom0 file] [target VM] [target VM dir] [overwrite] [parent dir]
