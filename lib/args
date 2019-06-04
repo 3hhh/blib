@@ -2,17 +2,19 @@
 #
 #+Stateful argument parser for bash.
 #+
-#+Regular arguments are parsed to [B_ARGS](#B_ARGS), options to [B_ARGS_OPTS](#B_ARGS_OPTS).
+#+Regular arguments are parsed to [B_ARGS](#B_ARGS), options to [B_ARGS_OPTS](#B_ARGS_OPTS). Options may have parameters, can be repeated and combined.
 #+
 #+The module can also check the correctness of options. All remaining correctness checks (e.g. for regular or option parameters) are left to the user of this module.
 #+
 #+Conventions:
 #+
-#+ * options always start with `-` and may occur everywhere
-#+ * everything after `--` is not considered an option
+#+ * Options always start with `-` and may occur everywhere.
+#+ * Single character options may be combined, e.g. `-ajh` will be considered the same as `-a -j -h`. Long options such as `--option` cannot be combined.
+#+   _Recommendation_: Use long options for those options which require parameters and single letter options for everything else.
+#+ * Everything after a space-separated double dash (`--`) is not considered an option, but a regular argument.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.5
+#+0.7
 
 #+### Global Variables ###
 
@@ -31,6 +33,9 @@ declare -gA BLIB_ARGS_OPTCNT=()
 
 #allow flag
 BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]=0
+
+#used by b_args_parse as global return variable
+BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]=""
 
 #multiple option parameter separator (default: tab)
 BLIB_STORE["BLIB_ARGS_OPSEP"]='	'
@@ -92,6 +97,7 @@ shift
 blib_args_clearState 0
 
 #parse params to internal state
+local optRe='^(-[a-zA-Z0-9]|--[a-zA-Z0-9-]+)$'
 while [ $# -gt 0 ] ; do
 	local opt="$1"
 	local optCnt="$2"
@@ -99,9 +105,72 @@ while [ $# -gt 0 ] ; do
 	shift
 	[ -z "$optCnt" ] && B_ERR="Option count for $opt missing." && B_E
 	[[ ! "$optCnt" =~ [0-9]+ ]] && B_ERR="Invalid option count for option $opt: $optCnt" && B_E
+	[[ "$opt" =~ $optRe ]] || { B_ERR="Option with bad syntax: $opt" ; B_E }
 
 	BLIB_ARGS_OPTCNT["$opt"]="$optCnt"
 done
+
+return 0
+}
+
+#blib_args_getNextIndex [option]
+#Get the next available free index for that option.
+#returns: The index. Never fails.
+function blib_args_getNextIndex {
+local opt="$1"
+
+local ind=
+for (( ind=0 ; ; ind++ )) ; do
+	[ ! ${B_ARGS_OPTS["${opt}_$ind"]+exists} ] && echo "$ind" && return 0
+done
+}
+
+#blib_args_parseSingleOpt [option]
+#Parse a single option, such as `-r`, `-k` or `--foo`.
+#returns: Sets a zero exit code on success and calls [B_E](#B_E) otherwise. If an option requires further arguments, that option including its index is returned via BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"].
+#@B_E
+#@StateChanging
+function blib_args_parseSingleOpt {
+local opt="$1"
+
+local ind="${opt}_$(blib_args_getNextIndex "$opt")"
+B_ARGS_OPTS["$ind"]=""
+local retArgs="${BLIB_ARGS_OPTCNT["$opt"]}"
+if [ -n "$retArgs" ] && [ $retArgs -gt 0 ] ; then
+	if [ -z "${BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]}" ] ; then
+		BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]="$ind"
+	else
+		B_ERR="Ambiguous syntax: The options $opt and ${BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]} may both have arguments, but are used together. It is now unclear to which one the arguments belong."
+		B_E
+	fi
+fi
+return 0
+}
+
+#blib_args_parseOptStr [option string]
+#Parse a single option string, such as `-ar`, `-k` or `--foo`.
+#returns: Sets a zero exit code on success and calls [B_E](#B_E) otherwise. If an option requires further arguments, that option including its index is returned via BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"].
+#@B_E
+#@StateChanging
+function blib_args_parseOptStr {
+local optStr="$1"
+BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]=""
+
+if [[ "$optStr" == "--"* ]] ; then
+	#single long option
+	blib_args_parseSingleOpt "$optStr"
+elif [[ "$optStr" == "-"* ]] ; then
+	#one or multiple options, each using a single character
+	local i=
+	local opt=
+	for (( i=1; i < ${#optStr} ; i++ )) ; do
+		opt="-${optStr:$i:1}"
+		blib_args_parseSingleOpt "$opt"
+	done
+else
+	B_ERR="No option: $optStr"
+	B_E
+fi
 
 return 0
 }
@@ -117,9 +186,7 @@ function b_args_parse {
 local i=
 local j=
 local par=
-local optPar=
 local foundFinalOption=1
-declare -A lastIndex=()
 
 blib_args_clearState 1
 
@@ -132,27 +199,24 @@ for ((i=1;i<=$#;i++)) ; do
 		foundFinalOption=0
 	elif [ $foundFinalOption -ne 0 ] && [[ "$par" == "-"* ]] ; then
 		#option
+		blib_args_parseOptStr "$par"
 
-		#compute index
-		local ind="${lastIndex["$par"]}"
-		[ -z "$ind" ] && ind=-1
-		ind=$(( $ind +1 ))
-		lastIndex["$par"]=$ind
-		ind="${par}_$ind"
+		#store option arguments, if necessary
+		local lastInd="${BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]}"
+		if [ -n "$lastInd" ] ; then
+			local opt="${lastInd%_*}"
+			local optParCnt="${BLIB_ARGS_OPTCNT["$opt"]}"
+			[ -z "$optParCnt" ] && B_ERR="Bug?!" && B_E
 
-		#store
-		B_ARGS_OPTS["$ind"]=""
-		local optParCnt="${BLIB_ARGS_OPTCNT["$par"]}"
-		[ -z "$optParCnt" ] && optParCnt=0
-		local maxInd=$(( $i + $optParCnt ))
-		[ $maxInd -gt $# ] && B_ERR="The option $par is assumed to have $optParCnt parameters." && B_E
-
-		for ((j=$i+1;j<=$maxInd;j++)) ; do
-			optPar="${!j}"
-			[[ "$optPar" == *"${BLIB_STORE["BLIB_ARGS_OPSEP"]}"* ]] && B_ERR="The option parameter $optPar contains the option parameter separator ${BLIB_STORE["BLIB_ARGS_OPSEP"]}. This will cause argument parsing to fail." && B_E
-			[ -z "${B_ARGS_OPTS["$ind"]}" ] && B_ARGS_OPTS["$ind"]="$optPar" || B_ARGS_OPTS["$ind"]="${B_ARGS_OPTS["$ind"]}${BLIB_STORE["BLIB_ARGS_OPSEP"]}$optPar"
-		done
+			local maxInd=$(( $i + $optParCnt ))
+			[ $maxInd -gt $# ] && B_ERR="The option $opt is assumed to have $optParCnt parameters." && B_E
+			for ((j=$i+1;j<=$maxInd;j++)) ; do
+				local optPar="${!j}"
+				[[ "$optPar" == *"${BLIB_STORE["BLIB_ARGS_OPSEP"]}"* ]] && B_ERR="The option parameter $optPar contains the option parameter separator ${BLIB_STORE["BLIB_ARGS_OPSEP"]}. This will cause argument parsing to fail." && B_E
+				[ -z "${B_ARGS_OPTS["$lastInd"]}" ] && B_ARGS_OPTS["$lastInd"]="$optPar" || B_ARGS_OPTS["$lastInd"]="${B_ARGS_OPTS["$lastInd"]}${BLIB_STORE["BLIB_ARGS_OPSEP"]}$optPar"
+			done
 		i=$(( $i + $optParCnt ))
+		fi
 	else
 		#regular argument
 		B_ARGS+=("$par")

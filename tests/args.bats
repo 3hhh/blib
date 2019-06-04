@@ -47,11 +47,19 @@ function runSuccParse {
 
 @test "b_args_init" {
 	#invalid inits
-	runSL b_args_init 0 "-asd"
+	runSL b_args_init 0 "-a"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runSL b_args_init 0 "-asd" 1 "foo"
+	runSL b_args_init 0 "-a" 1 "foo"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runSL b_args_init 0 "-aa" 1
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runSL b_args_init 0 "--a!a" 1
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
@@ -64,22 +72,22 @@ function runSuccParse {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_args_init 1 "-asd" 2
+	runSL b_args_init 1 "-a" 2
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_args_init 1 "-asd" 2 "-b" 0
+	runSL b_args_init 1 "-a" 2 "-b" 0
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_args_init 0 "-asd" 2 "-b" 0 "--holymoly" 0 "--foo" 1
+	runSL b_args_init 0 "-a" 2 "-b" 0 "--holymoly" 0 "--fo-o" 1
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	#re-inits should have no impact on the internal state
-	b_args_init 0 "-asd" 2 "-b" 0 "--holymoly" 0 "--foo" 1
+	b_args_init 0 "-a" 2 "-b" 0 "--holymoly" 0 "--foo" 1
 	runSL b_args_parse "-b"
-	b_args_init 0 "-asd" 1 "--holymoly" 0
+	b_args_init 0 "-a" 1 "--holymoly" 0
 	declare -p B_ARGS
 	declare -p B_ARGS_OPTS
 	declare -p BLIB_ARGS_OPTCNT
@@ -90,7 +98,7 @@ function runSuccParse {
 	echo "c"
 	[ "${#BLIB_ARGS_OPTCNT[@]}" -eq 2 ]
 	echo "d"
-	[ ${BLIB_ARGS_OPTCNT["-asd"]} -eq 1 ]
+	[ ${BLIB_ARGS_OPTCNT["-a"]} -eq 1 ]
 	echo "e"
 	[ ${BLIB_ARGS_OPTCNT["--holymoly"]} -eq 0 ]
 	echo "f"
@@ -98,7 +106,7 @@ function runSuccParse {
 }
 
 @test "b_args_parse & b_args_assertOptions" {
-	b_args_init "" "-asd" 2 "-b" 0 "--holymoly" 0 "--foo" 1
+	b_args_init "" "-a" 2 "-b" 0 "--holymoly" 0 "--foo" 1
 
 	runSL b_args_assertOptions
 	[ $status -eq 0 ]
@@ -108,21 +116,21 @@ function runSuccParse {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	#failing
+	#failing (missing option argument)
 	runSL b_args_parse "the first arg" --foo
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
 	#successful
 	T_ARGS=("param 1" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo_0"]="blibla" ["-asd_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["-b_0"]="")
-	runSuccParse "param 1" "-b" " spacy par  " --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final
+	T_ARGS_OPTS=(["--foo_0"]="blibla" ["-a_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["-b_0"]="")
+	runSuccParse "param 1" "-b" " spacy par  " --foo blibla -a "asdPar 1 " " asdPar2" "some text" --another final
 
 	runSL b_args_assertOptions
 	[ $status -ne 0 ]
 	[[ "$output" == *"-b"* ]]
 	[[ "$output" == *"--foo"* ]]
-	[[ "$output" == *"-asd"* ]]
+	[[ "$output" == *"-a"* ]]
 	[[ "$output" == *"--another"* ]]
 	[[ "$output" != *"some"* ]]
 
@@ -131,7 +139,7 @@ function runSuccParse {
 	[ $status -ne 0 ]
 	[[ "$output" == *"-b"* ]]
 	[[ "$output" == *"--foo"* ]]
-	[[ "$output" == *"-asd"* ]]
+	[[ "$output" == *"-a"* ]]
 	[[ "$output" != *"--another"* ]]
 	[[ "$output" != *"some"* ]]
 
@@ -139,18 +147,18 @@ function runSuccParse {
 	[ $status -ne 0 ]
 	[[ "$output" != *"-b"* ]]
 	[[ "$output" == *"--foo"* ]]
-	[[ "$output" == *"-asd"* ]]
+	[[ "$output" == *"-a"* ]]
 	[[ "$output" != *"--another"* ]]
 	[[ "$output" != *"some"* ]]
 
-	runSL b_args_assertOptions "--another" "--foo" "-asd" -b
+	runSL b_args_assertOptions "--another" "--foo" "-a" -b
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
 	#empty param
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo_0"]="blibla" ["-asd_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["-b_0"]="")
-	runSuccParse "param 1" "" "-b" " spacy par  " --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final
+	T_ARGS_OPTS=(["--foo_0"]="blibla" ["-a_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["-b_0"]="")
+	runSuccParse "param 1" "" "-b" " spacy par  " --foo blibla -a "asdPar 1 " " asdPar2" "some text" --another final
 
 	#no params
 	T_ARGS=()
@@ -158,31 +166,50 @@ function runSuccParse {
 	runSuccParse
 
 	#--
-	T_ARGS=("param 1" "" " spacy par  " "--foo" "blibla" "-asd" "asdPar 1 " " asdPar2" "some text" "--another" "final")
+	T_ARGS=("param 1" "" " spacy par  " "--foo" "blibla" "-a" "asdPar 1 " " asdPar2" "some text" "--another" "final")
 	T_ARGS_OPTS=(["-b_0"]="")
-	runSuccParse "param 1" "" "-b" " spacy par  " -- --foo blibla -asd "asdPar 1 " " asdPar2" "some text" --another final
+	runSuccParse "param 1" "" "-b" " spacy par  " -- --foo blibla -a "asdPar 1 " " asdPar2" "some text" --another final
 
 	#option with --param
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-asd_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["-b_0"]="")
-	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -asd "asdPar 1 " " asdPar2" "some text" --another final
+	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-a_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["-b_0"]="")
+	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -a "asdPar 1 " " asdPar2" "some text" --another final
 
 	#multiple parameters
 	T_ARGS=("param 1" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo_0"]="foopar" ["--foo_1"]="another" ["-asd_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["--another_1"]="" ["-b_0"]="")
-	runSuccParse "param 1" "-b" " spacy par  " --foo "foopar" --foo "another" -asd "asdPar 1 " " asdPar2" "some text" --another final --another
+	T_ARGS_OPTS=(["--foo_0"]="foopar" ["--foo_1"]="another" ["-a_0"]="asdPar 1 	 asdPar2" ["--another_0"]="" ["--another_1"]="" ["-b_0"]="")
+	runSuccParse "param 1" "-b" " spacy par  " --foo "foopar" --foo "another" -a "asdPar 1 " " asdPar2" "some text" --another final --another
+
+	#combined parameters, no option arguments
+	b_args_init 1 "-a" 0 "-b" 0 "-c" 2 "-d" 1
+	T_ARGS=("param 1" "" "final")
+	T_ARGS_OPTS=(["-a_0"]="" ["-b_0"]="")
+	runSuccParse "param 1" "" -ba "final"
+
+	#combined parameters, option arguments for a single option
+	T_ARGS=("param 1" "" "final")
+	T_ARGS_OPTS=(["-a_0"]="" ["-b_0"]="" ["-c_0"]="arg1	arg2")
+	runSuccParse "param 1" "" -ac "arg1" "arg2" "final" -b
+
+	#combined parameters, option arguments for a multiple options (should fail)
+	runSL b_args_parse "param 1" "" -dc "arg1" "arg2" "final" -b
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"Ambiguous"* ]]
 
 	#enforce
-	b_args_init 1 "-asd" 2 "-b" 0 "--holymoly" 0 "--foo" 1
-	runSL b_args_parse "param 1" "" "-b" " spacy par  " --foo --foopar -asd "asdPar 1 " " asdPar2" "some text" --another final
+	b_args_init 1 "-d" 2 "-b" 0 "--holymoly" 0 "--foo" 1
+	runSL b_args_parse "param 1" "" "-b" " spacy par  " --foo --foopar -d "asdPar 1 " " asdPar2" "some text" --another final
+	echo "$output"
 	[ $status -ne 0 ]
 	[[ "$output" == *"--another"* ]]
 	[[ "$output" != *"-b"* ]]
 	[[ "$output" != *"--foo"* ]]
-	[[ "$output" != *"-asd"* ]]
+	[[ "$output" != *"-d"* ]]
 	[[ "$output" != *"--holymoly"* ]]
 	[[ "$output" != *"some"* ]]
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
-	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-asd_0"]="asdPar 1 	 asdPar2" ["--holymoly_0"]="" ["-b_0"]="")
-	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -asd "asdPar 1 " " asdPar2" "some text" final "--holymoly"
+	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-d_0"]="asdPar 1 	 asdPar2" ["--holymoly_0"]="" ["-b_0"]="")
+	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -d "asdPar 1 " " asdPar2" "some text" final "--holymoly"
 }
