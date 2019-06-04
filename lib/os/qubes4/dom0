@@ -44,7 +44,6 @@ qvm-run
 qvm-block
 qvm-ls
 qvm-copy-to-vm
-qvm-prefs
 qvm-shutdown
 qvm-check
 qubes-prefs
@@ -439,6 +438,26 @@ local cmd="[ $overwrite -eq 0 ] && rm -rf $targetPath ; mkdir -p $targetDir || e
 b_silence "b_dom0_qvmRun" "$targetVM" "$cmd"
 }
 
+#blib_dom0_untarStdinTo [vm] [directory] [name]
+#Untar stdin content (may be a file or directory) to the given VM at the given directory.
+#[directory]: Parent directory where to untar.
+#[name]: Name of the file or directory to use (instead of the original file or directory name).
+#returns: Sets a zero exit code on success.
+#@B_E
+function blib_dom0_untarStdinTo {
+local vm="$1"
+local dir="$2"
+local name="$3"
+
+#escape
+local dirEsc=
+local nameEsc=
+printf -v dirEsc '%q' "$dir"
+printf -v nameEsc '%q' "$name"
+
+b_silence b_dom0_qvmRun --stdin "$vm" "tar -C $dirEsc -x --one-top-level=$nameEsc --strip-components=1 -f -"
+}
+
 #+b_dom0_copy [dom0 file] [target VM] [target VM dir] [overwrite] [parent dir]
 #+Grab a file or directory in dom0 and push it to the given file path in the target VM.
 #+[dom0 file]: location of the dom0 file or directory to read from, assumed to exist
@@ -453,7 +472,6 @@ local dom0Path="$1"
 local dom0FileName=""
 local dom0Dir=""
 local vm="$2"
-local vmUser=""
 local vmDir="$3"
 local overwrite=${4:-0}
 local parentDir="${5:-0}"
@@ -465,7 +483,6 @@ local targetName=""
 #NOTE: we need basename here as it should also work for directories
 dom0FileName="$(basename "$dom0Path")" || { B_ERR="Failed to compute the basename for $dom0Path." ; B_E }
 dom0Dir="$(dirname "$dom0Path")" || { B_ERR="Failed to compute the dirname for $dom0Path." ; B_E }
-vmUser="$(qvm-prefs "$vm" "default_user")" || { B_ERR="Failed to run qvm-prefs." ; B_E }
 
 #compute the target name
 if [ $parentDir -eq 0 ] ; then
@@ -478,10 +495,6 @@ fi
 #prep
 blib_dom0_copyPrepareTarget "$targetName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
 
-#escape
-printf -v targetName '%q' "$targetName"
-printf -v vmDir '%q' "$vmDir"
-
 #copy
 #
 #NOTES:
@@ -493,7 +506,7 @@ printf -v vmDir '%q' "$vmDir"
 # - qvm-copy-to-vm has the disadvantage of requiring ~/QubesIncoming/dom0 file system size
 # - tar has "natural" directory support
 # - see b_dom0_crossCopy for further notes on the tar implementation
-tar -C "$dom0Dir" -c -f - "$dom0FileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$vm" "tar -C $vmDir -x --one-top-level=$targetName --strip-components=1 -f -" || { B_ERR="Failed to run tar inside the $vm VM." ; B_E }
+tar -C "$dom0Dir" -c -f - "$dom0FileName" 2> /dev/null | blib_dom0_untarStdinTo "$vm" "$vmDir" "$targetName" || { B_ERR="Failed to run tar inside the $vm VM." ; B_E }
 [ ${PIPESTATUS[0]} -ne 0 ] && B_ERR="Failed to run tar on $dom0Path in dom0." && B_E
 return 0
 }
@@ -535,15 +548,13 @@ blib_dom0_copyPrepareTarget "$dstName" "$dstVM" "$dstVMDir" "$overwrite" || { B_
 
 #escape
 printf -v srcVMDir '%q' "$srcVMDir"
-printf -v dstVMDir '%q' "$dstVMDir"
 printf -v srcFileName '%q' "$srcFileName"
-printf -v dstName '%q' "$dstName"
 
 #copy
 #basic idea: tar file or directory, pipe it via qvm-run / b_dom0_qvmRun to the destination VM and untar there
 #tar -f - means: write to stdout/read from stdin
 #the --one-top-level=[name] --strip-components=1 lets us define the name of the top-level element of the tar archive (surprisingly, this also worked for files when I tested it)
-b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -c -f - $srcFileName" 2> /dev/null | b_silence b_dom0_qvmRun --stdin "$dstVM" "tar -C $dstVMDir -x --one-top-level=$dstName --strip-components=1 -f -" || { B_ERR="Failed to run tar inside the $destVM VM." ; B_E }
+b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -c -f - $srcFileName" 2> /dev/null | blib_dom0_untarStdinTo "$dstVM" "$dstVMDir" "$dstName" || { B_ERR="Failed to run tar inside the $dstVM VM." ; B_E }
 [ ${PIPESTATUS[0]} -ne 0 ] && B_ERR="Failed to run tar on $srcFile inside the $srcVM VM." && B_E
 return 0
 }
