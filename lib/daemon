@@ -59,8 +59,8 @@ return 0
 #+Init the module paramters. It is necessary to call this method _before_ using any other of this module unless you want to use the default paramters.
 #+[quiet flag]: If set to 0 (default), don't print anything to stdout during the execution of start|stop|restart|status. Otherwise use [b_info](#b_info) to print informational messages.
 #+[main name]: Name of the main loop function to execute in the background process. Returning from that function will exit the background process. Default: `daemon_main`
-#+[stdout file]: Where the background process should write its stdout stream to (default: /dev/null).
-#+[stderr file]: Where the background process should write its stderr stream to (default: /dev/null).
+#+[stdout file]: Where the background process should write its stdout stream to (default: /dev/null). Lines are appended.
+#+[stderr file]: Where the background process should write its stderr stream to (default: /dev/null). Lines are appended.
 #+[umask settings]: The umask settings to apply to the daemon (default: 0).
 #+returns: Nothing.
 #+@StateChanging
@@ -127,7 +127,7 @@ pidFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
 	#--> we keep the same session as the parent and thus might be killed with it
 
 	"${BLIB_STORE["BLIB_DAEMON_MAIN"]}" "$@"
-} < /dev/null > $stdout 2> $stderr &
+} < /dev/null >> $stdout 2>> $stderr &
 disown -h $!
 echo "$!" > "$pidFile"
 } &
