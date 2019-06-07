@@ -276,8 +276,9 @@ function waitForTestVMStartup {
 	[ -z "$output" ]
 
 	#make sure it is shut down
-	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM"
-	[ $status -ne 0 ]
+	runSL b_dom0_ensureHalted "$UTD_QUBES_TESTVM"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
 
 	#enter event loop in background
 	{ set +e ; funcTimeout 60 b_dom0_enterEventLoop "waitForTestVMStartup" ; } &
@@ -1332,6 +1333,38 @@ function testDiskAttach {
 	#tests: attach from $UTD_QUBES_TESTVM_PERSISTENT --> $UTD_QUBES_TESTVM
 	testDiskAttach "$UTD_QUBES_TESTVM" 0
 	testDiskAttach "$UTD_QUBES_TESTVM" 1
+}
+
+function testSuccEnsureHalted {
+	runSL b_dom0_ensureHalted "$UTD_QUBES_TESTVM" "${TEST_STATE["DOM0_TESTVM_1"]}" "${TEST_STATE["DOM0_TESTVM_2"]}"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM" "${TEST_STATE["DOM0_TESTVM_1"]}" "${TEST_STATE["DOM0_TESTVM_2"]}"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"$UTD_QUBES_TESTVM"* ]]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_1"]}"* ]]
+	[[ "$output" == *"${TEST_STATE["DOM0_TESTVM_2"]}"* ]]
+}
+
+@test "b_dom0_ensureHalted" {
+	skipIfNoTestVMs
+	#NOTE: this test should be done right before the end as it'll kill some of the test VMs
+
+	runSL b_dom0_ensureHalted "non-existent-vm" "anotherRandomVM"
+	[ $status -ne 0 ]
+	[[ "$output" == *"non-existent-vm"* ]]
+	[[ "$output" == *"anotherRandomVM"* ]]
+
+	runSL b_dom0_ensureRunning "$UTD_QUBES_TESTVM" "${TEST_STATE["DOM0_TESTVM_1"]}" "${TEST_STATE["DOM0_TESTVM_2"]}"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	testSuccEnsureHalted
+	#another try shouldn't change anything
+	testSuccEnsureHalted
 }
 
 @test "dom0 clean" {

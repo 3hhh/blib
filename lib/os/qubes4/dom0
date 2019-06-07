@@ -666,11 +666,35 @@ done <<< "$halted"
 
 local ret=""
 for vm in "$@" ; do
-	[ -z "${haltedMap["$vm"]}" ] && ret="$ret $vm"
+	if [ -z "${haltedMap["$vm"]}" ] ; then
+		if [[ "$vm" =~ ^disp[0-9]+$ ]] ; then
+			#special case: disposable VMs are assumed to be halted, if they don't exist anymore or are on our halted list
+			b_dom0_exists "$vm" && ret="$ret $vm"
+		else
+			ret="$ret $vm"
+		fi
+	fi
 done
 
 [ -n "$ret" ] && B_ERR="Not halted:$ret" && B_E
 return 0
+}
+
+#+b_dom0_ensureHalted [vm 1] ... [vm n]
+#+Shut down the given VMs if needed.
+#+[vm i]: The VM to halt.
+#+returns: Nothing. [B_E](#B_E) will be called for VMs that could not be halted (maybe they don't exist?).
+#+@B_E
+function b_dom0_ensureHalted {
+local vm=
+declare -a pids=()
+for vm in "$@" ; do
+	#NOTE: qvm-shutdown supports multiple VMs, but will error out on the first that is already down --> not usable here
+	qvm-shutdown --wait --timeout 15 "$vm" &> /dev/null &
+	pids+=($!)
+done
+wait "${pids[@]}"
+b_dom0_isHalted "$@"
 }
 
 #+b_dom0_exists [vm]
