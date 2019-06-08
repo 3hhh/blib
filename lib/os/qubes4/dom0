@@ -1106,8 +1106,9 @@ bid="$(b_dom0_getQvmBlockInfo "" "id" "frontend-dev" "$devName" "used by" "$vm")
 qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
 }
 
-#+b_dom0_enterEventLoop [callback function]
-#+Enter a blocking loop to react to Qubes OS events.
+#+b_dom0_enterEventLoop [callback function] [heartbeat interval]
+#+Enter a blocking loop to react to Qubes OS events. [b_dom0_disconnectEventLoop](#b_dom0_disconnectEventLoop) can be used to disconnect from the event loop asynchronously, e.g. from exit traps.
+#+If you want to obtain an overview of Qubes OS events, please use the `qwatch` utility manually.
 #+[callback function]: Name of the function to call for _every_ Qubes OS event. Since the number of events may be high, the function should do appropriate filtering at high performance.
 #+The callback function should be declared as follows:
 #+
@@ -1120,9 +1121,7 @@ qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
 #+    [timestamp]: When the event was received in ms since EPOCH.
 #+    returns:  Nothing. A non-zero exit code will abort further processing.
 #+
-#+If you want to obtain an overview of Qubes OS events, please use the `qwatch` utility manually.
-#+
-#+[b_dom0_disconnectEventLoop](#b_dom0_disconnectEventLoop) can be used to disconnect from the event loop asynchronously, e.g. from exit traps.
+#+[heartbeat interval]: Interval in ms at which to send heartbeat events (default: no heartbeat events).
 #+returns: Nothing, but uses the exit code of the last callback function execution as its own. Sets an exit code of 0, if the event loop was terminated by [b_dom0_disonnectEventLoop](#b_dom0_disconnectEventLoop). [B_E](#B_E) is only called on exceptional errors.
 #+@StateChanging
 #+@B_E
@@ -1130,6 +1129,7 @@ function b_dom0_enterEventLoop {
 local qwatch="${BLIB_STORE["BLIB_UTIL_DIR"]}/qubes/qwatch"
 local qwatchRecordEndLine="          "
 local callback="$1"
+local heartbeat="$2"
 
 local line=
 local cnt=0
@@ -1140,7 +1140,7 @@ local eventInfo=
 local ret=
 
 #NOTE: setsid ensures that Ctrl-C to a foreground process doesn't kill qwatch (as it's part of the process group), but allows the foreground process to decide what to do
-coproc setsid python3 "$qwatch" 2> /dev/null
+coproc setsid python3 "$qwatch" $heartbeat 2> /dev/null
 BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]="$COPROC_PID"
 while IFS= read -ru ${COPROC[0]} line ; do
 
@@ -1150,6 +1150,12 @@ while IFS= read -ru ${COPROC[0]} line ; do
 			;;
 		1)
 			subj="$line"
+			#special case: heartbeat events don't have a name or info field
+			if [[ "$subj" == "heartbeat" ]] ; then
+				eventName="heartbeat"
+				eventInfo=""
+				cnt=3
+			fi
 			;;
 		2)
 			eventName="$line"

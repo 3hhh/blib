@@ -14,8 +14,9 @@ load ../../test_common
 #TEST_STATE["DOM0_TESTVM_1"]=""
 #TEST_STATE["DOM0_TESTVM_2"]=""
 
-#event counter for b_dom0_enterEventLoop
+#helper variables for b_dom0_enterEventLoop
 T_EVENT_CNT=0
+T_EVENT_TIME=""
 
 #getDom0Fixture [file name]
 function getDom0Fixture {
@@ -265,6 +266,26 @@ function waitForTestVMStartup {
 	return 0
 }
 
+function checkHeartbeat {
+	local subject="$1"
+	local name="$2"
+	local info="$3"
+	local time="$4"
+
+	[[ ! "$time" =~ ^[0-9]{13}$ ]] && return 66
+
+	if [[ "$name" == "heartbeat" ]] || [[ "$subject" == "$heartbeat" ]] ; then
+		if [ -n "$T_EVENT_TIME" ] ; then
+			local diff=$(( $time - $T_EVENT_TIME ))
+			[ $diff -le 200 ] || { echo "DIFF: $diff" ; return 33 ; }
+		fi
+		T_EVENT_TIME="$time"
+		T_EVENT_CNT=$(( $T_EVENT_CNT +1 ))
+		[ $T_EVENT_CNT -ge 5 ] && return 5
+	fi
+	return 0
+}
+
 @test "b_dom0_enterEventLoop" {
 	skipIfNoTestVMs
 
@@ -301,6 +322,12 @@ function waitForTestVMStartup {
 	run pgrep -f "qwatch"
 	echo "$output"
 	[[ "$output" == "$orig" ]]
+
+	#test heartbeat
+	runSL funcTimeout 3 b_dom0_enterEventLoop "checkHeartbeat" 100
+	echo "$output"
+	[ $status -eq 5 ]
+	[ -z "$output" ]
 }
 
 @test "b_dom0_qvmRun" {
