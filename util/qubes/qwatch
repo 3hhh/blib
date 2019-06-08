@@ -4,7 +4,7 @@
 # Small tool to watch Qubes OS events as they happen.
 #
 # Copyright (C) 2019  David Hobach  LGPLv3
-# 0.3
+# 0.5
 #
 #
 # Relevant doc:
@@ -28,6 +28,13 @@ import qubesadmin.tools
 end_marker='          \n'
 end_marker_repl='         \n'
 
+#interval: heartbeat interval in s (float)
+def print_heartbeat(interval, loop):
+    print(int(time.time() * 1000))
+    print('heartbeat')
+    print(end_marker,end='',flush=True)
+    loop.call_later(interval, print_heartbeat, interval, loop)
+
 def printing_handler(subject, event_name, **kwargs):
     #we make sure subject & event name don't have newlines, kwargs doesn't contain the end of record marker
     print(int(time.time() * 1000))
@@ -39,6 +46,7 @@ def printing_handler(subject, event_name, **kwargs):
 
 def main(args=None, app=None):
     parser=qubesadmin.tools.QubesArgumentParser()
+    parser.add_argument('interval', nargs='?', default=-1, type=int, help='Heartbeat interval in ms: Can be used to make sure that an event is sent every few ms (default: no heartbeat).')
     args = parser.parse_args(args)
     try:
         loop=asyncio.get_event_loop()
@@ -48,6 +56,9 @@ def main(args=None, app=None):
         loop.add_signal_handler(signal.SIGINT,events_listener.cancel)
         loop.add_signal_handler(signal.SIGTERM,events_listener.cancel)
         loop.add_signal_handler(signal.SIGPIPE,events_listener.cancel)
+        if args.interval > 0:
+            interval_seconds=args.interval / 1000
+            loop.call_later(interval_seconds, print_heartbeat, interval_seconds, loop)
         loop.run_until_complete(events_listener)
     except Exception as e:
         print(e,file=sys.stderr)
