@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+#+Simplistic module to delay commands to a future time.
+#+Requires polling.
+#+
+#+All timestamps in this module must be integers and a larger timestamp must denote a time _after_ a smaller timestamp.
+#+
+#+Copyright (C) 2019  David Hobach  LGPLv3
+#+0.2
+
+#map of timestamps --> commands
+declare -gA BLIB_DELAY_CMDS=()
+
+#+B_DELAY_EXECUTED
+#+The number of commands executed during the last invocation of [b_delay_execute](#b_delay_execute).
+B_DELAY_EXECUTED=0
+
+#+### Functions ###
+
+#+b_delay_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_delay_getDeps {
+:
+}
+
+#+b_delay_to [timestamp] [command]
+#+Delay the given command to be executed at the given time.
+#+[timestamp]: An integer timestamp (e.g. $SECONDS, Unix timestamp in s/ms/ns, ...).
+#+[command]: The command to execute at the given time.
+#+returns: Nothing.
+#+@StateChanging
+function b_delay_to {
+local ts="$1"
+local cmd="$2"
+BLIB_DELAY_CMDS["$ts"]="$cmd"
+}
+
+#+b_delay_execute [timestamp]
+#+Execute all commands which are due at the given time.
+#+[timestamp]: Integer timestamp representing the current point in time.
+#+returns: Nothing. The exit code is equal to the number of commands with a non-zero exit code. [B_DELAY_EXECUTED](#B_DELAY_EXECUTED) is updated with the number of commands executed.
+#+@StateChanging
+function b_delay_execute {
+local now="$1"
+
+local ts=
+local ret=0
+B_DELAY_EXECUTED=0
+for ts in "${!BLIB_DELAY_CMDS[@]}" ; do
+	if [ $now -ge $ts ] ; then
+		(( B_DELAY_EXECUTED++ ))
+		eval "${BLIB_DELAY_CMDS["$ts"]}" || (( ret++ ))
+		unset BLIB_DELAY_CMDS["$ts"]
+	fi
+done
+
+return $ret
+}
