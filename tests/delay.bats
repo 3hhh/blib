@@ -20,8 +20,9 @@ function setup {
 
 	echo 1
 	local cmd=
-	printf -v cmd 'echo $SECONDS >> %q' "$tfile"
+	printf -v cmd 'echo -n $SECONDS >> %q' "$tfile"
 	[ ${#BLIB_DELAY_CMDS[@]} -eq 0 ]
+	b_delay_to $(( $pre +1 )) "$cmd"
 	b_delay_to $(( $pre +1 )) "$cmd"
 	b_delay_to $(( $pre +2 )) "$cmd"
 	[ ${#BLIB_DELAY_CMDS[@]} -eq 2 ]
@@ -44,7 +45,8 @@ function setup {
 	local out="$(cat "$tfile")"
 	echo "FILE:"
 	echo "$out"
-	[[ "$out" == $(( $pre +1 ))$'\n'$(( $pre +2 )) ]]
+	local p1=$(( $pre +1 ))
+	[[ "$out" == "$p1$p1"$(( $pre +2 )) ]]
 
 	echo 4
 	[ ${#BLIB_DELAY_CMDS[@]} -eq 0 ]

@@ -6,7 +6,7 @@
 #+All timestamps in this module must be integers and a larger timestamp must denote a time _after_ a smaller timestamp.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.2
+#+0.3
 
 #map of timestamps --> commands
 declare -gA BLIB_DELAY_CMDS=()
@@ -33,7 +33,9 @@ function b_delay_getDeps {
 function b_delay_to {
 local ts="$1"
 local cmd="$2"
-BLIB_DELAY_CMDS["$ts"]="$cmd"
+local old="${BLIB_DELAY_CMDS["$ts"]}"
+[ -n "$old" ] && BLIB_DELAY_CMDS["$ts"]="$old ; $cmd" || BLIB_DELAY_CMDS["$ts"]="$cmd"
+return 0
 }
 
 #+b_delay_execute [timestamp]
