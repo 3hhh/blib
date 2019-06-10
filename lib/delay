@@ -59,3 +59,12 @@ done
 
 return $ret
 }
+
+#+b_delay_getCommandAt [timestamp]
+#+Get the set of commands to be executed at the given point in time.
+#+[timestamp]: Integer timestamp denoting the time for which to retrieve the commands.
+#+returns: The commands to execute at that time.
+function b_delay_getCommandAt {
+local ts="$1"
+echo "${BLIB_DELAY_CMDS["$ts"]}"
+}

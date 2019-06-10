@@ -17,15 +17,29 @@ function setup {
 	local tfile="$(mktemp)"
 	[ -f "$tfile" ]
 	local pre=$SECONDS
+	local p1=$(( $pre +1 ))
+	local p2=$(( $pre +2 ))
 
 	echo 1
 	local cmd=
 	printf -v cmd 'echo -n $SECONDS >> %q' "$tfile"
-	[ ${#BLIB_DELAY_CMDS[@]} -eq 0 ]
-	b_delay_to $(( $pre +1 )) "$cmd"
-	b_delay_to $(( $pre +1 )) "$cmd"
-	b_delay_to $(( $pre +2 )) "$cmd"
-	[ ${#BLIB_DELAY_CMDS[@]} -eq 2 ]
+
+	runSL b_delay_getCommandAt "$p1"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	b_delay_to "$p1" "$cmd"
+	b_delay_to "$p2" "$cmd"
+
+	runSL b_delay_getCommandAt "$p1"
+	[ $status -eq 0 ]
+	[[ "$output" == "$cmd" ]]
+
+	runSL b_delay_getCommandAt "$p2"
+	[ $status -eq 0 ]
+	[[ "$output" == "$cmd" ]]
+
+	b_delay_to "$p1" "$cmd"
 
 	echo 2
 	local cnt=0
@@ -45,11 +59,16 @@ function setup {
 	local out="$(cat "$tfile")"
 	echo "FILE:"
 	echo "$out"
-	local p1=$(( $pre +1 ))
-	[[ "$out" == "$p1$p1"$(( $pre +2 )) ]]
+	[[ "$out" == "$p1$p1$p2" ]]
 
 	echo 4
-	[ ${#BLIB_DELAY_CMDS[@]} -eq 0 ]
+	runSL b_delay_getCommandAt "$p1"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_delay_getCommandAt "$p2"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
 
 	rm -f "$tfile"
 }
