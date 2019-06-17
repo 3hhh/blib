@@ -706,7 +706,7 @@ local vm="$1"
 qvm-check "$vm" &> /dev/null
 }
 
-#+b_dom0_openCrypt [vm] [device] [mapper name] [rw flag] [mount point] [key file] [type]
+#+b_dom0_openCrypt [vm] [device] [mapper name] [rw flag] [mount point] [key file] [additional options]
 #+In the given VM, open the given crypto device with dm-crypt and mount it to the mount point.
 #+[vm]: The VM where to open the crypto device.
 #+[device]: Full path to the device (incl. /dev/) to open.
@@ -714,7 +714,7 @@ qvm-check "$vm" &> /dev/null
 #+[rw flag]: 0=open read-write, 1=open read-only (default: 0)
 #+[mount point]: Where to mount the decrypted data to. Non-existing directories will be created. If no mount point is specified, it will not be mounted (default).
 #+[key file]: Full vm path to the key to use for decryption. If none is specified, password-based decryption is assumed and stdin will be read to obtain the password.
-#+[type]: Type of encryption container to open: plain|luks|loopaes|tcrypt (default: luks)
+#+[additional options]: Single string with additional cryptsetup parameters to pass on (default: none). They are passed _as-is_, i.e. you'll have to take care of proper escaping etc. yourself.
 #+returns: nothing (except for user interaction prompts if no key file is provided), but sets a non-zero exit code on errors
 #+@B_E
 function b_dom0_openCrypt {
@@ -724,7 +724,7 @@ local mapperName="$3"
 local rwFlag="${4:-0}"
 local mp="$5"
 local keyFile="$6"
-local encType="${7:-luks}"
+local copt="$7"
 
 #escape
 local keyFileEsc=""
@@ -737,15 +737,14 @@ printf -v mapperNameEsc '%q' "$mapperName"
 printf -v devEsc '%q' "$dev"
 
 #set cryptsetup options
-local copt=""
 [ $rwFlag -ne 0 ] && copt="$copt -r"
 [ -n "$keyFile" ] && copt="$copt --key-file $keyFileEsc"
 
 #run
 if [ -n "$mp" ] ; then
-	local cmd="cryptsetup open --type $encType $copt $devEsc $mapperNameEsc || exit 1 ; mkdir -p $mpEsc && mount /dev/mapper/$mapperNameEsc $mpEsc"
+	local cmd="cryptsetup open $copt $devEsc $mapperNameEsc || exit 1 ; mkdir -p $mpEsc && mount /dev/mapper/$mapperNameEsc $mpEsc"
 else
-	local cmd="cryptsetup open --type $encType $copt $devEsc $mapperNameEsc"
+	local cmd="cryptsetup open $copt $devEsc $mapperNameEsc"
 fi
 
 if [ -n "$keyFile" ] ; then
