@@ -92,9 +92,9 @@ function runSuccParse {
 	declare -p B_ARGS_OPTS
 	declare -p BLIB_ARGS_OPTCNT
 	echo "a"
-	[ "${#B_ARGS}" -eq 0 ]
+	[ "${#B_ARGS[@]}" -eq 0 ]
 	echo "b"
-	[ "${#B_ARGS_OPTS}" -eq 0 ]
+	[ "${#B_ARGS_OPTS[@]}" -eq 0 ]
 	echo "c"
 	[ "${#BLIB_ARGS_OPTCNT[@]}" -eq 2 ]
 	echo "d"
