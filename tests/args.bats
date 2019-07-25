@@ -3,7 +3,7 @@
 #+Bats tests for the args module.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.3
+#+0.4
 
 #load common test code
 load test_common
@@ -18,7 +18,7 @@ function setup {
 declare -ga T_ARGS
 declare -gA T_ARGS_OPTS
 
-function runSuccParse {
+function runSuccParseNoChecks {
 	runSL b_args_parse "$@"
 	echo "$output"
 	[ $status -eq 0 ]
@@ -26,6 +26,10 @@ function runSuccParse {
 
 	#validate the state change in our context
 	b_args_parse "$@"
+}
+
+function runSuccParse {
+	runSuccParseNoChecks "$@"
 
 	echo "opt check"
 	declare -p T_ARGS_OPTS
@@ -212,4 +216,155 @@ function runSuccParse {
 	T_ARGS=("param 1" "" " spacy par  " "some text" "final")
 	T_ARGS_OPTS=(["--foo_0"]="--foopar" ["-d_0"]="asdPar 1 	 asdPar2" ["--holymoly_0"]="" ["-b_0"]="")
 	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -d "asdPar 1 " " asdPar2" "some text" final "--holymoly"
+}
+
+@test "b_args_get[Option], b_args_get[Option]Int & b_args_get[Option]Count" {
+	b_args_init "" "-a" 2 "-b" 0 "--foo" 1
+	runSuccParseNoChecks "param 1" "-b" " spacy par  " --foo "foopar" --foo "another" --foo "" -a "asdPar 1 " "2" "" 456 --another final --another
+
+	local fb="fallback"
+
+	#b_args_get[Option]Count
+	runSL b_args_getCount
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "5" ]]
+
+	runSL b_args_getOptionCount
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "7" ]]
+
+	#b_args_get[Int]
+	runSL b_args_get -1 "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getInt -1 "$fb"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_get 0 "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "param 1" ]]
+
+	runSL b_args_getInt 0 "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_get 2 "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getInt 2 "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_get 3 "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "456" ]]
+
+	runSL b_args_getInt 3 "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "456" ]]
+
+	runSL b_args_get 4 "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "final" ]]
+
+	runSL b_args_getInt 4 "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_get 5 "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getInt 5 "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	#b_args_getOption[Int]
+	runSL b_args_getOption "-b" "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOptionInt "-b" "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "-b" "$fb" 0
+	[ $status -eq 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "-b" "$fb" 0 0
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "-b" "$fb" 0 1
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "-b" "$fb" 1
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "--nonexisting" "$fb"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "--foo" "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "foopar" ]]
+
+	runSL b_args_getOption "--foo" "$fb" "" 0
+	[ $status -eq 0 ]
+	[[ "$output" == "foopar" ]]
+
+	runSL b_args_getOption "--foo" "$fb" "" 1
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "--foo" "$fb" 1
+	[ $status -eq 0 ]
+	[[ "$output" == "another" ]]
+
+	runSL b_args_getOption "--foo" "$fb" 2
+	[ $status -eq 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "--foo" "$fb" 3
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "-a" "$fb"
+	[ $status -eq 0 ]
+	[[ "$output" == "asdPar 1 	2" ]]
+
+	runSL b_args_getOption "-a" "$fb" "" 0
+	[ $status -eq 0 ]
+	[[ "$output" == "asdPar 1 " ]]
+
+	runSL b_args_getOption "-a" "$fb" 0 0
+	[ $status -eq 0 ]
+	[[ "$output" == "asdPar 1 " ]]
+
+	runSL b_args_getOptionInt "-a" "$fb" 0 0
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOption "-a" "$fb" 1 0
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
+
+	runSL b_args_getOptionInt "-a" "$fb" 0 1
+	[ $status -eq 0 ]
+	[[ "$output" == "2" ]]
+
+	runSL b_args_getOption "-a" "$fb" 0 2
+	[ $status -ne 0 ]
+	[[ "$output" == "$fb" ]]
 }

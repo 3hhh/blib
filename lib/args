@@ -2,7 +2,7 @@
 #
 #+Stateful argument parser for bash.
 #+
-#+Regular arguments are parsed to [B_ARGS](#B_ARGS), options to [B_ARGS_OPTS](#B_ARGS_OPTS). Options may have parameters, can be repeated and combined.
+#+Regular arguments and options are parsed via [b_args_parse](#b_args_parse). Afterwards they can be retrieved via [b_args_get](#b_args_get) and [b_args_getOption](#b_args_getOption). Options may have parameters, can be repeated and combined.
 #+
 #+The module can also check the correctness of options. All remaining correctness checks (e.g. for regular or option parameters) are left to the user of this module.
 #+
@@ -14,18 +14,22 @@
 #+ * Everything after a space-separated double dash (`--`) is not considered an option, but a regular argument.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.7
+#+0.8
+
+b_import "types"
 
 #+### Global Variables ###
 
 #+B_ARGS
 #+Array of regular/non-option arguments in the order of their appearance.
+#+Instead of using it directly, it is recommended to use [b_args_get](#b_args_get) instead. The array may be removed in future versions.
 declare -ga B_ARGS=()
 
 #+B_ARGS_OPTS
 #+Map of options. `[option]_[index]` is used as key with `[index]` starting at zero. The values are the option parameters (if any). Multiple option parameters are separated by tabs.
 #+The latter separator can be changed via [b_args_setOptionParamSeparator](#b_args_setOptionParamSeparator) before calling [b_args_parse](#b_args_parse).
 #+The index will only increase if options are repeated.
+#+Instead of using it directly, it is recommended to use [b_args_getOption](#b_args_getOption) instead. The array may be removed in future versions.
 declare -gA B_ARGS_OPTS=()
 
 #number of expected option parameters per option
@@ -177,7 +181,7 @@ return 0
 
 #+b_args_parse [arguments]
 #+Parse the given arguments.
-#+Regular arguments are parsed to the array [B_ARGS](#B_ARGS), options to the map [B_ARGS_OPTS](#B_ARGS_OPTS).
+#+Call [b_args_init](#b_args_init) before parsing, if you desire any non-default parsing behaviour.
 #+[arguments]: The arguments meant to be parsed, usually "$@".
 #+returns: Sets a zero exit code on success and calls [B_E](#B_E) otherwise.
 #+@StateChanging
@@ -232,9 +236,9 @@ return 0
 }
 
 #+b_args_assertOptions [option 1] ... [option n]
-#+Assert that [B_ARGS_OPTS](#B_ARGS_OPTS) contains only the given allowed options (or less).
+#+Assert that the parsed options contain only the given allowed options (or less).
 #+[option i]: Option to check against.
-#+[returns]: Sets a zero exit code, if [B_ARGS_OPTS](#B_ARGS_OPTS) contains only allowed options and errors out with [B_E](#B_E) otherwise. Prints a list of invalid options in the error case.
+#+[returns]: Sets a zero exit code, if the current parsed state contains only allowed options and errors out with [B_E](#B_E) otherwise. Prints a list of invalid options in the error case.
 #+@B_E
 function b_args_assertOptions {
 declare -A expected
@@ -258,4 +262,135 @@ if [ -n "$invalidOpts" ] && [[ "$invalidOpts" != $'\n' ]] ; then
 fi
 
 return 0
+}
+
+#+b_args_get [index] [fallback]
+#+Get the argument at the given index.
+#+[index]: Index of the argument to retrieve, starting at 0.
+#+[fallback]: Value to return, if the given index was provided as empty argument or is missing. Default: empty String
+#+returns: The argument at the given index. An _empty_ (existing!) argument will cause the fallback to be returned with a zero exit code. If no argument was found at that index, a nonzero exit code is set and the fallback is returned.
+function b_args_get {
+local ind="$1"
+local fb="$2"
+
+if [ $ind -ge 0 ] && [ $ind -lt ${#B_ARGS[@]} ] ; then
+	[ -z "${B_ARGS[$ind]}" ] && echo "$fb" || echo "${B_ARGS[$ind]}"
+	return 0
+else
+	echo "$fb"
+	return 1
+fi
+}
+
+#+b_args_getInt [index] [fallback]
+#+Convenience wrapper for [b_args_get](#b_args_get) that also checks the type of the argument to be an integer.
+#+returns: See [b_args_get](#b_args_get). Also sets a nonzero exit code, if the argument is not an integer.
+function b_args_getInt {
+local fb="$2"
+
+local ret=
+local retC=
+ret="$(b_args_get "$@")"
+retC=$?
+
+if [ $retC -ne 0 ] ; then
+	echo "$ret"
+	return $retC
+else
+	if b_types_isInteger "$ret" ; then
+		echo "$ret"
+		return 0
+	else
+		echo "$fb"
+		return 3
+	fi
+
+fi
+}
+
+#+b_args_getCount
+#+Get the number of arguments.
+#+returns: Number of arguments.
+function b_args_getCount {
+echo "${#B_ARGS[@]}"
+}
+
+#+b_args_getOption [option] [fallback] [repeat index] [parameter index]
+#+Check whether the given option is set and retrieve its parameter, if it was.
+#+[option]: String defining the option, e.g. `--option` or `-a`.
+#+[fallback]: Value to return if the option did not have any parameter or was not set. Default: empty String
+#+[repeat index]: Index of the option to retrieve, if the option was repeated multiple times (default: 0 = first option).
+#+[parameter index]: Index of the option parameter to retrieve, starting at 0 (default: return all option parameters, separated by [b_args_getOptionParamSeparator](#b_args_getOptionParamSeparator)).
+#+returns: The option parameter, if the option was set. The fallback is returned and a zero exit code is set, if the option was set, but an _empty_ (existing!) parameter was provided. A nonzero exit code indicates that the option was not set (the fallback is still returned).
+function b_args_getOption {
+local opt="$1"
+local fb="$2"
+local rind="${3:-0}"
+local pind="$4"
+
+if [ -n "${B_ARGS_OPTS["${opt}_$rind"]+exists}" ] ; then
+	local ret="${B_ARGS_OPTS["${opt}_$rind"]}"
+	if [ -z "$pind" ] ; then
+		[ -z "$ret" ] && echo "$fb" || echo "$ret"
+		return 0
+	else
+		#parse
+		local rem="$ret"
+		local i=0
+		while [ -n "$rem" ] || [ $i -eq 0 ] ; do
+			if [ $i -eq $pind ] ; then
+				ret="${rem%${BLIB_STORE["BLIB_ARGS_OPSEP"]}*}"
+				[ -z "$ret" ] && echo "$fb" || echo "$ret"
+				return 0
+			else
+				#check whether the current element was the last
+				[[ "$rem" != *"${BLIB_STORE["BLIB_ARGS_OPSEP"]}"* ]] && break
+
+				#update to next element
+				rem="${rem#*${BLIB_STORE["BLIB_ARGS_OPSEP"]}}"
+				((++i))
+			fi
+		done
+
+		#nonexisting index
+		echo "$fb"
+		return 2
+	fi
+else
+	echo "$fb"
+	return 1
+fi
+}
+
+#+b_args_getOptionInt [option] [fallback] [repeat index] [parameter index]
+#+Convenience wrapper for [b_args_getOption](#b_args_getOption) that also checks the type of the option to be an integer.
+#+returns: See [b_args_getOption](#b_args_getOption). Also sets a nonzero exit code, if the option is not an integer.
+function b_args_getOptionInt {
+local fb="$2"
+
+local ret=
+local retC=
+ret="$(b_args_getOption "$@")"
+retC=$?
+
+if [ $retC -ne 0 ] ; then
+	echo "$ret"
+	return $retC
+else
+	if b_types_isInteger "$ret" ; then
+		echo "$ret"
+		return 0
+	else
+		echo "$fb"
+		return 3
+	fi
+
+fi
+}
+
+#+b_args_getOptionCount
+#+Get the number of options that were set.
+#+returns: Number of options (incl. repeated options).
+function b_args_getOptionCount {
+echo "${#B_ARGS_OPTS[@]}"
 }
