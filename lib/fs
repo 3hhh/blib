@@ -176,6 +176,43 @@ if [ $? -ne 0 ] ; then
 fi
 }
 
+#+b_fs_removeUnusedLoopDevice [device|file]
+#+Remove a loop device, if and only if it is unused by the operating system. Otherwise mark it for removal once it becomes unused. Usually requires root access rights.
+#+[device|file]: Full path (incl. /dev/) to the loop device or to the backing file.
+#+returns: Sets a zero exit code, if the loop device was not used and could thus be successfully removed _or_ does not exist. A nonzero exit code indicates that the device is still being used. [B_E](#B_E) is called on other errors.
+#+@B_E
+function b_fs_removeUnusedLoopDevice {
+local in="$1"
+local loop=
+local file=
+if [ -b "$in" ] ; then
+	loop="$in"
+	file="$(losetup -n --raw -O "back-file" "$loop")" || { B_ERR="Failed to execute losetup -n." ; B_E }
+	#NOTE: the kernel often leaves the node alone after losetup -d was called on an existing loop device --> -b may return true, even if the loop device is down; the back-file check will return no file, but a zero exit code then
+	[ -z "$file" ] && return 0
+elif [ -f "$in" ] ; then
+	#NOTE: losetup returns a zero exit code below even if the file does not exist _or_ has no loop device
+	loop="$(losetup -j "$in" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup -j." ; B_E }
+	file="$in"
+	[ -z "$loop" ] && return 0
+	local loopCnt="$(echo "$loop" | wc -l)"
+	[ $loopCnt -ne 1 ] && { B_ERR="$loopCnt loop devices detected for $in. Backing off..." ; B_E }
+else
+	return 0
+fi
+
+#NOTE: losetup -d only _asks_ the kernel to remove the loop, if it's unused --> we need to give the kernel some time & check whether it was removed
+losetup -d "$loop" || { B_ERR="Failed to execute losetup -d." ; B_E }
+sleep 0.1
+local out=
+out="$(losetup -j "$file" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup." ; B_E }
+#NOTE:
+# - losetup returns a zero exit code even if there's no matching file
+# - if the loop was recreated by another process in the meantime, the file is hopefully a different one
+# - this isn't 100% thread safe, but should be okay in most situations
+[[ "$out" != "$loop" ]]
+}
+
 #+b_fs_parseSize [string] [check flag]
 #+Parse human-readable file system sizes that include units.
 #+[string]: A string denoting a file system size of the format [number][unit]. Unit may be one of KB 1000, K 1024, MB 1000*1000, M 1024*1024, GB 1000*1000*1000, G 1024*1024*1024, and so on for T, P. If no unit is provided, the number is assumed to denote bytes. The number must be an integer.
