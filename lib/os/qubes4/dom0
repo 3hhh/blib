@@ -416,6 +416,68 @@ fi
 B_ERR="The sanity check for the output of VM $vm failed." ; B_E
 }
 
+#Function doing the VM check for [b_dom0_removeUnusedLoopDevice](#b_dom0_removeUnusedLoopDevice).
+function blib_dom0_removeUnusedLoopDeviceVmFunc {
+#make B_E exit code distinguishable
+B_RC=66
+b_fs_removeUnusedLoopDevice "$@"
+}
+
+#+b_dom0_removeUnusedLoopDevice [vm] [device|file] [type] [map]
+#+Remove a loop device from the given VM, if it is _neither_ used by Qubes OS _nor_ by the given VM.
+#+*Important*: Calling this function may cause the device to be removed as soon as it becomes unused by the VM (and the VM *only*!). So if you called this function, you should _not_ use the device any further from dom0 with e.g. `qvm-block` afterwards - even if it wasn't removed.
+#+[vm]: VM where to remove the loop device.
+#+[device|file]: Full path (incl. /dev/) to the loop device or to the backing file inside the VM.
+#+[type]: Whether the given path represents a loop device (0) or the backing file (1). If not specified, a device will be assumed, if and only if the path starts with `/dev/`.
+#+[map]: Optional output from a previous call to [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock). If none is specified, this function will internally call [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock).
+#+returns: Sets a zero exit code, if the loop device was not used and could thus be successfully removed _or_ does not exist. A nonzero exit code indicates that the device is still being used. [B_E](#B_E) is called on other errors.
+#+@B_E
+function b_dom0_removeUnusedLoopDevice {
+local vm="$1"
+local in="$2"
+local isDev="$3"
+local blockinfo="$4"
+
+if [ -z "$blockinfo" ] ; then
+	blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+fi
+
+if [ -z "$isDev" ] ; then
+	[[ "$in" == "/dev/"* ]] && isDev=0 || isDev=1
+fi
+
+#check whether used by Qubes OS
+if [ $isDev -eq 0 ] ; then
+	#device
+	#check existence (all good if it doesn't exist)
+	b_silence b_dom0_getQvmBlockInfo "$blockinfo" "description" "device id" "${in#/dev/}" "backend" "$vm" || return 0
+
+	#make sure it's unused
+	b_silence b_dom0_getQvmBlockInfo "$blockinfo" "description" "device id" "${in#/dev/}" "backend" "$vm" "used by" "" || return 2
+else
+	#file
+	#check existence (all good if it doesn't exist)
+	b_silence b_dom0_getQvmBlockInfo "$blockinfo" "device id" "description" "$in" "backend" "$vm" || return 0
+
+	#make sure it's unused
+	b_silence b_dom0_getQvmBlockInfo "$blockinfo" "device id" "description" "$in" "backend" "$vm" "used by" "" || return 3
+fi
+
+#check whether used locally by VM
+#NOTE: b_fs_removeUnusedLoopDevice may cause future removal
+local ret=
+b_silence b_dom0_execFuncIn "$vm" "" "blib_dom0_removeUnusedLoopDeviceVmFunc" "$in" "-" "fs"
+ret=$?
+if [ $ret -eq 0 ] ; then
+	return 0
+elif [ $ret -eq 66 ] ; then
+	B_ERR="The function b_fs_removeUnusedLoopDevice failed to execute correctly inside the VM $vm."
+	B_E
+else
+	return 4
+fi
+}
+
 #blib_dom0_copyPrepareTarget [target file name] [target VM] [target directory] [overwrite]
 #Do all preparations of the target VM necessary for b_dom0_copy and b_dom0_crossCopy.
 #[target file name]: _file name_ (!= path) of the file or directory to copy to the target directory
@@ -898,7 +960,7 @@ local retField="$1"
 shift
 
 if [ -z "$blockinfo" ] ; then
-	blockinfo="$(b_dom0_parseQvmBlock "blockinfo" "$input")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+	blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
 else
 	local regex='^declare \-A ([^=]+)=(.*)$'
 	if [[ "$blockinfo" =~ $regex ]] ; then

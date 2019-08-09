@@ -794,7 +794,7 @@ function testSuccAttachFile {
 	fi
 }
 
-@test "b_dom0_createLoopDeviceIfNecessary & b_dom0_mountIfNecessary" {
+@test "b_dom0_createLoopDeviceIfNecessary & b_dom0_mountIfNecessary & b_dom0_removeUnusedLoopDevice" {
 	skipIfNoTestVMs 
 
 	#some failing tests
@@ -815,6 +815,14 @@ function testSuccAttachFile {
 	[ -n "$output" ]
 
 	#succeeding tests
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "/tmp2/nonexistingfile"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "/dev/loop9999"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
 	local loopFile="$(getDom0Fixture "ext4loop")"
 	qvm-copy-to-vm "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopFile"
 
@@ -833,11 +841,39 @@ function testSuccAttachFile {
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopFileVM"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	run qvm-block ls
+	[ $status -eq 0 ]
+	[[ "$output" != *"$loopFileVM"* ]]
+
+	runSL b_dom0_createLoopDeviceIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopFileVM"
+	[ $status -eq 0 ]
+	[[ "$output" == "/dev/loop"* ]]
+	local loopDev="$output"
+
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	run qvm-block ls
+	[ $status -eq 0 ]
+	[[ "$output" != *"$loopFileVM"* ]]
+
+	runSL b_dom0_createLoopDeviceIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopFileVM"
+	[ $status -eq 0 ]
+	[[ "$output" == "/dev/loop"* ]]
+	local loopDev="$output"
+
 	runSL b_dom0_mountIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev"
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[[ "$output" == "/tmp/"* ]]
 	local mp="$output"
+
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
 
 	runSL b_dom0_mountIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev" "/othermp/"
 	[ $status -eq 0 ]
@@ -856,6 +892,30 @@ function testSuccAttachFile {
 	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM "$mp" 0 0
 	echo "$output"
 	[ $status -eq 0 ]
+
+	#test b_dom0_removeUnusedLoopDevice if the device is used by Qubes OS
+	runSL b_dom0_crossAttachDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev" "${TEST_STATE["DOM0_TESTVM_2"]}"
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+	local vmDev="$output"
+
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+	run qvm-block ls
+	[ $status -eq 0 ]
+	[[ "$output" == *"$loopFileVM"* ]]
+
+	runSL b_dom0_detachDevice "${TEST_STATE["DOM0_TESTVM_2"]}" "$vmDev"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_dom0_removeUnusedLoopDevice "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	run qvm-block ls
+	[ $status -eq 0 ]
+	[[ "$output" != *"$loopFileVM"* ]]
 }
 
 @test "b_dom0_attachFile" {
