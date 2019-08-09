@@ -375,6 +375,15 @@ function loudFunc {
 	return 0
 }
 
+#multiParFunc [expected number of parameters] [par 1] ... [par n]
+function multiParFunc {
+	local expected="$1"
+	shift
+	[ $expected -eq $# ] || { B_ERR="Only found $# many parameters." ; B_E }
+	echo "Some printing."
+	return 0
+}
+
 @test "b_silence" {
 	runSL b_silence "loudFunc" 1
 	[ $status -eq 0 ]
@@ -383,6 +392,16 @@ function loudFunc {
 	runSL b_silence "loudFunc" 0
 	[ $status -ne 0 ]
 	[[ "$output" == "ERROR: loudFunc errored out."$'\n'"Stack Trace:"* ]]
+
+	runSL b_silence "multiParFunc" 5 "foo" "a" "-" "cfoobar" ""
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_silence "multiParFunc" 5 "foo" "" "-" "" "finalfoo"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
 
 	echo a
 	#in current context
