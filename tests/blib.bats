@@ -14,6 +14,9 @@ function setup {
 
 VERSION_STR_REGEX='[0-9\.]+'
 
+#test variable for the b_execFuncInCurrentContext test
+T_GLOB=0
+
 @test "library usage: general" {
 	runSC source "$BLIB"
 	[ $status -eq 0 ]
@@ -379,9 +382,21 @@ function loudFunc {
 function multiParFunc {
 	local expected="$1"
 	shift
-	[ $expected -eq $# ] || { B_ERR="Only found $# many parameters." ; B_E }
-	echo "Some printing."
+	[ $expected -ne $# ] && { B_ERR="Only found $# many parameters." ; B_E }
+	echo "Some $3 printing."
+	T_GLOB=1
 	return 0
+}
+
+@test "b_execFuncInCurrentContext" {
+	runSL b_execFuncInCurrentContext "multiParFunc" - 6 "ha ha" "-" "bla my ! way!" "" "ad " "gh !!"
+	[ $status -eq 0 ]
+	[[ "$output" == "Some bla my ! way! printing." ]]
+
+	T_GLOB=0
+	b_execFuncInCurrentContext "multiParFunc" - 6 "ha ha" "-" "bla" "" "ad " "gh !!" > /dev/null
+	echo "T_GLOB: $T_GLOB"
+	[ $T_GLOB -eq 1 ]
 }
 
 @test "b_silence" {
@@ -666,24 +681,31 @@ function testGenerateStandaloneSucc {
 	echo d
 	local func="$1"
 	shift
+	local mdeps=()
+	local fdeps=()
 	local pars=()
 	local par=
 	for par in "$@" ; do
-		[[ "$par" == "-" ]] && break
-		pars+=("$par")
+		[[ "$par" == "-" ]] && shift && break
+		mdeps+=("$par")
+		shift
+	done
+	for par in "$@" ; do
+		[[ "$par" == "-" ]] && shift && break
+		fdeps+=("$par")
 		shift
 	done
 
 	#generate file
 	echo e
-	runSL b_generateStandalone "$func" "$@"
+	runSL b_generateStandalone "$func" "${mdeps[@]}" - "${fdeps[@]}"
 	echo "$output" > "$codeFile"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 
 	#runSL the generated file
 	echo f
-	runSL bash "$codeFile" "${pars[@]}"
+	runSL bash "$codeFile" "$@"
 	echo "$output" > "$outFile"
 	[ $status -eq $eStatus ]
 	[ -n "$output" ]
@@ -720,7 +742,7 @@ function funFunc {
 function genRecursionFunc {
 	local codeFile="$1"
 	#NOTE: str is already included @standalone, but the import must work anyway
-	b_generateStandalone "b_str_trim" "   lots of whitespace was around here!    " - "str" - "b_str_trim" > "$codeFile" || exit 1
+	b_generateStandalone "b_str_trim" "str" - "b_str_trim" - "   lots of whitespace was around here!    " > "$codeFile" || exit 1
 	
 	local out=""
 	out="$(bash "$codeFile")" || exit 1
@@ -735,39 +757,36 @@ function genRecursionFunc {
 
 @test "b_generateStandalone" {
 	#some fail conditions
-	runSL b_generateStandalone "non_existent_func" "func param 1" "func param 2" - "fs" -
+	runSL b_generateStandalone "non_existent_func" "fs" - - "func param 1" "func param 2"
 	[ $status -ne 0 ]
-	runSL b_generateStandalone "b_isModule" "fs" - "non-existent-module" - "depB"
+	runSL b_generateStandalone "b_isModule" "non-existent-module" - "depB" - "fs"
 	[ $status -ne 0 ]
-	runSL b_generateStandalone "b_isModule" "fs" - "fs" - "non-existent-func"
+	runSL b_generateStandalone "b_isModule" "fs" - "non-existent-func" - "fs"
 	[ $status -ne 0 ]
 
 	#success conditions
-	runSL b_generateStandalone "b_isModule" "fs" - -
-	[ $status -eq 0 ]
-	#skipping the -
-	runSL b_generateStandalone "b_isModule" "fs"
+	runSL b_generateStandalone "b_isModule" - - "fs"
 	[ $status -eq 0 ]
 
 	local outFile1="$(mktemp)"
 	local codeFile1="$(mktemp)"
 	local codeFile2="$(mktemp)"
-	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "my house" "is at home" - - "depA" "depB"
-	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "my house" "is at home" - "fs" "str" - "depA" "depB"
-	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "my house" "is at home" - "fs" - "depA" "depB"
+	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" - "depA" "depB" - "my house" "is at home"
+	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "fs" "str" - "depA" "depB" - "my house" "is at home"
+	testGenerateStandaloneSucc "genOut01.txt" "$codeFile1" "$outFile1" 33 "depFunc" "fs" - "depA" "depB" - "my house" "is at home"
 
 	testGenerateStandaloneSucc "genOut02.txt" "$codeFile1" "$outFile1" 0 "depB" - -
 
-	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" 0 "funFunc" "    lots of whitespace was around here!      " - "str" - "depA"
-	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" 0 "funFunc" "   lots of whitespace was around here! " - "fs" "str" - "depA" "depB"
+	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" 0 "funFunc" "str" - "depA" - "    lots of whitespace was around here!      "
+	testGenerateStandaloneSucc "genOut03.txt" "$codeFile1" "$outFile1" 0 "funFunc" "fs" "str" - "depA" "depB" - "   lots of whitespace was around here! "
 
 	b_import str
-	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "   lots of whitespace was around here! " - "fs" "str" - "depA" "depB"
-	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "   lots of whitespace was around here!" - "str" -
-	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "   lots of whitespace was around here!" - "str" - "b_str_trim"
+	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "fs" "str" - "depA" "depB" - "   lots of whitespace was around here! "
+	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "str" - - "   lots of whitespace was around here!"
+	testGenerateStandaloneSucc "genOut04.txt" "$codeFile1" "$outFile1" 0 "b_str_trim" "str" - "b_str_trim" - "   lots of whitespace was around here!"
 
 	#crazy 2 level recursion (b_generateStandalone call from standalonne  blib variant)
-	testGenerateStandaloneSucc "genOut05.txt" "$codeFile1" "$outFile1" 0 "genRecursionFunc" "$codeFile2" - "str" -
+	testGenerateStandaloneSucc "genOut05.txt" "$codeFile1" "$outFile1" 0 "genRecursionFunc" "str" - - "$codeFile2"
 	
 	#cleanup
 	rm -f "$outFile1"
@@ -800,16 +819,16 @@ function meFunc {
 	#successful tests
 	
 	#NOTE: we don't need to test it in depth as b_generateStandalone is used internally --> only the user switching is relevant
-	runSL b_execFuncAs "$UTD_PW_FREE_USER" "meFunc" "Yes" "Or?" - -
+	runSL b_execFuncAs "$UTD_PW_FREE_USER" "meFunc" - - "Yes" "Or?"
 	[ $status -eq 0 ]
 	[[ "$output" == "Yes_ME IS_${UTD_PW_FREE_USER}_YES ITS_ME_Or?" ]]
 
 	#it should also behave fine with the current user (even if it doesn't make sense)
-	runSL b_execFuncAs "$curUser" "meFunc" "Yes" "Or?" - -
+	runSL b_execFuncAs "$curUser" "meFunc" - - "Yes" "Or?"
 	[ $status -eq 0 ]
 	[[ "$output" == "Yes_ME IS_${curUser}_YES ITS_ME_Or?" ]]
 
-	runSC b_execFuncAs "$curUser" "b_fs_getLineCount" "/etc/passwd" - "fs" - "b_fs_getLastModifiedInDays"
+	runSC b_execFuncAs "$curUser" "b_fs_getLineCount" "fs" - "b_fs_getLastModifiedInDays" - "/etc/passwd"
 	[ $status -eq 0 ]
 	[ -n "$output" ]
 	[ $output -gt 0 ]

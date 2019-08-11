@@ -495,7 +495,7 @@ function testFunc01Dep {
 	skipIfNoTestVMs 
 
 	#the in-depth test is done in the b_generateStandalone test, we just do some basic testing here
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01" 33 "holy moly" - "os/osid" - "testFunc01Dep"
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01" "os/osid" - "testFunc01Dep" - 33 "holy moly"
 	echo "output: $output"
 	[ $status -eq 33 ]
 	local eout='testFunc01:
@@ -506,12 +506,12 @@ In Qubes VM.'
 	[[ "$output" == "$eout" ]]
 
 	#some failures
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01-nonexisting" 33 "holy moly" - "os/osid" - "testFunc01Dep"
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01-nonexisting" "os/osid" - "testFunc01Dep" - 33 "holy moly"
 	[ $status -ne 33 ]
 	[ $status -ne 0 ]
 	[[ "$output" != *"testFunc01:"* ]]
 
-	runSL b_dom0_execFuncIn "non-existing-vm" "" "testFunc01" 33 "holy moly" - "os/osid" - "testFunc01Dep"
+	runSL b_dom0_execFuncIn "non-existing-vm" "" "testFunc01" "os/osid" - "testFunc01Dep" - 33 "holy moly"
 	[ $status -ne 33 ]
 	[ $status -ne 0 ]
 	[[ "$output" != *"testFunc01:"* ]]
@@ -549,7 +549,7 @@ In Qubes VM.'
 	[[ "$output" == *"dependency"* ]]
 	[[ "$output" == *"nonexistingDep"* ]]
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01Dep"
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" - "testFunc01Dep"
 	echo "$output"
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
@@ -778,7 +778,7 @@ function testSuccAttachFile {
 	local mnt="$output"
 
 	#all as expected in the VM?
-	runSL b_dom0_execFuncIn "$vm" "" testSuccAttachFileInVM "$mnt" "$rwFlag" "$detach"
+	runSL b_dom0_execFuncIn "$vm" "" testSuccAttachFileInVM - - "$mnt" "$rwFlag" "$detach"
 	echo "$output"
 	[ $status -eq 0 ]
 
@@ -880,7 +880,7 @@ function testSuccAttachFile {
 	[[ "$output" == "$mp" ]]
 	local mp="$output"
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM "$mp" 0 0
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM - - "$mp" 0 0
 	echo "$output"
 	[ $status -eq 0 ]
 
@@ -889,7 +889,7 @@ function testSuccAttachFile {
 	[[ "$output" == "/othermp/" ]]
 	local mp="$output"
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM "$mp" 0 0
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM - - "$mp" 0 0
 	echo "$output"
 	[ $status -eq 0 ]
 
@@ -1029,7 +1029,7 @@ function crossAttachTest {
 	[ $status -eq 0 ]
 	[[ "$output" == "$mp" ]]
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_2"]}" "" testSuccAttachFileInVM "$mp" "$rwFlag"
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_2"]}" "" testSuccAttachFileInVM - - "$mp" "$rwFlag"
 	echo "$output"
 	[ $status -eq 0 ]
 }
@@ -1329,7 +1329,7 @@ function testSuccCrossCopy {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM "/mntl02" 0
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM - - "/mntl02" 0
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
@@ -1342,7 +1342,7 @@ function testSuccCrossCopy {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM "/mntl03" 1
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" testSuccAttachFileInVM - - "/mntl03" 1
 	echo "out: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
@@ -1375,7 +1375,7 @@ function testDiskAttach {
 	local mp="$output"
 
 	#this also tests whether SUCCESS.txt created below can be accessed
-	runSL b_dom0_execFuncIn "$targetVM" "" testSuccAttachFileInVM "$mp" "$rwFlag"
+	runSL b_dom0_execFuncIn "$targetVM" "" testSuccAttachFileInVM - - "$mp" "$rwFlag"
 	echo "testSuccAttachFileInVM: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]

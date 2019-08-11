@@ -265,74 +265,74 @@ function ensureRemovedLoopDevice {
 
 	#some failing tests:
 	
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "/tmp/nonexistingFile_" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "/tmp/nonexistingFile_"
 	[[ "$output" == *"ERROR"* ]]
 	[ $status -ne 0 ]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "/dev/doesntexist" "$tmpDir" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "/dev/doesntexist" "fs" - - "$tmpDir"
 	[[ "$output" == *"ERROR"* ]]
 	[ $status -ne 0 ]
 
 	#successful tests:
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "/dev/doesntexist" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "/dev/doesntexist"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "/tmp/nonexistingfile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "/tmp/nonexistingfile"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "$tmpLoopFile"
 	local loopDev="$output"
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "$tmpLoopFile"
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "$tmpLoopFile"
 	[ $status -eq 0 ]
 	[[ "$output" == "$loopDev" ]]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "$tmpLoopFile"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" ensureRemovedLoopDevice "$tmpLoopFile" - -
+	runSL b_execFuncAs "root" ensureRemovedLoopDevice - - "$tmpLoopFile"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "$tmpLoopFile"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" ensureRemovedLoopDevice "$tmpLoopFile" - -
+	runSL b_execFuncAs "root" ensureRemovedLoopDevice - - "$tmpLoopFile"
 	echo "$output"
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "$tmpLoopFile"
 	local loopDev="$output"
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "$loopDev" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "$loopDev"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" ensureRemovedLoopDevice "$tmpLoopFile" - -
+	runSL b_execFuncAs "root" ensureRemovedLoopDevice - - "$tmpLoopFile"
 	echo "$output"
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "$tmpLoopFile"
 	local loopDev="$output"
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 
-	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "$tmpLoopFile2" - "fs" -
+	runSL b_execFuncAs "root" b_fs_createLoopDeviceIfNecessary "fs" - - "$tmpLoopFile2"
 	[ $status -eq 0 ]
 	[[ "$output" =~ /dev/loop[0-9]+ ]]
 	local loopDev2="$output"
@@ -342,39 +342,39 @@ function ensureRemovedLoopDevice {
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "$tmpDir"
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "$loopDev" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "$loopDev"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 	[ -b "$loopDev" ]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "$tmpLoopFile" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "$tmpLoopFile"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 	[ -b "$loopDev" ]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "$tmpDir"
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "$tmpDir2"
 	[ $status -eq 0 ]
 	[[ "$output" == "$tmpDir" ]]
 
 	local mps="$tmpDir2"$'\n'"$tmpDir"
 	local mps2="$tmpDir"$'\n'"$tmpDir2"
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" 0 - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "$tmpDir2" 0
 	[ $status -eq 0 ]
 	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "$tmpDir2" 0 - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "$tmpDir2" 0
 	[ $status -eq 0 ]
 	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "/tmp/random" - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "/tmp/random"
 	[ $status -eq 0 ]
 	[[ "$output" == "$mps" ]] || [[ "$output" == "$mps2" ]]
 
@@ -385,26 +385,26 @@ function ensureRemovedLoopDevice {
 	local out="$(cat "$tmpDir/SUCCESS.txt")"
 	[[ "$out" == "We did it!" ]]
 
-	runSL b_execFuncAs "root" b_fs_mountIfNecessary "$loopDev" "/tmp/nonexisting-dir" 0 - "fs" -
+	runSL b_execFuncAs "root" b_fs_mountIfNecessary "fs" - - "$loopDev" "/tmp/nonexisting-dir" 0
 	[ $status -eq 0 ]
 	[[ "$output" == *"/tmp/nonexisting-dir"* ]]
 
 	#cleanup
-	runSL b_execFuncAs "root" loopDevCleanup "$loopDev" - "fs" -
+	runSL b_execFuncAs "root" loopDevCleanup "fs" - - "$loopDev"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "$loopDev2" - "fs" -
+	runSL b_execFuncAs "root" b_fs_removeUnusedLoopDevice "fs" - - "$loopDev2"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_execFuncAs "root" ensureRemovedLoopDevice "$tmpLoopFile" - -
+	runSL b_execFuncAs "root" ensureRemovedLoopDevice - - "$tmpLoopFile"
 	echo "$output"
 	[ -z "$output" ]
 	[ $status -eq 0 ]
 
-	runSL b_execFuncAs "root" ensureRemovedLoopDevice "$tmpLoopFile2" - -
+	runSL b_execFuncAs "root" ensureRemovedLoopDevice - - "$tmpLoopFile2"
 	echo "$output"
 	[ -z "$output" ]
 	[ $status -eq 0 ]

@@ -349,8 +349,10 @@ echo "${BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]}"
 function b_silence {
 #we use b_setBE 1 to retrieve the B_ERR message if there's any
 local ret=
+local func="$1"
+shift
 b_setBE 1
-blib_execFuncInCurrentContext "$@" &> /dev/null
+b_execFuncInCurrentContext "$func" "-" "$@" &> /dev/null
 ret=$?
 b_resetErrorHandler 1
 B_E
@@ -625,15 +627,15 @@ version			print the blib version"
 exit 1
 }
 
-#+b_generateStandalone [function] [param 1] .. [param p] - [module dep 1] .. [module dep n] - [function dep 1] .. [function dep d]
+#+b_generateStandalone [function] [module dep 1] .. [module dep n] - [function dep 1] .. [function dep d] - [function param 1] .. [function param p]
 #+Create a standalone variant of blib in a single file running the given function when called (sourcing that file will only make the functions available) and print that file to stdout.
 #+
 #+The current execution state is not retained.
 #+[function]: The function to call when the generated script is executed. All script parameters when calling \[output file\] are passed to this function. The function must be available in the current context.
-#+[param p]: Static parameters to add to the function as single String. Dynamic parameters should be passed to the generated script.
 #+[module dep i]: Names of the modules to include in the standalone file. They do not need to be imported.
-#+[-]: Dash used as separator between the function dependencies and the modules. If none is provided, all parameters are assumed to be modules.
+#+[-]: Dash used as separator between the various types of arguments. If none is provided, all parameters are assumed to be modules.
 #+[function dep j]: An arbitrary number of functions that need to be added in order to satisfy the dependencies of the function to call (e.g. if function A is meant to be called, but uses function B internally, you'll have to pass B as one of its dependencies). Dependencies that can be found in added modules should *not* be added.
+#+[function param p]: Static parameters to add to the function as single String. Dynamic parameters should be passed to the generated script.
 #+returns: Sets a zero exit code and prints the output file to stdout on success. May error out otherwise.
 #+@B_E
 function b_generateStandalone {
@@ -643,6 +645,22 @@ local mod=""
 local modulePath=""
 local par=""
 shift
+
+#parse module dependencies
+declare -a mdeps=()
+for par in "$@" ; do
+	[[ "$par" == "-" ]] && shift && break
+	mdeps+=("$par")
+	shift
+done
+
+#parse function dependencies
+declare -a fdeps=()
+for par in "$@" ; do
+	[[ "$par" == "-" ]] && shift && break
+	fdeps+=("$par")
+	shift
+done
 
 #parse params (printf '%q' escapes) & generate the function call
 local funcCall="$func"
@@ -684,20 +702,17 @@ echo ""
 echo 'BLIB_STORE["BLIB_STANDALONE_MODE"]="0"'
 
 #add modules
-for mod in "$@" ; do
-	[[ "$mod" == "-" ]] && shift && break
-	
+for mod in "${mdeps[@]}" ; do
 	if [ ${BLIB_STORE["BLIB_STANDALONE_MODE"]} -ne 0 ] ; then
 		#we only add module content in normal mode (in standalone they either were added before or won't be found)
 		modulePath="$(blib_getModulePath "$mod")" || { B_ERR="Failed to obtain the path for the module $mod."; B_E; }
 		echo ""
 		cat "$modulePath" || { B_ERR="Failed to read $modulePath."; B_E; }
 	fi
-	shift
 done
 
 #add function dependencies
-for dep in "$@" ; do
+for dep in "${fdeps[@]}" ; do
 	echo ""
 	declare -f "$dep" || { B_ERR="Failed to find the declaration for the function $dep."; B_E; }
 done
@@ -713,23 +728,18 @@ echo "$main"
 return 0
 }
 
-#blib_execFuncInCurrentContext [b_execFuncAs parameters except for user]
-#Executes the given function in the current context. Helper for [b_execFuncAs](#b_execFuncAs) and [b_silence](#b_silence).
-#returns: see [b_execFuncAs](#b_execFuncAs)
-function blib_execFuncInCurrentContext {
+#+b_execFuncInCurrentContext [function] [module dep 1] .. [module dep n] - [function param 1] .. [function param p]
+#+Execute the given function in the current context.
+#+[function]: The function to execute.
+#+[module dep i]: Names of the modules required by the function. They do not need to be imported by the function itself.
+#+[-]: A dash as separator character between the various parameters.
+#+[function param p]: An arbitrary number of function parameters.
+#+returns: Whatever the executed function returns.
+function b_execFuncInCurrentContext {
 local func="$1"
 shift
 local par=""
 local mod=""
-
-#parse params (printf '%q' escapes) & generate the function call
-local funcCall="$func"
-for par in "$@" ; do
-	[[ "$par" == "-" ]] && shift && break
-	printf -v par '%q' "$par"
-	funcCall="$funcCall $par"
-	shift
-done
 
 for mod in "$@" ; do
 	[[ "$mod" == "-" ]] && shift && break
@@ -737,10 +747,18 @@ for mod in "$@" ; do
 	shift
 done
 
+#parse params (printf '%q' escapes) & generate the function call
+local funcCall="$func"
+for par in "$@" ; do
+	printf -v par '%q' "$par"
+	funcCall="$funcCall $par"
+	shift
+done
+
 eval "$funcCall"
 }
 
-#+b_execFuncAs [user] [function] [param 1] .. [param p] - [module dep 1] .. [module dep n] - [function dep 1] .. [function dep d]
+#+b_execFuncAs [user] [function] [module dep 1] .. [module dep n] - [function dep 1] .. [function dep d] - [function param 1] .. [function param p]
 #+Attempt to execute the Bash function as the given user.
 #+
 #+Whether or not this works highly depends on the underlying OS and its (sudo & su) configuration. In particular this function may cause further execution to wait for the user to type in the password of the requested user.
@@ -748,10 +766,10 @@ eval "$funcCall"
 #+If the given user is identical to the current user, [b_execFuncAs](#b_execFuncAs) may decide to run the function in the current context. Otherwise it may run in a different process.
 #+[user]: User to execute the function as (default: root).
 #+[function]: The function to execute.
-#+[param p]: An arbitrary number of function parameters.
-#+[-]: A dash as separator character between the various parameters.
 #+[module dep i]: Names of the modules required by the function. They do not need to be imported by the function itself.
+#+[-]: A dash as separator character between the various parameters.
 #+[function dep j]: An arbitrary number of functions that need to be added in order to satisfy the dependencies of the function to call (e.g. if function A is meant to be called, but uses function B internally, you'll have to pass B as one of its dependencies). Dependencies that can be found in added modules should *not* be added.
+#+[function param p]: An arbitrary number of function parameters.
 #+returns: Whatever the executed function returns. A non-zero exit code may also indicate that the user switch didn't work. In particular [B_E](#B_E) is *not* called if the executed function returns an error.
 #+@B_E
 function b_execFuncAs {
@@ -761,19 +779,36 @@ shift
 shift
 local eFile=""
 local ret=""
+local par=
 
 local curUser=""
 curUser="$(whoami)" || { B_ERR="Failed to identify the current user."; B_E; }
 
+#parse module dependencies
+declare -a mdeps=()
+for par in "$@" ; do
+	[[ "$par" == "-" ]] && shift && break
+	mdeps+=("$par")
+	shift
+done
+
+#parse function dependencies
+declare -a fdeps=()
+for par in "$@" ; do
+	[[ "$par" == "-" ]] && shift && break
+	fdeps+=("$par")
+	shift
+done
+
 #can we stay in the current context?
 if [[ "$curUser" == "$user" ]] ; then
-	blib_execFuncInCurrentContext "$func" "$@"
+	b_execFuncInCurrentContext "$func" "${mdeps[@]}" - "$@"
 	return $?
 fi
 
 #generate the file to execute
 eFile="$(mktemp)" || { B_ERR="Failed to create a temp file."; B_E; }
-b_generateStandalone "$func" "$@" > "$eFile" || B_E
+b_generateStandalone "$func" "${mdeps[@]}" - "${fdeps[@]}" - "$@" > "$eFile" || B_E
 
 #escaped versions
 #Note: unfortunately the parameter expansion syntax "${var@Q}" is only available with bash 4.4+
