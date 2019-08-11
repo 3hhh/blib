@@ -549,7 +549,7 @@ In Qubes VM.'
 	[[ "$output" == *"dependency"* ]]
 	[[ "$output" == *"nonexistingDep"* ]]
 
-	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" - "testFunc01Dep"
+	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01Dep"
 	echo "$output"
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
