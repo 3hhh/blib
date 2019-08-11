@@ -218,7 +218,7 @@ function b_nop {
 function b_version {
 local part="${1:0}"
 local major=1
-local minor=1
+local minor=2
 
 case "$part" in
 	1)
