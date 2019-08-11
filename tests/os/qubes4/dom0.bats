@@ -884,6 +884,12 @@ function testSuccAttachFile {
 	echo "$output"
 	[ $status -eq 0 ]
 
+	#NOTE: the loop device was umounted by testSuccAttachFileInVM above --> the kernel will likely remove it entirely due to our b_dom0_removeUnusedLoopDevice call above --> we may need to create a new device
+	runSL b_dom0_createLoopDeviceIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopFileVM"
+	[ $status -eq 0 ]
+	[[ "$output" == "/dev/loop"* ]]
+	local loopDev="$output"
+
 	runSL b_dom0_mountIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "$loopDev" "/othermp/"
 	[ $status -eq 0 ]
 	[[ "$output" == "/othermp/" ]]
