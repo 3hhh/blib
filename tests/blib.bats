@@ -459,6 +459,88 @@ function multiParFunc {
 	[[ "$output" =~ [0-9]+ ]]
 }
 
+@test "b_checkVersion" {
+	local major="$(b_version 1)"
+	local minor="$(b_version 2)"
+
+	#without params (quite useful to check whether any blib version is available)
+	runSL b_checkVersion
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$major" "$minor" "$major" "$minor"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$major" "$minor"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "" "" "$major" "$minor"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$((major +1))" "$minor"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$((major -1))" "$((minor +1))"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$major" "$((minor +1))"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$((major -1))" "$((minor -1))"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$major" "$((minor -1))"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "" "" "$((major +1))" "$minor"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "" "" "$((major -1))" "$((minor +1))"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "" "" "$major" "$((minor +1))"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "" "" "$((major -1))" "$((minor -1))"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "" "" "$major" "$((minor -1))"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "0" "1" "$major" "$((minor -1))"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "0" "1" "$major" "$((minor +1))"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "1" "0" "$major" "$((minor +1))"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$((major -1))" "$((minor+3))" "$major" "$((minor -1))"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_checkVersion "$((major -1))" "$((minor+3))" "$major" "$minor"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "b_enforceUser" {
 	runSL b_enforceUser "non existent blal user"
 	echo "out: $output"

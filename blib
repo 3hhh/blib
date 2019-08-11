@@ -49,6 +49,8 @@
 #+with the default bash options:
 #+```bash
 #+ source blib
+#+ b_checkVersion 1 0 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.0 or higher. Please install a supported version." ; exit 1 ; }
+#+
 #+ b_import [module]
 #+```
 #+
@@ -231,6 +233,50 @@ case "$part" in
 	echo "${major}.${minor}"
 	;;
 esac
+
+return 0
+}
+
+#+b_checkVersion [minimum allowed major] [minimum allowed minor] [maximum allowed major] [maximum allowed minor]
+#+Check whether the currently running blib instance meets the given blib version requirements.
+#+To e.g. make sure you're on blib version 1.1 or higher, use
+#+```bash
+#+source blib
+#+b_checkVersion 1 2 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.2 or higher. Please install a supported version." ; exit 1 ; }
+#+```
+#+[minimum allowed major]: The lowest acceptable major version number (default: 0).
+#+[minimum allowed minor]: The lowest acceptable minor version number (default: 0).
+#+[maximum allowed major]: The highest acceptable major version number (default: infinite).
+#+[maximum allowed minor]: The highest acceptable minor version number (default: infinite).
+#+returns: Sets a zero exit code, if an only if the currently running blib instance meets the version requirements.
+function b_checkVersion {
+local minMajor="${1:-0}"
+local minMinor="${2:-0}"
+local maxMajor="$3"
+local maxMinor="$4"
+
+local major="$(b_version 1)"
+local minor="$(b_version 2)"
+
+if [ $major -gt $minMajor ] ; then
+	#all good
+	:
+elif [ $major -eq $minMajor ] ; then
+	[ $minor -ge $minMinor ] || return 1
+else
+	return 2
+fi
+
+if [ -n "$maxMajor" ] ; then
+	if [ $major -lt $maxMajor ] ; then
+		#all good
+		:
+	elif [ $major -eq $maxMajor ] ; then
+		[ -n "$maxMinor" ] && [ $minor -gt $maxMinor ] && return 3
+	else
+		return 4
+	fi
+fi
 
 return 0
 }

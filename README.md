@@ -77,6 +77,8 @@ In order to import e.g. the functions of the `str` module to your bash namespace
 
 ```bash
 source blib
+b_checkVersion 1 2 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.2 or higher. Please install a supported version." ; exit 1 ; }
+
 b_import str
 ```
 
