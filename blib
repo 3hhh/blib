@@ -241,8 +241,8 @@ return 0
 #+Check whether the currently running blib instance meets the given blib version requirements.
 #+To e.g. make sure you're on blib version 1.1 or higher, use
 #+```bash
-#+source blib
-#+b_checkVersion 1 2 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.2 or higher. Please install a supported version." ; exit 1 ; }
+#+ source blib
+#+ b_checkVersion 1 2 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.2 or higher. Please install a supported version." ; exit 1 ; }
 #+```
 #+[minimum allowed major]: The lowest acceptable major version number (default: 0).
 #+[minimum allowed minor]: The lowest acceptable minor version number (default: 0).
