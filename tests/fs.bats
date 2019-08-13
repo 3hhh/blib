@@ -53,6 +53,34 @@ function teardown {
 	[ -z "$output" ]
 }
 
+@test "b_fs_removeWithOverwrite" {
+	runSL b_fs_removeWithOverwrite "/tmp/nonexistingfoo"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	local tmp=
+	tmp="$(mktemp)"
+	runSL dd if=/dev/zero of="$tmp" bs=100K count=1
+	[ $status -eq 0 ]
+	[ -f "$tmp" ]
+
+	runSL stat -c %s "$tmp"
+	[ $status -eq 0 ]
+	[[ "$output" == "102400" ]]
+
+	runSL b_fs_removeWithOverwrite "$tmp" "/dev/nonexisting"
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	runSL b_fs_removeWithOverwrite "$tmp"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	[ ! -e "$tmp" ]
+
+	#maybe TODO: test overwrite on ext4 with e.g. extundelete
+}
+
 @test "b_fs_getLastModifiedInDays" {
 	runSL b_fs_getLastModifiedInDays "/tmp/doesntexist_we_hope"
 	[ $status -ne 0 ]

@@ -18,6 +18,10 @@ date
 findmnt
 mktemp
 mount
+head
+stat
+rm
+sync
 EOF
 
 echo -n "$deps"
@@ -258,4 +262,27 @@ fi
 
 [[ "$pref" == "-" ]] && [ $ret -ne 0 ] && echo -n "$pref"
 echo "$ret"
+}
+
+#+b_fs_removeWithOverwrite [file] [randomness source]
+#+Overwrite the given file with random data, then remove it. This is meant to prevent a potential reconstruction of the file after its removal.
+#+*Warning*: The reconstruction may still work on some types of file systems or physical storage systems (e.g. on flash disks).
+#+[file]: Full path to the file to remove. Directories are currently not supported.
+#+[randomness source]: Device to use as source of random data (default: /dev/random).
+#+returns: Nothing. [B_E](#B_E) is called on errors.
+#+@B_E
+function b_fs_removeWithOverwrite {
+local file="$1"
+local rdev="${2:-/dev/random}"
+
+[ -f "$file" ] || { B_ERR="The file $file doesn't exist." ; B_E }
+[ -c "$rdev" ] || { B_ERR="Nonexisting randomness source: $rdev" ; B_E }
+
+local fsize=
+fsize="$(stat -c %s "$file")" || { B_ERR="Failed to identify the size of the file $file." ; B_E }
+
+head -c "$fsize" < "$rdev" > "$file" || { B_ERR="Failed to overwrite the file $file." ; B_E }
+sync -d "$file" || { B_ERR="Failed to sync the file $file." ; B_E }
+rm -f "$file" || { B_ERR="Failed to remove the file $file." ; B_E }
+return 0
 }
