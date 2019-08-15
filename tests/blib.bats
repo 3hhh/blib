@@ -42,6 +42,89 @@ T_GLOB=0
 	[[ "$output" != *"b_printStackTrace"* ]]
 }
 
+#testEmptyMsg [function] [suffix]
+function testEmptyMsg {
+	"$1"
+	echo "$2"
+}
+
+#testMultiMsg [function]
+function testMultiMsg {
+	local func="$1"
+
+	"$func" "first part" 0 1
+	"$func" "middle part" 1 1
+	"$func" "last part" 1 0
+
+	"$func" "another" 0 0
+
+	"$func" "and another"
+
+	"$func" "one more" 0 1
+	"$func" "time" 1 0
+}
+
+@test "b_info & b_error" {
+	local info="foo bar"
+
+	runSL b_info "$info"
+	[ $status -eq 0 ]
+	[[ "$output" == *"INFO"* ]]
+	[[ "$output" == *"$info"* ]]
+
+	runSL b_error "$info"
+	[ $status -eq 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"$info"* ]]
+
+	local expected='INFO: first part
+middle part
+last part
+INFO: another
+INFO: and another
+INFO: one more
+time'
+	runSL testMultiMsg "b_info"
+	[ $status -eq 0 ]
+	[[ "$output" == "$expected" ]]
+
+	runSL testMultiMsg "b_error"
+	[ $status -eq 0 ]
+	[[ "$output" == "${expected//INFO:/ERROR:}" ]]
+
+	#it should be possible to use b_info/b_error "" to print newlines in the context
+	runSL testEmptyMsg "b_info" "$info"
+	[ $status -eq 0 ]
+	[[ "$output" == $'\n'"$info" ]]
+
+	runSL testEmptyMsg "b_error" "$info"
+	[ $status -eq 0 ]
+	[[ "$output" == $'\n'"$info" ]]
+}
+
+@test "b_defaultMessageHandler & b_setMessageHandler" {
+	#b_defaultMessageHandler: already mostly covered by the b_info & b_error test
+
+	local msg="this is a test message"
+
+	runSL b_defaultMessageHandler 0 "$msg"
+	[ $status -eq 0 ]
+	[[ "$output" == *"INFO:"* ]]
+	[[ "$output" == *"$msg"* ]]
+
+	runSL b_defaultMessageHandler 1 "$msg"
+	[ $status -eq 0 ]
+	[[ "$output" == *"ERROR:"* ]]
+	[[ "$output" == *"$msg"* ]]
+
+	runSL b_defaultMessageHandler 1 ""
+	[ $status -eq 0 ]
+	#actually the output should be a single newline, but bash removes it (--> testEmptyMsg)
+	[ -z "$output" ]
+
+	testGetterSetter "b_setMessageHandler" "nonexistingFunc"
+}
+
 ##  begin: functions for error testing ####
 
 function straightError {
@@ -304,29 +387,43 @@ function runSLE {
 }
 
 @test "b_defaultErrorHandler" {
+	B_ERR="test error message"
+
 	runSL "b_defaultErrorHandler" 0 0 0
+	echo "$output"
 	[ $status -eq 2 ]
 	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"test error message"* ]]
 	[[ "$output" == *"Stack Trace"* ]]
 
 	runSL "b_defaultErrorHandler" 1 0 0
+	echo "$output"
 	[ $status -eq 1 ]
 	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"test error message"* ]]
 	[[ "$output" == *"Stack Trace"* ]]
 
 	runSL "b_defaultErrorHandler" 0 1 0
+	echo "$output"
 	[ $status -eq 2 ]
-	[[ "$output" != *"ERROR"* ]]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" != *"test error message"* ]]
 	[[ "$output" == *"Stack Trace"* ]]
 
 	runSL "b_defaultErrorHandler" 0 0 1
+	echo "$output"
 	[ $status -eq 2 ]
 	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"test error message"* ]]
 	[[ "$output" != *"Stack Trace"* ]]
 
 	runSL "b_defaultErrorHandler" 0 1 1
+	echo "$output"
 	[ $status -eq 2 ]
 	[ -z "$output" ]
+
+	#cleanup
+	B_ERR=""
 }
 
 #should be run with runSL
@@ -433,13 +530,6 @@ function multiParFunc {
 	echo d
 	[[ "$B_ERR" == "loudFunc errored out." ]]
 	B_ERR=""
-}
-
-@test "b_info" {
-	local info="foo bar"
-	runSL b_info "$info"
-	[ $status -eq 0 ]
-	[[ "$output" == *"$info"* ]]
 }
 
 @test "b_version" {

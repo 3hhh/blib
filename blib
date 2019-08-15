@@ -80,6 +80,7 @@ declare -gA BLIB_STORE_VOLATILE=(
 	["BLIB_CB_REF_LIST_CACHE"]=""
 	["BLIB_ERR_ESET"]=""
 	["BLIB_ERR_HANDLER"]="b_defaultErrorHandler"
+	["BLIB_MSG_HANDLER"]="b_defaultMessageHandler"
 	)
 #BLIB_ERR_*: used by B_E
 
@@ -281,7 +282,7 @@ fi
 return 0
 }
 
-#+b_defaultErrorHandler [error out] [print stderr] [print stack trace]
+#+b_defaultErrorHandler [error out] [send err] [send stack trace]
 #+The blib default error handler.
 #+As any error handler it must
 #+
@@ -289,35 +290,46 @@ return 0
 #+ #.   not take any non-numeric arguments
 #+ #.   not error out itself
 #+ #.   implement the below *\[error out\]* as its first parameter (to make [b_setBE](#b_setBE) work)
+#+ #.   ideally use [b_error](#b_error) to send error messages to the user
 #+ #.   return one of the following exit codes:
 #+      a) 0: **if and only if** the error was fixed entirely and the caller may ignore the error (i.e. probably never)
 #+      b) 1: The error wasn't fixed. Functions should return to their caller indicating an error (non-zero status code). Direct shell calls will exit. [B_ERR](#B_ERR) is **not** reset to blank, i.e. the next call to [B_E](#B_E) in the same context will cause another error. The caller may use this to either *throw* the error further or handle and clear the error.
 #+	c) 2: Force a stop of execution in the current shell / error out.
 #+
 #+[error out]: Whether or not to call exit after the error message handling, if the error couldn't be handled (default: 0 = always error out / call exit). If set to 1, [B_E](#B_E) will allow e.g. functions to return to their callers.
-#+[print stderr]: Whether or not to print the error message to stderr (default: 0 = print).
-#+[print stack trace]: Whether or not to print a stack trace to stderr (default: 0 = print).
+#+[send err]: Whether or not to send the error message to the user (default: 0 = send).
+#+[send stack trace]: Whether or not to send a stack trace to the user (default: 0 = send).
 #+returns: see the description above
 function b_defaultErrorHandler {
 local errorOut=${1:-0}
-local printErr=${2:-0}
-local printStack=${3:-0}
+local sendErr=${2:-0}
+local sendStack=${3:-0}
 
-[ $printErr -eq 0 ] && >&2 echo "ERROR: $B_ERR"
+local firstMsg=0
+if [ $sendErr -eq 0 ] ; then
+	b_error "$B_ERR" $firstMsg 1
+	firstMsg=1
+fi
 
-if [ $printStack -eq 0 ] ; then
+if [ $sendStack -eq 0 ] ; then
 	local stack="$(b_printStackTrace 1)"
-	>&2 echo "Stack Trace:"
-	>&2 echo "$stack"
+	b_error "Stack Trace:"$'\n'"$stack" $firstMsg 1
+	firstMsg=1
 fi
 
 #set the proper exit code
+local ret=5
 if [ $errorOut -eq 0 ] ; then
-	[ $printErr -eq 0 ] && >&2 echo "Aborting..."
-	return 2
+	[ $sendErr -eq 0 ] && b_error "Aborting..." $firstMsg 1
+	ret=2
 else
-	return 1
+	ret=1
 fi
+
+#send message end, if any message was sent before
+[ $firstMsg -ne 0 ] && b_error "" 1 0
+
+return $ret
 }
 
 #+b_setBE [error out]
@@ -405,12 +417,80 @@ B_E
 return $ret
 }
 
-#+b_info [message]
-#+Print the given message to stdout as info message.
-#+[message]: to print to stdout
-#+returns: nothing
+#+b_defaultMessageHandler [message type] [message] [first part] [last part]
+#+Handles the given message by printing information to stdout and errors to stderr.
+#+This is the default message handler used by blib. It can be changed by [b_setMessageHandler](#b_setMessageHandler).
+#+Message handler implementations must support at least the parameters of this function, but may add additional parameters.
+#+[message type]: 0=informational message, 1=error message.
+#+[message]: String representing the message.
+#+[first part]: If set to 0, assume that the given message is the first part of an overall chain of messages (default: 0).
+#+[last part]: If set to 0, assume that the given message is the final part of an overall chain of messages (default: 0).
+#+returns: Nothing. Never causes errors.
+function b_defaultMessageHandler {
+local mtype="$1"
+local msg="$2"
+local first="${3:-0}"
+local last="${4:-0}"
+
+local prefix=""
+local suffix=""
+
+if [ $first -eq 0 ] ; then
+	if [ -n "$msg" ] ; then
+		[ $mtype -eq 0 ] && prefix="INFO: " || prefix="ERROR: "
+	fi
+else
+	prefix=$'\n'
+fi
+
+[ $last -eq 0 ] && suffix=$'\n'
+
+if [ $mtype -eq 0 ] ; then
+	printf '%s%s%s' "$prefix" "$msg" "$suffix"
+else
+	printf '%s%s%s' "$prefix" "$msg" "$suffix" >&2
+fi
+return 0
+}
+
+#+b_info [message] [first part] [last part] [message handler param 1] ... [message handler param n]
+#+Send an informational message to the user. The message is dispatched via the currently configured message handler (default: [b_defaultMessageHandler](#b_defaultMessageHandler)).
+#+[message]: to send
+#+[first part]: If set to 0, assume that the given message is the first part of an overall chain of messages (default: 0).
+#+[last part]: If set to 0, assume that the given message is the final part of an overall chain of messages (default: 0).
+#+[message handler param i]: Arbitrary parameters to pass to the currently configured message handler (cf. [b_setMessageHandler](#b_setMessageHandler)).
+#+returns: Nothing, always sets a zero exit code.
 function b_info {
-echo "INFO: $1"
+"${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]}" 0 "$@"
+return 0
+}
+
+#+b_error [message] [first part] [last part] [message handler param 1] ... [message handler param n]
+#+Send an error message to the user _without_ erroring out. The message is dispatched via the currently configured message handler (default: [b_defaultMessageHandler](#b_defaultMessageHandler)).
+#+99.9% of all users will want to use the combination of [B_ERR](#B_ERR) and [B_E](#B_E) for proper error handling instead.
+#+[message]: to send
+#+[first part]: If set to 0, assume that the given message is the first part of an overall chain of messages (default: 0).
+#+[last part]: If set to 0, assume that the given message is the final part of an overall chain of messages (default: 0).
+#+[message handler param i]: Arbitrary parameters to pass to the currently configured message handler (cf. [b_setMessageHandler](#b_setMessageHandler)).
+#+returns: Nothing, always sets a zero exit code.
+function b_error {
+"${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]}" 1 "$@"
+return 0
+}
+
+#+b_setMessageHandler [handler]
+#+Set the handler used to send messages to the user. By default, [b_defaultMessageHandler](#b_defaultMessageHandler) is used.
+#+[handler]: Function to handle the messages. See [b_defaultMessageHandler](#b_defaultMessageHandler) for the requirements.
+#+returns: Nothing.
+function b_setMessageHandler {
+BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]="$1"
+}
+
+#+b_getMessageHandler
+#+Get the currently configured message handler.
+#+returns: The message handler.
+function b_getMessageHandler {
+echo "${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]}"
 }
 
 #+b_enforceUser [user name]
