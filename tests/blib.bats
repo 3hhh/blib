@@ -77,6 +77,10 @@ function testMultiMsg {
 	[[ "$output" == *"ERROR"* ]]
 	[[ "$output" == *"$info"* ]]
 
+	#NOTE: newlines are removed by bash, so we don't test the getter with that
+	testGetterSetter "b_setDefaultMessageHandlerIntermediate" "foo bar bla"
+	b_setDefaultMessageHandlerIntermediate $'\n'
+
 	local expected='INFO: first part
 middle part
 last part
@@ -503,7 +507,7 @@ function multiParFunc {
 
 	runSL b_silence "loudFunc" 0
 	[ $status -ne 0 ]
-	[[ "$output" == "ERROR: loudFunc errored out."$'\n'"Stack Trace:"* ]]
+	[[ "$output" == "ERROR: loudFunc errored out. Stack Trace:"* ]]
 
 	runSL b_silence "multiParFunc" 5 "foo" "a" "-" "cfoobar" ""
 	echo "$output"
