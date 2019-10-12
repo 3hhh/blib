@@ -72,19 +72,23 @@ local utcFlag="$4"
 b_date_add "$date" "$days" "d" "$format" "$utcFlag"
 }
 
-#+b_date_diffSeconds [date 1] [date 2]
-#+Get the number of seconds between the two dates, i.e. [date 2] - [date 1].
-#+[date 2], \[date 1\]: the two dates to subtract; the time one is assumed to be identical if not specified within the dates
-#+returns: The number of seconds between the given two dates \[date 2\] - \[date 1\]; returns a non-zero exit code on errors.
+#+b_date_diff [date 1] [date 2] [unit]
+#+Get the amount of time between the two dates, i.e. [date 2] - [date 1].
+#+[date 2], \[date 1\]: the two dates to subtract; the time part is assumed to be identical if not specified within the dates
+#+[unit]: unit of the result, may be one of d (days), h (hours) m (minutes), s (seconds, default)
+#+returns: The amount of time between the given two dates \[date 2\] - \[date 1\], rounded down. Returns a non-zero exit code on errors.
 #+@B_E
-function b_date_diffSeconds {
+function b_date_diff {
 local date1="$1"
 local date2="$2"
+local unit="${3:-s}"
+local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
+[ -z "$mult" ] && B_ERR="Invalid unit: $unit" && B_E
 local unix1=""
 local unix2=""
 unix1=$(date --date="$date1" +%s) || { B_ERR="Failed to parse the date $date1." ; B_E }
 unix2=$(date --date="$date2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E }
-echo $(( $unix2 - $unix1 ))
+echo $(( ( $unix2 - $unix1 ) / $mult ))
 }
 
 #+b_date_getFileModAge [file] [unit]

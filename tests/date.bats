@@ -87,18 +87,30 @@ function setup {
 	[ $status -ne 0 ]
 }
 
-@test "b_date_diffSeconds" {
-	runSL b_date_diffSeconds "2018-09-20" "2018-09-30"
+@test "b_date_diff" {
+	runSL b_date_diff "2018-09-20" "2018-09-30"
 	[ $status -eq 0 ]
 	[[ "$output" == "864000" ]]
 
-	runSL b_date_diffSeconds "inv" "2018-09-30"
+	runSL b_date_diff "2018-09-20" "2018-09-30" "d"
+	[ $status -eq 0 ]
+	[[ "$output" == "10" ]]
+
+	runSL b_date_diff "2018-09-20" "2018-09-30" "h"
+	[ $status -eq 0 ]
+	[[ "$output" == "240" ]]
+
+	runSL b_date_diff "2018-09-20" "2018-09-30" "m"
+	[ $status -eq 0 ]
+	[[ "$output" == "14400" ]]
+
+	runSL b_date_diff "inv" "2018-09-30"
 	[ $status -ne 0 ]
 
-	runSL b_date_diffSeconds "2018-09-30" "inv"
+	runSL b_date_diff "2018-09-30" "inv"
 	[ $status -ne 0 ]
 
-	runSL b_date_diffSeconds "Mon Sep 10 19:41:45 CEST 2018" "2018-09-12 19:41:45 CEST"
+	runSL b_date_diff "Mon Sep 10 19:41:45 CEST 2018" "2018-09-12 19:41:45 CEST"
 	[ $status -eq 0 ]
 	[[ "$output" == "172800" ]]
 }
