@@ -129,6 +129,11 @@ time'
 	testGetterSetter "b_setMessageHandler" "nonexistingFunc"
 }
 
+@test "b_setDefaultMessageHandlerPrefix & b_getDefaultMessageHandlerPrefix" {
+	testGetterSetter "b_setDefaultMessageHandlerPrefix 0" "IFOO: "
+	testGetterSetter "b_setDefaultMessageHandlerPrefix 1" "EFOO: "
+}
+
 ##  begin: functions for error testing ####
 
 function straightError {

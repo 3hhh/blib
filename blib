@@ -88,6 +88,12 @@ declare -gA BLIB_STORE_VOLATILE=(
 #last element = event handler in use before the last call to [b_setErrorHandler](#b_setErrorHandler)
 declare -ga BLIB_ERR_HANDLER_LAST=()
 
+#message type --> prefix for the b_defaultMessageHandler
+declare -gA BLIB_DEFAULT_MSG_HANDLER_PREFIXES=(
+	["0"]="INFO: "
+	["1"]="ERROR: "
+	)
+
 #+B_TEST_MODE
 #+blib will set this variable to 0, if blib is running in test mode.
 #+This variable may be used to bypass code during testing, if bats cannot test that code due to its limitations (e.g. for EXIT traps which bats uses for itself).
@@ -438,7 +444,7 @@ local suffix=""
 
 if [ $first -eq 0 ] ; then
 	if [ -n "$msg" ] ; then
-		[ $mtype -eq 0 ] && prefix="INFO: " || prefix="ERROR: "
+		prefix="${BLIB_DEFAULT_MSG_HANDLER_PREFIXES["$mtype"]}"
 	fi
 else
 	prefix="${BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]}"
@@ -466,6 +472,22 @@ BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]="$1"
 #+returns: The intermediate String.
 function b_getDefaultMessageHandlerIntermediate {
 echo "${BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]}"
+}
+
+#+b_setDefaultMessageHandlerPrefix [message type] [prefix]
+#+Set the prefix to use for the default message handler and the given message type.
+#+[message type]: 0=informational message, 1=error message.
+#+[prefix]: A string to prefix all messages of the given type.
+function b_setDefaultMessageHandlerPrefix {
+BLIB_DEFAULT_MSG_HANDLER_PREFIXES["$1"]="$2"
+}
+
+#+b_getDefaultMessageHandlerPrefix [message type]
+#+Get the prefix used for the default message handler and the given message type.
+#+[message type]: 0=informational message, 1=error message.
+#+returns: The currently configured prefix.
+function b_getDefaultMessageHandlerPrefix {
+echo "${BLIB_DEFAULT_MSG_HANDLER_PREFIXES["$1"]}"
 }
 
 #+b_info [message] [first part] [last part] [message handler param 1] ... [message handler param n]
