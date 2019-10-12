@@ -41,6 +41,14 @@ function setup {
 	runSL b_date_add "2018-09-20 00:00:00" 7 "d" "%Y-%m-%d %T"
 	[ "$status" -eq 0 ]
 	[[ "$output" == "2018-09-27 00:00:00" ]]
+
+	runSL b_date_add "2018-09-20 00:00:00" -7 "d" "%Y-%m-%d %T"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-13 00:00:00" ]]
+
+	runSL b_date_add "2018-09-20 00:00:00" -7 "h" "%Y-%m-%d %T"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-19 17:00:00" ]]
 }
 
 @test "b_date_addDays" {
