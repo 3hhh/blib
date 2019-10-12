@@ -32,7 +32,7 @@ echo -n "$deps"
 #+Add the given number of seconds to the given date.
 #+[date]: date to add seconds to; the format must be understood by the Unix date utility
 #+[time]: amount of time to add
-#+[unit]: unit of the time to add, may be one of d (days), h (hours) m (minutes), s (seconds)
+#+[unit]: unit of the time to add, may be one of d (days), h (hours) m (minutes), s (seconds, default)
 #+[format]: output format of the date, in Unix date notation (default: use the localized output)
 #+[utc flag]: if set to 0, use UTC as time zone if not specified for the input _and_ use it for the output (default: 1 = local time zone)
 #+returns: The input date with the given number of seconds added, in the requested format; returns a non-zero exit code on errors.
@@ -40,7 +40,7 @@ echo -n "$deps"
 function b_date_add {
 local date="$1"
 local toAdd="$2"
-local unit="$3"
+local unit="${3:-s}"
 local format="$4"
 [ -n "$format" ] && format="+$format"
 local utcFlag="${5:-1}"
@@ -54,7 +54,11 @@ local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
 unixResult="$(date $addParams --date="$date" +%s)" || { B_ERR="Failed to parse the date $date." ; B_E }
 unixResult=$(( $unixResult + $toAdd * $mult))
 #use the exit code as return exit code:
-date $addParams --date="@$unixResult" "$format"
+if [ -n "$format" ] ; then
+	date $addParams --date="@$unixResult" "$format"
+else
+	date $addParams --date="@$unixResult"
+fi
 }
 
 #+b_date_addDays [date] [days] [format] [utc flag]

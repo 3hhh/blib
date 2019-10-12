@@ -21,8 +21,15 @@ function setup {
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 
+	runSL b_date_add "2018-09-30" 14 "d"
+	[ $status -eq 0 ]
+	[[ "$output" != *"ERROR"* ]]
+
 	runSL b_date_add "2018-09-30 00:00:00" 13 "s" "%Y-%m-%d %T"
-	echo "$output"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-30 00:00:13" ]]
+
+	runSL b_date_add "2018-09-30 00:00:00" 13 "" "%Y-%m-%d %T"
 	[ "$status" -eq 0 ]
 	[[ "$output" == "2018-09-30 00:00:13" ]]
 
