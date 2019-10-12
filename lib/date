@@ -54,6 +54,6 @@ local date2="$2"
 local unix1=""
 local unix2=""
 unix1=$(date --date="$date1" +%s) || { B_ERR="Failed to parse the date $date1." ; B_E }
-unix2=$(date --date="$2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E }
+unix2=$(date --date="$date2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E }
 echo $(( $unix2 - $unix1 ))
 }
