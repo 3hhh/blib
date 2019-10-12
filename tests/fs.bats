@@ -81,19 +81,6 @@ function teardown {
 	#maybe TODO: test overwrite on ext4 with e.g. extundelete
 }
 
-@test "b_fs_getLastModifiedInDays" {
-	runSL b_fs_getLastModifiedInDays "/tmp/doesntexist_we_hope"
-	[ $status -ne 0 ]
-
-	runSL b_fs_getLastModifiedInDays "$EMPTY_TEST_FILE"
-	[ $status -eq 0 ]
-	[ $output -eq 0 ]
-	
-	runSL b_fs_getLastModifiedInDays "$EMPTY_TEST_DIR"
-	[ $status -eq 0 ]
-	[ $output -eq 0 ]
-}
-
 @test "b_fs_getLineCount" {
 	runSL b_fs_getLineCount "/tmp/nonexisting file !!"
 	[ $status -ne 0 ]

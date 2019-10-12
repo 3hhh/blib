@@ -14,7 +14,6 @@ function b_fs_getDeps {
 local deps=""
 read -r -d '' deps << 'EOF'
 wc
-date
 findmnt
 mktemp
 mount
@@ -39,21 +38,6 @@ test -e "$dir/"* 2> /dev/null
 		1)      return 0 ;;
 		*)      return 1 ;;
 	esac
-}
-
-#+b_fs_getLastModifiedInDays [file]
-#+Get the number of days since when a file was last modified.
-#+[file]: Full path to the file to check.
-#+returns: The time in days since the last modification. Sets a non-zero exit code on errors.
-#+@B_E
-function b_fs_getLastModifiedInDays {
-local file="$1"
-local now=
-printf -v now '%(%s)T' -1
-local lastAccess=""
-lastAccess="$(date -r "$file" +%s)" || { B_ERR="Failed to read the timestamps of the file $file. Maybe it doesn't exist?" ; B_E }
-local ret=$(( ( $now - $lastAccess ) / (60*60*24) ))
-echo "$ret"
 }
 
 #+b_fs_getLineCount [file]
