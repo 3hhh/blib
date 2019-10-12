@@ -13,6 +13,36 @@ function setup {
 	b_import "date"
 }
 
+@test "b_date_add" {
+	runSL b_date_add "inv date" 5 "s" "%Y-%m-%d %T"
+	[ $status -ne 0 ]
+
+	runSL b_date_add "2018-09-30" 14 "k" "%D"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_date_add "2018-09-30 00:00:00" 13 "s" "%Y-%m-%d %T"
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-30 00:00:13" ]]
+
+	runSL b_date_add "2018-09-30 00:00:00" 13 "m" "%Y-%m-%d %T"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-30 00:13:00" ]]
+
+	runSL b_date_add "2018-09-30 00:00:00" 13 "h" "%Y-%m-%d %T"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-30 13:00:00" ]]
+
+	runSL b_date_add "2018-09-20 00:00:00" 25 "h" "%Y-%m-%d %T"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-21 01:00:00" ]]
+
+	runSL b_date_add "2018-09-20 00:00:00" 7 "d" "%Y-%m-%d %T"
+	[ "$status" -eq 0 ]
+	[[ "$output" == "2018-09-27 00:00:00" ]]
+}
+
 @test "b_date_addDays" {
 	runSL b_date_addDays "2018-09-30" 14 "%D"
 	[ $status -eq 0 ]

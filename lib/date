@@ -3,7 +3,16 @@
 #+Collection of date and time related functions.
 #+
 #+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.2
+#+0.3
+
+#BLIB_DATE_UNIT2SECSMULT
+#Translates units to multiples of seconds.
+declare -gA BLIB_DATE_UNIT2SECSMULT=(
+	["s"]=1
+	["m"]=60
+	["h"]=3600
+	["d"]=86400
+	)
 
 #+### Functions ###
 
@@ -19,28 +28,44 @@ EOF
 echo -n "$deps"
 }
 
-#+b_date_addDays [date] [days] [format] [utc flag]
-#+Add the given number of days to the given date.
-#+[date]: date to add days to; the format must be understood by the Unix date utility
-#+[days]: number of days to add
+#+b_date_add [date] [time] [unit] [format] [utc flag]
+#+Add the given number of seconds to the given date.
+#+[date]: date to add seconds to; the format must be understood by the Unix date utility
+#+[time]: amount of time to add
+#+[unit]: unit of the time to add, may be one of d (days), h (hours) m (minutes), s (seconds)
 #+[format]: output format of the date, in Unix date notation (default: use the localized output)
 #+[utc flag]: if set to 0, use UTC as time zone if not specified for the input _and_ use it for the output (default: 1 = local time zone)
-#+returns: The input date with the given number of days added, in the requested format; returns a non-zero exit code on errors.
+#+returns: The input date with the given number of seconds added, in the requested format; returns a non-zero exit code on errors.
 #+@B_E
-function b_date_addDays {
+function b_date_add {
 local date="$1"
-local days="$2"
-local format="$3"
+local toAdd="$2"
+local unit="$3"
+local format="$4"
 [ -n "$format" ] && format="+$format"
-local utcFlag="${4:-1}"
+local utcFlag="${5:-1}"
 local addParams=""
 [ $utcFlag -eq 0 ] && addParams="-u"
 local unixResult=""
 
+local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
+[ -z "$mult" ] && B_ERR="Invalid unit: $unit" && B_E
+
 unixResult="$(date $addParams --date="$date" +%s)" || { B_ERR="Failed to parse the date $date." ; B_E }
-unixResult=$(( $unixResult + $days * (60*60*24) ))
+unixResult=$(( $unixResult + $toAdd * $mult))
 #use the exit code as return exit code:
 date $addParams --date="@$unixResult" "$format"
+}
+
+#+b_date_addDays [date] [days] [format] [utc flag]
+#+Convenience wrapper to [b_date_add](#b_date_add) with days.
+#+[days]: number of days to add
+function b_date_addDays {
+local date="$1"
+local days="$2"
+local format="$3"
+local utcFlag="$4"
+b_date_add "$date" "$days" "d" "$format" "$utcFlag"
 }
 
 #+b_date_diffSeconds [date 1] [date 2]
