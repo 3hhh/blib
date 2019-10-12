@@ -86,3 +86,23 @@ unix1=$(date --date="$date1" +%s) || { B_ERR="Failed to parse the date $date1." 
 unix2=$(date --date="$date2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E }
 echo $(( $unix2 - $unix1 ))
 }
+
+#+b_date_getFileModAge [file] [unit]
+#+Get the time that passed since the last modification of the file.
+#+[file]: Full path to the file to check.
+#+[unit]: unit of the time to retrieve, may be one of d (days), h (hours) m (minutes), s (seconds, default)
+#+returns: The amount of time in the given unit since the last modification. May be rounded down. Sets a non-zero exit code on errors.
+#+@B_E
+function b_date_getFileModAge {
+local file="$1"
+local unit="${2:-s}"
+local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
+[ -z "$mult" ] && B_ERR="Invalid unit: $unit" && B_E
+
+local now=
+printf -v now '%(%s)T' -1
+local lastAccess=""
+lastAccess="$(date -r "$file" +%s)" || { B_ERR="Failed to read the timestamps of the file $file. Maybe it doesn't exist?" ; B_E }
+local ret=$(( ( $now - $lastAccess ) / $mult ))
+echo "$ret"
+}

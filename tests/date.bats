@@ -102,3 +102,46 @@ function setup {
 	[ $status -eq 0 ]
 	[[ "$output" == "172800" ]]
 }
+
+@test "b_date_getFileModAge" {
+	local tfile=
+	tfile="$(mktemp)"
+	local tdir=
+	tdir="$(mktemp -d)"
+
+	runSL b_date_getFileModAge "/tmp/doesntexist_we_hope"
+	[ $status -ne 0 ]
+
+	runSL b_date_getFileModAge "$tfile" "h"
+	[ $status -eq 0 ]
+	[ $output -eq 0 ]
+
+	runSL b_date_getFileModAge "$tdir" "h"
+	[ $status -eq 0 ]
+	[ $output -eq 0 ]
+
+	sleep 1
+	runSL b_date_getFileModAge "$tfile" "s"
+	[ $status -eq 0 ]
+	[ $output -ge 1 ]
+
+	runSL b_date_getFileModAge "$tdir"
+	[ $status -eq 0 ]
+	[ $output -ge 1 ]
+
+	runSL b_date_getFileModAge "$tdir" "m"
+	[ $status -eq 0 ]
+	[ $output -eq 0 ]
+
+	runSL b_date_getFileModAge "$tfile" "h"
+	[ $status -eq 0 ]
+	[ $output -eq 0 ]
+
+	runSL b_date_getFileModAge "$tdir" "d"
+	[ $status -eq 0 ]
+	[ $output -eq 0 ]
+
+	#cleanup
+	rm -f "$tfile"
+	rm -rf "$tdir"
+}
