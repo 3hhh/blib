@@ -69,7 +69,7 @@ function skipIfNoUserData {
 return 0
 }
 
-#+__skipIfNoUserData 
+#+__skipIfNoPandoc
 #+Skip the test if pandoc is not installed.
 function skipIfNoPandoc {
 ! command -v pandoc &> /dev/null && skip "pandoc is not installed."
