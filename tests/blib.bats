@@ -191,6 +191,11 @@ function testCachingMessageHandler {
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "${prefix}efirst" ]]
+
+	#test caching with B_E
+	runSL straightError
+	[ $status -ne 0 ]
+	[[ "$output" == "ERROR: 1 straightError"* ]]
 }
 
 @test "b_initCachingMessageHandler & b_cachingMessageHandler" {
