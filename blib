@@ -94,6 +94,9 @@ declare -gA BLIB_DEFAULT_MSG_HANDLER_PREFIXES=(
 	["1"]="ERROR: "
 	)
 
+#message type --> cache for [b_cachingMessageHandler](#b_cachingMessageHandler)
+declare -gA BLIB_CACHING_MSG_HANDLER_CACHES=()
+
 #+B_TEST_MODE
 #+blib will set this variable to 0, if blib is running in test mode.
 #+This variable may be used to bypass code during testing, if bats cannot test that code due to its limitations (e.g. for EXIT traps which bats uses for itself).
@@ -427,7 +430,7 @@ return $ret
 #+b_defaultMessageHandler [message type] [message] [first part] [last part]
 #+Handles the given message by printing information to stdout and errors to stderr.
 #+This is the default message handler used by blib. It can be changed by [b_setMessageHandler](#b_setMessageHandler).
-#+Message handler implementations must support at least the parameters of this function, but may add additional parameters.
+#+Message handler implementations must support at least the parameters of this function, but may add additional parameters. If an handler implementation does not support partial messages (i.e. the [first part] and [last part] parameters), it should be chained to a [b_cachingMessageHandler](#b_cachingMessageHandler).
 #+[message type]: 0=informational message, 1=error message.
 #+[message]: String representing the message.
 #+[first part]: If set to 0, assume that the given message is the first part of an overall chain of messages (default: 0).
@@ -458,6 +461,100 @@ else
 	printf '%s%s%s' "$prefix" "$msg" "$suffix" >&2
 fi
 return 0
+}
+
+#+b_cachingMessageHandler [message handler] [message type] [message] [first part] [last part]
+#+A message handler implementation which caches partial messages for a receiving message handler that cannot handle them until they are completed.
+#+Use `b_initCachingMessageHandler && b_setMessageHandler "b_cachingMessageHandler [your message handler]"`{.bash} to set your receiving message handler as message handler to cache messages for.
+#+This implementation uses the [b_getDefaultMessageHandlerIntermediate](#b_getDefaultMessageHandlerIntermediate) as separator between partial messages.
+#+[message handler]: The function implementing the receiving message handler. It must handle the [message type] and the [message].
+#+[message type]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+[message]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+[first part]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+[last part]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+returns: Nothing. Never causes errors.
+function b_cachingMessageHandler {
+local mhandler="$1"
+local mtype="$2"
+local msg="$3"
+local first="${4:-0}"
+local last="${5:-0}"
+#NOTE: the below is _not_ identical to shift 5 since a single shift below may fail, but shift 5 only works for exactly 5 parameters in many bash versions
+shift
+shift
+shift
+shift
+shift
+
+#get the cache
+local cfile="${BLIB_CACHING_MSG_HANDLER_CACHES["$mtype"]}"
+
+#special case: the user forgot to call b_initCachingMessageHandler
+if [ -z "$cfile" ] ; then
+	b_defaultMessageHandler 1 "Implementation error: b_cachingMessageHandler $mhandler was called without calling b_initCachingMessageHandler at least once. Dropping the following message:"$'\n'"$msg"
+	return 0
+fi
+
+#handle the message
+if [ $last -eq 0 ] ; then
+	if [ $first -eq 0 ] ; then
+		#no need for caching
+		"$mhandler" "$mtype" "$msg" "$@"
+	else
+		#read & clear cache (atomically)
+		#NOTE: we want to perform this operation _atomically_ in order to not lose messages coming from threads running concurrently --> we use mv as it uses the rename syscall which is atomic on most unix systems
+		local cfileTmp=
+		cfileTmp="$(mktemp -u)" || { b_defaultMessageHandler 1 "Failed to call mktemp -u." ; return 0 ; }
+		mv "$cfile" "$cfileTmp" &> /dev/null || { b_defaultMessageHandler 1 "Failed to move $cfile to $cfileTmp." ; return 0 ; }
+		local cmsg=
+		cmsg="$(<"$cfileTmp")" || { b_defaultMessageHandler 1 "Failed to read $cfileTmp." ; return 0 ; }
+		rm -f "$cfileTmp" &> /dev/null || { b_defaultMessageHandler 1 "Failed to remove $cfileTmp." ; return 0 ; }
+
+		#generate the final message
+		local inter=""
+		[ -n "$msg" ] && inter="${BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]}"
+		printf -v msg "%s%s%s" "$cmsg" "$inter" "$msg"
+
+		#pass the final message to the chained handler
+		"$mhandler" "$mtype" "$msg" "$@"
+	fi
+else
+	#first is 0 or 1 and last is 1 --> write to cache (non-atomically)
+	if [ $first -eq 0 ] ; then
+		echo -n "$msg" > "$cfile" || { b_defaultMessageHandler 1 "Failed to write to the cache file $cfile." ; return 0 ; }
+	else
+		echo -n "${BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]}$msg" >> "$cfile" || { b_defaultMessageHandler 1 "Failed to write to the cache file $cfile." ; return 0 ; }
+	fi
+fi
+
+return 0
+}
+
+#+b_initCachingMessageHandler [maximum message type]
+#+Initializes a new cache for a [b_cachingMessageHandler](#b_cachingMessageHandler). This function *must* be called at least once before using [b_cachingMessageHandler](#b_cachingMessageHandler).
+#+[maximum message type]: Maximum message type for which to allocate caches (default: 1 --> allocate caches for 0..1/info..error).
+#+returns: Nothing.
+#+@B_E
+function b_initCachingMessageHandler {
+local max="${1:-1}"
+b_import "traps"
+
+local i=
+local cfile=
+local cmd=
+for ((i=0; i <= max; i++)) ; do
+	#use a temporary file as cache
+	#NOTE: this is the closest we can get to stdout/stderr as it is inherited/shared to subthreads similarly to stdout/stderr
+	cfile="$(mktemp)" || { B_ERR="Failed to allocate a temporary file." ; B_E }
+	BLIB_CACHING_MSG_HANDLER_CACHES["$i"]="$cfile"
+
+	if [ $B_TEST_MODE -ne 0 ] ; then
+		#schedule cleanup
+		#NOTE: bats uses the EXIT signal itself, so that we cannot do this during testing
+		printf -v cmd 'rm -f %q &> /dev/null' "$cfile"
+		b_traps_add "$cmd" "EXIT"
+	fi
+done
 }
 
 #+b_setDefaultMessageHandlerIntermediate [intermediate]
@@ -498,7 +595,7 @@ echo "${BLIB_DEFAULT_MSG_HANDLER_PREFIXES["$1"]}"
 #+[message handler param i]: Arbitrary parameters to pass to the currently configured message handler (cf. [b_setMessageHandler](#b_setMessageHandler)).
 #+returns: Nothing, always sets a zero exit code.
 function b_info {
-"${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]}" 0 "$@"
+${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]} 0 "$@"
 return 0
 }
 
@@ -511,7 +608,7 @@ return 0
 #+[message handler param i]: Arbitrary parameters to pass to the currently configured message handler (cf. [b_setMessageHandler](#b_setMessageHandler)).
 #+returns: Nothing, always sets a zero exit code.
 function b_error {
-"${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]}" 1 "$@"
+${BLIB_STORE_VOLATILE["BLIB_MSG_HANDLER"]} 1 "$@"
 return 0
 }
 
@@ -660,6 +757,7 @@ sort
 cat
 mktemp
 rm
+mv
 su
 EOF
 

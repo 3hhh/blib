@@ -44,7 +44,9 @@ T_GLOB=0
 
 #testEmptyMsg [function] [suffix]
 function testEmptyMsg {
+	#both variants should work
 	"$1"
+	"$1" ""
 	echo "$2"
 }
 
@@ -62,9 +64,14 @@ function testMultiMsg {
 
 	"$func" "one more" 0 1
 	"$func" "time" 1 0
+
+	#inside subshells/-threads
+	( "$func" "hello from a subshell" 0 1 )
+	( ( "$func" ", even from 2" 1 1 ) )
+	"$func" ", but it is visible in the parent, anyway" 1 0
 }
 
-@test "b_info & b_error" {
+function testInfoErrMessaging {
 	local info="foo bar"
 
 	runSL b_info "$info"
@@ -87,7 +94,10 @@ last part
 INFO: another
 INFO: and another
 INFO: one more
-time'
+time
+INFO: hello from a subshell
+, even from 2
+, but it is visible in the parent, anyway'
 	runSL testMultiMsg "b_info"
 	[ $status -eq 0 ]
 	[[ "$output" == "$expected" ]]
@@ -98,12 +108,17 @@ time'
 
 	#it should be possible to use b_info/b_error "" to print newlines in the context
 	runSL testEmptyMsg "b_info" "$info"
+	echo "$output"
 	[ $status -eq 0 ]
-	[[ "$output" == $'\n'"$info" ]]
+	[[ "$output" == $'\n'$'\n'"$info" ]]
 
 	runSL testEmptyMsg "b_error" "$info"
 	[ $status -eq 0 ]
-	[[ "$output" == $'\n'"$info" ]]
+	[[ "$output" == $'\n'$'\n'"$info" ]]
+}
+
+@test "b_info & b_error" {
+	testInfoErrMessaging
 }
 
 @test "b_defaultMessageHandler & b_setMessageHandler" {
@@ -132,6 +147,80 @@ time'
 @test "b_setDefaultMessageHandlerPrefix & b_getDefaultMessageHandlerPrefix" {
 	testGetterSetter "b_setDefaultMessageHandlerPrefix 0" "IFOO: "
 	testGetterSetter "b_setDefaultMessageHandlerPrefix 1" "EFOO: "
+}
+
+#testCaching [func] [prefix]
+function testCachingMessageHandler {
+	local func="$1"
+	local prefix="$2"
+
+	b_setDefaultMessageHandlerIntermediate " "
+
+	runSL "$func" "ifirst" 0 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	#overwrite
+	runSL "$func" "bfirst" 0 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL "$func" "i2" 1 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL "$func" "standalone msg" 0 0
+	[ $status -eq 0 ]
+	[[ "$output" == "${prefix}standalone msg" ]]
+
+	runSL "$func" "i3" 1 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL "$func" "end" 1 0
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "${prefix}bfirst i2 i3 end" ]]
+
+	#empty message to end
+	runSL "$func" "efirst" 0 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL "$func" "" 1 0
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "${prefix}efirst" ]]
+}
+
+@test "b_initCachingMessageHandler & b_cachingMessageHandler" {
+	#NOTE: we cannot test temp cleanup as it's not run due to bats limitations
+
+	runSC b_initCachingMessageHandler
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	b_initCachingMessageHandler
+
+	runSL b_getMessageHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultMessageHandler" ]]
+
+	#caching the default message handler should behave mostly the same as the default message handler except for some edge cases
+	b_setMessageHandler "b_cachingMessageHandler b_defaultMessageHandler"
+	testInfoErrMessaging
+
+	runSL b_getMessageHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_cachingMessageHandler b_defaultMessageHandler" ]]
+
+	#check whether the caching really works
+	testCachingMessageHandler "b_info" "INFO: "
+	testCachingMessageHandler "b_error" "ERROR: "
+
+	#cleanup
+	#(not really needed for further tests as we're running inside a subshell)
+	b_setMessageHandler "b_defaultMessageHandler"
 }
 
 ##  begin: functions for error testing ####
