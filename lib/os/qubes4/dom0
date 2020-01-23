@@ -46,6 +46,7 @@ qvm-block
 qvm-ls
 qvm-shutdown
 qvm-check
+qvm-pool
 qubes-prefs
 dirname
 basename
@@ -1074,6 +1075,13 @@ local sourceVM="$1"
 local targetVM="$2"
 local workFolder="$3"
 local rwFlag="${4:-1}"
+
+#make sure we're on a file pool
+#maybe TODO: also support LVM storage pools
+local out=
+local re='.*varlibqubes[ ]+file.*'
+out="$(qvm-pool)" || { B_ERR="Failed to run qvm-pool." ; B_E }
+[[ "$out" =~ $re ]] || { B_ERR="b_dom0_attachVMDisk currently only supports file storage pools. See https://www.qubes-os.org/doc/mount-lvm-image/ and https://github.com/QubesOS/qubes-issues/issues/4687 for LVM storage pools." ; B_E }
 
 mkdir -p "$workFolder" || { B_ERR="The folder $workFolder could not be created." ; B_E }
 
