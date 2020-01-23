@@ -1368,7 +1368,7 @@ function testDiskAttach {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_dom0_attachVMDisk "$UTD_QUBES_TESTVM_PERSISTENT" "$targetVM" "$UTD_QUBES_DOM0_WD" "$rwFlag"
+	runSL b_dom0_attachVMDisk "$UTD_QUBES_TESTVM_PERSISTENT" "$targetVM" "$rwFlag"
 	echo "out attach: $output"
 	[ $status -eq 0 ]
 	[[ "$output" == "/dev/"* ]]
@@ -1381,18 +1381,23 @@ function testDiskAttach {
 	local mp="$output"
 
 	#this also tests whether SUCCESS.txt created below can be accessed
-	runSL b_dom0_execFuncIn "$targetVM" "" testSuccAttachFileInVM - - "$mp" "$rwFlag"
+	runSL b_dom0_execFuncIn "$targetVM" "" testSuccAttachFileInVM - - "$mp" "$rwFlag" 0
 	echo "testSuccAttachFileInVM: $output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	
-	#for detach
+	#detach
+	runSL b_dom0_detachDevice "$targetVM" "$dev" 0
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	run qvm-block ls
+	[ $status -eq 0 ]
+	echo "$output"
+	[[ "$output" != *"dom0:loop"* ]]
+
+	#make sure it's detached
 	runSL qvm-shutdown --wait --timeout 10 "$targetVM"
 	[ $status -eq 0 ]
-
-	#further cleanup
-	[ -d "$UTD_QUBES_DOM0_WD" ]
-	rm -rf "$UTD_QUBES_DOM0_WD"
 }
 
 @test "b_dom0_attachVMDisk" {
@@ -1400,14 +1405,11 @@ function testDiskAttach {
 
 	#NOTE: this test should be the last if possible as the 2 involved VMs should be shut down afterwards (or you'll runSL into strange issues)
 
-	[ -z "$UTD_QUBES_DOM0_WD" ] && skip "You didn't set UTD_QUBES_DOM0_WD in $USER_DATA_FILE. Please do that in order to run this test."
-	[ -e "$UTD_QUBES_DOM0_WD" ] && skip "The file or folder $UTD_QUBES_DOM0_WD appears to exist. Thus backing off... (this test will otherwise remove it and all of its content)"
-
-	runSL b_dom0_attachVMDisk "non-existing-vm" "${TEST_STATE["DOM0_TESTVM_1"]}" "$UTD_QUBES_DOM0_WD"
+	runSL b_dom0_attachVMDisk "non-existing-vm" "${TEST_STATE["DOM0_TESTVM_1"]}"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 
-	runSL b_dom0_attachVMDisk "$UTD_QUBES_TESTVM_PERSISTENT" "non-existing-vm" "$UTD_QUBES_DOM0_WD"
+	runSL b_dom0_attachVMDisk "$UTD_QUBES_TESTVM_PERSISTENT" "non-existing-vm"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
 

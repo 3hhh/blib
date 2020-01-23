@@ -53,12 +53,6 @@ UTD_QUBES_TESTVM_PERSISTENT="testing-pers"
 #+If no template is specified, the Qubes OS default template is used.
 UTD_QUBES_DISPVM_TEMPLATE=""
 
-#+UTD_QUBES_DOM0_WD
-#+Full path to a folder in Qubes dom0 that can be created and deleted at will (working directory). Do **not** use an existing folder here!
-#+
-#+Can safely be ignored if you don't run Qubes OS-related tests.
-UTD_QUBES_DOM0_WD=~/blib_dom0_testing-wd
-
 #+UTD_PW_FREE_USER
 #+A user that allows password-less logons with sudo or su for testing.
 #+
