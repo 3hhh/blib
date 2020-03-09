@@ -771,7 +771,7 @@ local vm="$1"
 qvm-check "$vm" &> /dev/null
 }
 
-#+b_dom0_openCrypt [vm] [device] [mapper name] [rw flag] [mount point] [key file] [additional options]
+#+b_dom0_openCrypt [vm] [device] [mapper name] [rw flag] [mount point] [key file] [additional options] [password prompt]
 #+In the given VM, open the given crypto device with dm-crypt and mount it to the mount point.
 #+[vm]: The VM where to open the crypto device.
 #+[device]: Full path to the device (incl. /dev/) to open.
@@ -780,6 +780,7 @@ qvm-check "$vm" &> /dev/null
 #+[mount point]: Where to mount the decrypted data to. Non-existing directories will be created. If no mount point is specified, it will not be mounted (default).
 #+[key file]: Full vm path to the key to use for decryption. If none is specified, password-based decryption is assumed and stdin will be read to obtain the password.
 #+[additional options]: Single string with additional cryptsetup parameters to pass on (default: none). They are passed _as-is_, i.e. you'll have to take care of proper escaping etc. yourself.
+#+[password prompt]: Optional string to use when the user is required to provide a decryption password.
 #+returns: nothing (except for user interaction prompts if no key file is provided), but sets a non-zero exit code on errors
 #+@B_E
 function b_dom0_openCrypt {
@@ -790,6 +791,7 @@ local rwFlag="${4:-0}"
 local mp="$5"
 local keyFile="$6"
 local copt="$7"
+local passPrompt="${8:-"Password for $dev inside the VM $vm: "}"
 
 #escape
 local keyFileEsc=""
@@ -815,9 +817,17 @@ fi
 if [ -n "$keyFile" ] ; then
 	b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to decrypt using the keyfile $keyFile." ; B_E }
 else
-	#we need stdin & stdout for the password prompt
-	#NOTE: that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
-	b_dom0_qvmRun --stdin "$vm" "$cmd" || { B_ERR="Failed to decrypt." ; B_E }
+	#NOTES:
+	# - we need stdin & stdout for the password prompt; that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
+	# - we do the prompting ourselves though as an additional security measure: An attacker might display something entirely different, read more than a single line and attempt to lure the user into providing some totally different password or data.
+	local pass=
+	IFS= read -rsp "$passPrompt" pass || { B_ERR="User aborted the password prompt." ; B_E }
+	echo ""
+	echo -n "$pass" | b_silence b_dom0_qvmRun --stdin "$vm" "$cmd" || { B_ERR="Failed to decrypt." ; B_E }
+
+	#overwrite the password in memory with zeroes, then free it
+	pass="${pass//?/0}"
+	pass=""
 fi
 #we use the b_dom0_qvmRun exit code as ours
 }
