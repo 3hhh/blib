@@ -92,7 +92,7 @@ return 0
 #+@B_E
 function b_daemon_start {
 local id="$1"
-blib_daemon_assertGoodId "$id"
+blib_daemon_assertGoodId "$id" || B_E
 shift
 local mtx="${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}/$id"
 
@@ -215,10 +215,11 @@ shift 3
 local ret=
 blib_daemon_info "Restarting ${id}..."
 
-b_daemon_stop "$id" "$signal" "$timeout"
+b_daemon_stop "$id" "$signal" "$timeout" || B_E
 #NOTE: we ignore the exit codes 2 & 3
 b_daemon_start "$id" "$@"
 ret=$?
+B_E
 
 blib_daemon_info "${id} restarted."
 return $ret
@@ -263,6 +264,7 @@ local id="$1"
 local ret=
 b_daemon_statusPid "$id" > /dev/null
 ret=$?
+B_E
 [ $ret -eq 0 ] && blib_daemon_info "$id is running." || blib_daemon_info "$id is stopped."
 return $ret
 }
@@ -274,7 +276,7 @@ return $ret
 #+@B_E
 function b_daemon_getPid {
 local id="$1"
-blib_daemon_assertGoodId "$id"
+blib_daemon_assertGoodId "$id" || B_E
 local mtx="${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}/$id"
 local ret=
 blib_mtx_getBlockIdFor "$mtx"

@@ -162,14 +162,14 @@ BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]=""
 
 if [[ "$optStr" == "--"* ]] ; then
 	#single long option
-	blib_args_parseSingleOpt "$optStr"
+	blib_args_parseSingleOpt "$optStr" || B_E
 elif [[ "$optStr" == "-"* ]] ; then
 	#one or multiple options, each using a single character
 	local i=
 	local opt=
 	for (( i=1; i < ${#optStr} ; i++ )) ; do
 		opt="-${optStr:$i:1}"
-		blib_args_parseSingleOpt "$opt"
+		blib_args_parseSingleOpt "$opt" || B_E
 	done
 else
 	B_ERR="No option: $optStr"
@@ -203,7 +203,7 @@ for ((i=1;i<=$#;i++)) ; do
 		foundFinalOption=0
 	elif [ $foundFinalOption -ne 0 ] && [[ "$par" == "-"* ]] ; then
 		#option
-		blib_args_parseOptStr "$par"
+		blib_args_parseOptStr "$par" || B_E
 
 		#store option arguments, if necessary
 		local lastInd="${BLIB_STORE_VOLATILE["BLIB_ARGS_LASTPARSEDIND"]}"

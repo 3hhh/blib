@@ -541,7 +541,7 @@ return 0
 #+@B_E
 function b_initCachingMessageHandler {
 local max="${1:-1}"
-b_import "traps"
+b_import "traps" || B_E
 
 local i=
 local cfile=
@@ -556,7 +556,7 @@ for ((i=0; i <= max; i++)) ; do
 		#schedule cleanup
 		#NOTE: bats uses the EXIT signal itself, so that we cannot do this during testing
 		printf -v cmd 'rm -f %q &> /dev/null' "$cfile"
-		b_traps_add "$cmd" "EXIT"
+		b_traps_add "$cmd" "EXIT" || B_E
 	fi
 done
 }
@@ -787,7 +787,7 @@ local outFormat='%s\n'
 [ $markLink -eq 0 ] && outFormat=' [%s]\n\n'
 
 #unfortunately we need str here
- b_import str
+ b_import str || B_E
 
 local line=""
 while IFS= read -r line ; do
@@ -1303,7 +1303,7 @@ fi
 function blib_initCdoc {
 local initTarget="${1:-0}"
 
- b_import cdoc
+ b_import cdoc || B_E
 
 #set cdoc callback functions for all init targets
 b_cdoc_setSpaceCallback "blib_docSpaceCallback"
@@ -1334,7 +1334,7 @@ if [ $includeTestDoc -eq 0 ] ; then
 	cdocOutput="${cdocOutput}_test"
 fi
 
-blib_initCdoc
+blib_initCdoc || B_E
 
 #generate the doc
 local outPath=""
@@ -1385,10 +1385,10 @@ local modulePath=""
 
 modulePath="$(blib_getModulePath "$module")" || { B_ERR="Invalid or non-existing module: $module"; B_E; }
 
-blib_initCdoc 1
+blib_initCdoc 1 || B_E
 
 local outPath="$(mktemp -u)"
-b_cdoc_generate "$modulePath" "$outPath"
+b_cdoc_generate "$modulePath" "$outPath" || B_E
 cat "$outPath" || { B_ERR="Failed to read ${outPath}."; B_E; }
 
 #cleanup
