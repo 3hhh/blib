@@ -122,6 +122,10 @@ B_RC=1
 #+Path of the blib installation directory.
 B_LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
+#+B_CONF_DIR
+#+Path to blib configuration directory. Modules may create subfolders named by their module name there. May not exist.
+B_CONF_DIR="/etc/blib"
+
 #+B_SCRIPT
 #+Global variable which can be used to obtain the two global variables [B_SCRIPT_DIR](#B_SCRIPT_DIR) and [B_SCRIPT_NAME](#B_SCRIPT_NAME) as follows:
 #+```bash
