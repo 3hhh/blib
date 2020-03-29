@@ -131,7 +131,7 @@ B_CONF_DIR="/etc/blib"
 #+```bash
 #+eval "$B_SCRIPT"
 #+```
-B_SCRIPT=""_
+B_SCRIPT=""
 read -r -d '' B_SCRIPT << 'EOF'
 B_SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 B_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
