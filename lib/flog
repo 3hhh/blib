@@ -166,7 +166,7 @@ if  [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] && [ ${BLIB_STORE["B
 			tmp="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
 			tail -n ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} "$log" > "$tmp" || { B_ERR="Failed to reduce the log $log." ; B_E }
 			cat "$tmp" > "$log" || { B_ERR="Failed to write the reduced log back." ; B_E }
-			b_flog_log "Reduced the log to its last ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} lines."
+			b_flog_log "Reduced the log to its last ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} lines." || B_E
 		fi
 	fi
 fi
@@ -202,7 +202,7 @@ fi
 echo "${header}${msg}" >&${BLIB_STORE["BLIB_FLOG_FD"]} || { B_ERR="Failed to write to the log output at ${BLIB_STORE["BLIB_FLOG_FILENAME"]}. Missing call to b_flog_init?" ; B_E }
 
 #log reduction
-blib_flog_reduceLog
+blib_flog_reduceLog || B_E
 
 return $ret
 }

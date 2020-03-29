@@ -49,7 +49,7 @@ else
 	toAdd="$cmds"
 fi
 
-old="$(b_traps_getCodeFor "$signal")" || B_E
+old="$(b_traps_getCodeFor "$signal")" || { B_ERR="Unexpected error: $old" ; B_E }
 
 local new=""
 if [ $appendFlag -eq 0 ] ; then
@@ -91,7 +91,7 @@ local line=""
 local old=""
 local new=""
 
-old="$(b_traps_getCodeFor "$signal")" || B_E
+old="$(b_traps_getCodeFor "$signal")" || { B_ERR="Unexpected error: $old" ; B_E }
 
 #try to find the commands
 local inRemoveTag=1
