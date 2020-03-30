@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+#+Collection of user interface and user interaction related functions.
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.2
+
+#+### Functions ###
+
+#+b_ui_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_ui_getDeps {
+echo ""
+#there are a few runtime dependencies though, see below
+}
+
+#+b_ui_passwordPrompt [output var] [ui mode] [prompt string]
+#+Prompt the user for a password. Should run inside the parent process (i.e. not inside a subshell).
+#+Once you do not need the password anymore, it is recommended to wipe it from memory as such:
+#+```bash
+#+#overwrite the password in memory with zeroes, then free it
+#+pass="${pass//?/0}" ; pass=""
+#+```
+#+[output var]: The name of the variable to write the password to.
+#+[ui mode]: How to request the password from the user: auto|gui|tty (default: auto).
+#+[prompt string]: The string to present to the user asking for the password (default: "Password: ").
+#+returns: Nothing. Sets a non-zero exit code on errors.
+#+@B_E
+function b_ui_passwordPrompt {
+#NOTES:
+# - we don't use the standard echo return method here as this function might want to write to user stdout itself
+# - we prepend _ to avoid name clashes with the output variable name of the calling function @eval
+local _outVar="$1"
+local _uiMode="${2:-auto}"
+local _promptString="${3:-"Password: "}"
+local _pass=
+
+if [[ "$_uiMode" == "tty" ]] || [[ "$_uiMode" == "auto" && -t 0 && -t 1 && -t 2 ]] ; then
+	#use terminal
+	IFS= read -rsp "$_promptString" _pass || { B_ERR="The user aborted the password prompt." ; B_E }
+	echo ""
+else
+	#use GUI
+	if command -v "zenity" &> /dev/null ; then
+		_pass="$(zenity --entry --hide-text --text="$promptString" 2> /dev/null)" || { B_ERR="The user aborted the password prompt." ; B_E }
+	else
+		B_ERR="Couldn't find a supported GUI program to display the password prompt."
+		B_E
+	fi
+fi
+
+#set the output variable
+eval $_outVar="'$_pass'"
+return 0
+}

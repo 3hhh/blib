@@ -8,6 +8,7 @@
 #+0.5
 
 b_import fs
+b_import ui
 b_import proc
 b_import types
 
@@ -821,13 +822,11 @@ else
 	# - we need stdin & stdout for the password prompt; that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
 	# - we do the prompting ourselves though as an additional security measure: An attacker might display something entirely different, read more than a single line and attempt to lure the user into providing some totally different password or data.
 	local pass=
-	IFS= read -rsp "$passPrompt" pass || { B_ERR="User aborted the password prompt." ; B_E }
-	echo ""
-	echo -n "$pass" | b_silence b_dom0_qvmRun --stdin "$vm" "$cmd" || { B_ERR="Failed to decrypt." ; B_E }
+	b_ui_passwordPrompt "pass" "auto" "$passPrompt" || B_E
+	echo -n "$pass" | b_silence b_dom0_qvmRun --stdin "$vm" "$cmd" || { pass="${pass//?/0}" ; pass="" ; B_ERR="Failed to decrypt." ; B_E }
 
 	#overwrite the password in memory with zeroes, then free it
-	pass="${pass//?/0}"
-	pass=""
+	pass="${pass//?/0}" ; pass=""
 fi
 #we use the b_dom0_qvmRun exit code as ours
 }
