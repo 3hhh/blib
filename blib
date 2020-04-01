@@ -170,9 +170,9 @@ shopt -s expand_aliases
 #+#handle a potentially failing command:
 #+cmd || { B_ERR="cmd failed." ; B_E }
 #+
-#+#capture the output of a potentially failing command:
+#+#capture stdout of a potentially failing command:
 #+local out=
-#+out="$(cmd)" || { B_ERR="cmd failed. Original error: $out" ; B_E }
+#+out="$(cmd)" || { B_ERR="cmd failed." ; B_E }
 #+
 #+#handle multiple potentially failing commands in a try/catch like manner:
 #+ (	set -e
