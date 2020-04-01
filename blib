@@ -165,6 +165,27 @@ shopt -s expand_aliases
 #+Calling [B_E](#B_E) means:
 #+Check [B_ERR](#B_ERR) for an error message and if there is one, handle it. It can be placed at the end of a line or on its own line. [B_E](#B_E) will then process the error message in the way defined by the error handler (cf. [b_defaultErrorHandler](#b_defaultErrorHandler)) and stop any further execution of code in the current context (function, script, ...) returning a non-zero exit code (1) unless the described error was fixed. In the latter unlikely case it'll let execution proceed.
 #+
+#+More examples:
+#+```bash
+#+#handle a potentially failing command:
+#+cmd || { B_ERR="cmd failed." ; B_E }
+#+
+#+#capture the output of a potentially failing command:
+#+local out=
+#+out="$(cmd)" || { B_ERR="cmd failed. Original error: $out" ; B_E }
+#+
+#+#handle multiple potentially failing commands in a try/catch like manner:
+#+ (	set -e
+#+	cmd1
+#+	cmd2
+#+	cmd3
+#+ )
+#+#NOTE: || doesn't work here!
+#+if [ $? -ne 0 ] ; then
+#+	B_ERR="Some commands failed."
+#+	B_E
+#+fi
+#+```
 #+The error handler can be re-defined at runtime with [b_setErrorHandler](#b_setErrorHandler).
 alias B_E='{
 #save exit code
