@@ -36,14 +36,14 @@ local _uiMode="${2:-auto}"
 local _promptString="${3:-"Password: "}"
 local _pass=
 
-if [[ "$_uiMode" == "tty" ]] || [[ "$_uiMode" == "auto" && -t 0 && -t 1 && -t 2 ]] ; then
+if [[ "$_uiMode" == "tty" ]] || [[ "$_uiMode" == "auto" && -t 0 ]] ; then
 	#use terminal
 	IFS= read -rsp "$_promptString" _pass || { B_ERR="The user aborted the password prompt." ; B_E }
 	echo ""
 else
 	#use GUI
 	if command -v "zenity" &> /dev/null ; then
-		_pass="$(zenity --entry --hide-text --text="$promptString" 2> /dev/null)" || { B_ERR="The user aborted the password prompt." ; B_E }
+		_pass="$(zenity --entry --hide-text --text="$_promptString" 2> /dev/null)" || { B_ERR="The user aborted the password prompt." ; B_E }
 	else
 		B_ERR="Couldn't find a supported GUI program to display the password prompt."
 		B_E
