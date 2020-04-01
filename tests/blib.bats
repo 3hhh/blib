@@ -331,6 +331,45 @@ function errorCond12 {
 	echo "0 errorCond12"
 }
 
+#errorCondX [error = 0]
+#multiple commands situation (aka try/catch)
+function errorCond13 {
+	(	set -e
+		true
+		[ $1 -ne 0 ]
+	)
+	if [ $? -ne 0 ] ; then
+		B_ERR="1 errorCond13"
+		B_E
+	fi
+	echo "0 errorCond13"
+}
+
+#errorCondX [error = 0]
+#multiple commands situation (aka try/catch) with B_E
+function errorCond14 {
+	(	set -e
+		true
+		if [ $1 -eq 0 ] ; then
+			B_ERR="FAIL"
+			B_E
+		fi
+	) 2> /dev/null
+	if [ $? -ne 0 ] ; then
+		B_ERR="1 errorCond14"
+		B_E
+	fi
+	echo "0 errorCond14"
+}
+
+#errorCondX [error = 0]
+#subshell situation
+function errorCond15 {
+	local out=
+	out="$(errorCond14 "$@" 2> /dev/null)" || { B_ERR="1 errorCond15" ; B_E }
+	echo "0 errorCond15"
+}
+
 #nestedErrorCond [func] [error = 0]
 function nestedErrorCond {
 	$1 $2
@@ -349,7 +388,6 @@ function testErrHandler {
 #testErrorSituation [error] [error reaction]
 #[error]: If set to 0, set the error situation; otherwise test the "no error" situation.
 #[error reaction]: The error reaction to use (0,1,2 -- see the exit codes at [b_defaultErrorHandler](#b_defaultErrorHandler)).
-#[error handler]: The error handler to use. It must at
 function testErrorSituation {
 	local err=$1
 	local reaction=$2
@@ -381,15 +419,16 @@ function testErrorSituation {
 	fi
 
 	local i=
-	for ((i=1; i < 13; i++)) ; do
+	for ((i=1; i < 16; i++)) ; do
 		local func="errorCond$i"
 
 		echo "normal: $func $err"
 		runSL $func "$err"
-		echo "STAT: $status"
-		echo "OUT: $output"
+		echo "STAT: $status (expected: $eStatus)"
+		local eOutput="$eStatusStr $func"
+		echo "OUT: $output (expected: $eOutput)"
 		[ $status -eq $eStatus ]
-		[[ "$output" == "$eStatusStr $func" ]]
+		[[ "$output" == "$eOutput" ]]
 
 		echo "nested: $func $err"
 		runSL nestedErrorCond "$func" "$err"
