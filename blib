@@ -175,12 +175,11 @@ shopt -s expand_aliases
 #+out="$(cmd)" || { B_ERR="cmd failed." ; B_E }
 #+
 #+#handle multiple potentially failing commands in a try/catch like manner:
-#+ (	set -e
+#+(	set -e
 #+	cmd1
 #+	cmd2
 #+	cmd3
-#+ )
-#+#NOTE: || doesn't work here!
+#+) #NOTE: || doesn't work here!
 #+if [ $? -ne 0 ] ; then
 #+	B_ERR="Some commands failed."
 #+	B_E
