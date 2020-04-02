@@ -1,0 +1,204 @@
+#!/bin/bash
+#
+#+Abstraction layer for cryptsetup / dm-crypt.
+#+
+#+Features:
+#+ - automatic management of dm-crypt devices
+#+ - password support for non-tty environments
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.4
+
+b_import ui
+
+BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]="auto"
+
+#+### Functions ###
+
+#+b_dmcrypt_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_dmcrypt_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+dirname
+mkdir
+head
+cryptsetup
+md5sum
+readlink
+EOF
+
+echo -n "$deps"
+}
+
+#+b_dmcrypt_init [ui mode]
+#+Initialize this module. This function *must* be called at least once before using any of the other functions.
+#+[ui mode]: How to request a password from the user: auto|gui|tty (default: auto).
+#+returns: Nothing.
+#+@B_E
+function b_dmcrypt_init {
+BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]="${1:-"auto"}"
+return 0
+}
+
+#+b_dmcrypt_getMapperName [path]
+#+Get the name of the dm-crypt mapper for a given path.
+#+[path]: Full path to an encrypted file.
+#+returns: A mapper name. This doesn't necessarily mean that the encrypted container is open. Use [b_dmcrypt_isOpen](#b_dmcrypt_isOpen) for that.
+#+@B_E
+function b_dmcrypt_getMapperName {
+#idea: Compute a likely unique mapper name in a stateless way from the path.
+local path="$1"
+local cPath=
+cPath="$(readlink -f "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E }
+local md5=
+md5="$(echo "$cPath" | md5sum -)" || { B_ERR="Failed to execute md5sum." ; B_E }
+md5="${md5//-/}"
+md5="${md5// /}"
+echo "blib-dmcrypt-$md5"
+}
+
+#blib_dmcrypt_passwordRequired [dm-crypt option 1] ... [dm-crypt option n]
+#returns: a ero exit code, if and only if we need to ask a password from the user
+function blib_dmcrypt_passwordRequired {
+local arg=
+for arg in "$@" ; do
+	[[ "$arg" == "--key-file" ]] && return 1
+done
+return 0
+}
+
+#+b_dmcrypt_createLuks [path] [size] [fs type] [entropy source] [password prompt] [dm-crypt option 1] ... [dm-crypt option n]
+#+Create an encrypted luks container file at the given location.
+#+This function may request a password from the user and usually requires root access rights.
+#+[path]: Full path to the encrypted file to create.
+#+[size]: Filesystem size in bytes to create. Supported suffixes: b 512, kB 1000, K 1024, MB 1000*1000, M 1024*1024, GB 1000*1000*1000, G 1024*1024*1024
+#+[fs type]: Filesystem to create inside the encrypted container. If none is specified (default), no file system is created.
+#+[entropy source]: Source of entropy to use for the file setup (default: /dev/urandom).
+#+[password prompt]: Prompt string to ask the user for his password (optional).
+#+[dm-crypt option i]: These options are directly passed to `cryptsetup`.
+#+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function b_dmcrypt_createLuks {
+local path="$1"
+local size="$2"
+local fsType="$3"
+local entropy="${4:-"/dev/urandom"}"
+local promptStr="${5:-"Password for $path: "}"
+shift 3
+shift
+shift
+
+[ -e "$path" ] && B_ERR="$path already exists. Backing off..." && B_E
+
+local dir=
+dir="$(dirname "$path")" || { B_ERR="Failed to run dirname." ; B_E }
+mkdir -p "$dir" || { B_ERR="Failed to run mkdir." ; B_E }
+
+local mname=
+mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+
+#obtain password, if necessary
+local pass=""
+if blib_dmcrypt_passwordRequired "$@" ; then
+	b_ui_passwordPrompt "pass" "${BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]}" "$promptStr" || B_E
+fi
+
+#create the container
+(	set -e
+	head -c "$size" < "$entropy" > "$path"
+	echo -n "$pass" | cryptsetup -q "$@" luksFormat "$path"
+
+	#open & create fs, if necessary
+	if [ -n "$fsType" ] ; then
+		echo -n "$pass" | cryptsetup --type luks open "$path" "$mname" 
+		mkfs -t "$fsType" "/dev/mapper/$mname"
+		cryptsetup close "$mname"
+	fi
+)
+if [ $? -ne 0 ] ; then
+	cryptsetup close "$mname" &> /dev/null
+	#overwrite the password & remove it from memory
+	pass="${pass//?/0}"
+	pass=""
+	rm -f "$path"
+	B_ERR="Failed to initialize the encrypted file at $path."
+	B_E
+fi
+
+#cleanup
+pass="${pass//?/0}"
+pass=""
+}
+
+#+b_dmcrypt_open [path] [mount point] [password prompt] [dm-crypt option 1] ... [dm-crypt option n]
+#+Open/Decrypt the given container and optionally mount it.
+#+[path]: Full path to the encrypted file.
+#+[mount point]: Where to mount the decrypted data. If no mount point is specified, it will not be mounted.
+#+[password prompt]: Prompt string to ask the user for his password (optional).
+#+[dm-crypt option i]: These options are directly passed to `cryptsetup`.
+#+returns: The created device and sets a zero exit code on success.
+#+@B_E
+function b_dmcrypt_open {
+local path="$1"
+local mp="$2"
+local promptStr="${3:-"Password for $path: "}"
+shift 2
+shift
+
+local mname=
+mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+
+#obtain password, if necessary
+local pass=""
+if blib_dmcrypt_passwordRequired "$@" ; then
+	b_ui_passwordPrompt "pass" "${BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]}" "$promptStr" || B_E
+fi
+
+#open
+echo -n "$pass" | cryptsetup "$@" open "$path" "$mname" || { pass="${pass//?/0}" ; pass="" ; B_ERR="Failed to open the encrypted container $path." ; B_E }
+local dev="/dev/mapper/$mname"
+
+#overwrite the password in memory with zeroes, then free it
+pass="${pass//?/0}" ; pass=""
+
+#mount, if necessary
+if [ -n "$mp" ] ; then
+	mkdir -p "$mp" || { B_ERR="Failed to create the mount point $mp." ; B_E }
+	mount "$dev" "$mp" || { B_ERR="Failed to mount $dev to $mount." ; B_E }
+fi
+
+echo "$dev"
+}
+
+#+b_dmcrypt_close [path] [dm-crypt option 1] ... [dm-crypt option n]
+#+Close the given encrypted container.
+#+[path]: Full path to the encrypted file.
+#+[dm-crypt option i]: These options are directly passed to `cryptsetup`.
+#+returns: A zero exit code on success.
+#+@B_E
+function b_dmcrypt_close {
+local path="$1"
+shift
+
+local mname=
+mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+
+umount "/dev/mapper/$mname" &> /dev/null
+cryptsetup "$@" close "$mname" || { B_ERR="Failed to close $path." ; B_E }
+}
+
+#+b_dmcrypt_isOpen [path]
+#+Check whether the given encrypted container is open (not necessarily mounted).
+#+[path]: Full path to the encrypted file.
+#+returns: Sets a zero exit code, if and only if the container is open. [B_E](#B_E) is only called for exceptional errors.
+#+@B_E
+function b_dmcrypt_isOpen {
+local path="$1"
+
+local mname=
+mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+
+cryptsetup status "$mname" &> /dev/null
+}

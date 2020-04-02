@@ -3,7 +3,9 @@
 #+Collection of mutex related functions.
 #+
 #+Mutex: Only a single process may have it at any point in time.
-#+Lock: A specific maximum number of processes may have it at any point in time.
+#+Semaphore: A specific maximum number of processes may have it at any point in time.
+#+
+#+See the [keys](#keys) module for examples on how to use this mutex implementation efficiently.
 #+
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.3

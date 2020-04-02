@@ -1,0 +1,237 @@
+#!/bin/bash
+#
+#+Simple _system-wide_ cryptographic key store protected by a master password.
+#+
+#+A key store is only opened when necessary. It'll remain open from then on until an application calls [b_keys_close](#b_keys_close).
+#+
+#+It can be found at `/etc/blib/keys/keys.lks`.
+#+
+#+Usually requires root access rights.
+#+
+#+Features:
+#+ - thread safe: no write operation can happen to a closed key store ([b_keys_close](#b_keys_close) and write operations are single threaded only)
+#+ - retrieved keys are read-only unless managed via this interface
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.5
+
+b_import fs
+b_import dmcrypt
+b_import multithreading/mtx
+
+BLIB_STORE["BLIB_KEYS_APP_ID"]=
+BLIB_STORE["BLIB_KEYS_STORE"]="$B_CONF_DIR/keys/keys.lks"
+BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]=
+BLIB_STORE["BLIB_KEYS_MTX"]="/tmp/blib_keys"
+BLIB_STORE["BLIB_KEYS_MNT_RW"]="$B_CONF_DIR/keys/mnt/rw"
+BLIB_STORE["BLIB_KEYS_MNT_RO"]="$B_CONF_DIR/keys/mnt/ro"
+BLIB_STORE["BLIB_KEYS_WAIT_TIME"]=
+
+#+### Functions ###
+
+#+b_keys_getDeps
+#+Get the dependencies of this module.
+#+returns: newline-separated list of dependencies of this module
+function b_keys_getDeps {
+local deps=""
+read -r -d '' deps << 'EOF'
+mkdir
+cat
+readlink
+cp
+rm
+EOF
+
+echo -n "$deps"
+}
+
+# we want to achieve that writes can never happen to a closed key store (i.e. without encryption layer):
+# --> mutex strategy:
+#	- all writes and close operations have a per-process mutex (maybe TODO: a semaphore would be better)
+#	- open operations also share that mutex to protect against multiple processes attempting to open at the same time
+#	- b_keys_get / reads may return paths that do not exist (but have better performance / no blocks)
+
+#blib_mtx_op [cmds]
+#Open the key store if necessary and then execute the given operation/command in a mutex-protected way.
+#returns: Whatever the commands return or calls [B_E](#B_E) upon errors.
+#@B_E
+function blib_mtx_op {
+if b_mtx_waitFor "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" 1 "${BLIB_STORE["BLIB_KEYS_WAIT_TIME"]}" > /dev/null ; then
+	local ret=
+	( set -e
+	#all operations require an open key store
+	blib_keys_open
+	if [ $# -gt 0 ] ; then
+		"$@"
+	fi
+	)
+	ret=$?
+	b_mtx_release "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" || { B_ERR="Failed to release the mutex ${BLIB_STORE["BLIB_KEYS_MTX"]} (pid: $BASHPID)." ; B_E }
+	[ $ret -ne 0 ] && B_ERR="Failed to execute the operation on the key store ${BLIB_STORE["BLIB_KEYS_STORE"]}."
+else
+	B_ERR="Failed to obtain the mutex to access the key store ${BLIB_STORE["BLIB_KEYS_STORE"]}."
+	B_E
+fi
+return 0
+}
+
+#+b_keys_init [app id] [auto create] [ui mode] [password prompt] [wait time]
+#+Initialize this module. This function *must* be called at least once before any other function except [b_keys_create](#b_keys_create) can be used.
+#+May open the key store.
+#+[app id]: Unique application ID (recommended: [$B_SCRIPT_NAME](#B_SCRIPT)).
+#+[auto create]: Automatically create a new key store, if none exists (default: 0 = do it). Users may create their own key store using `cryptsetup` otherwise.
+#+[ui mode]: How to request the master password from the user: auto|gui|tty (default: auto).
+#+[password prompt]: Prompt string to ask the user for his password (optional).
+#+[wait time]: Maximum time in ms to wait for another process writing to a key (default: 300) (-1 = indefinitely).
+#+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function b_keys_init {
+local appId="$1"
+local autoCreate="${2:-0}"
+local uiMode="${3:-"auto"}"
+local passPrompt="${4:-"Password for ${keyStore}: "}"
+local waitTime="${5:-300}"
+
+#sanity tests
+[ ! -f "$keyStore" ] && B_ERR="The key store $keyStore does not exist." && B_E
+[ -z "$appId" ] && B_ERR="No application ID provided." && B_E
+
+#set
+BLIB_STORE["BLIB_KEYS_APP_ID"]="$appId"
+BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]="$passPrompt"
+BLIB_STORE["BLIB_KEYS_WAIT_TIME"]="$waitTime"
+
+mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" ; B_E }
+mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" ; B_E }
+mkdir -p "${BLIB_STORE["BLIB_KEYS_MTX"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MTX"]}" ; B_E }
+
+b_dmcrypt_init "$uiMode" || B_E
+
+if [ $autoCreate -eq 0 ] && [ ! -e "${BLIB_STORE["BLIB_KEYS_STORE"]}" ] ; then
+	b_dmcrypt_createLuks "${BLIB_STORE["BLIB_KEYS_STORE"]}" "10M" "" "" "Password for the new key store (${BLIB_STORE["BLIB_KEYS_STORE"]}): " || B_E
+fi
+
+#open, if necessary
+blib_mtx_op || B_E
+
+return 0
+}
+
+function blib_keys_assertInitialized {
+[ -n "${BLIB_STORE["BLIB_KEYS_APP_ID"]}" ] || { B_ERR="The key store was not initialized. Please call b_keys_init first." ; B_E }
+}
+
+#blib_keys_open
+#Open the key store, if necessary.
+#Usually requires root access rights.
+#*NOT* thread safe! Callers must ensure thread safety.
+#returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function blib_keys_open {
+blib_keys_assertInitialized || B_E
+b_dmcrypt_isOpen "${BLIB_STORE["BLIB_KEYS_STORE"]}" && return 0 || B_E
+
+#open r/w
+b_dmcrypt_open "${BLIB_STORE["BLIB_KEYS_STORE"]}" "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" "${BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]}" || B_E
+local appDir="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}"
+mkdir -p "$appDir" || { B_ERR="Failed to create $appDir." ; B_E }
+
+#open r/o
+(	set -e
+	mount "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" -o bind
+	mount "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" -o remount,ro,bind
+)
+if [ $? -ne 0 ] ; then
+	b_keys_close
+	B_ERR="Failed to mount r/o."
+	B_E
+fi
+
+return 0
+}
+
+#+b_keys_add [key id] [key path]
+#+Add the given key to the key store.
+#+[key id]: Unique identifier for the key to add.
+#+[key path]: Full path to the key to add. The data will be copied, but not removed. Use [b_keys_move](#b_keys_move) for that.
+#+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function b_keys_add {
+local id="$1"
+local path="$2"
+
+blib_mtx_op cp -n "$path" "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key" || B_E
+}
+
+#+b_keys_move [key id] [key path]
+#+Move the given key to the key store.
+#+[key id]: Unique identifier for the key to add.
+#+[key path]: Full path to the key to move. The key data will be safely removed from this path after it was added to the key store.
+#+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function b_keys_move {
+local id="$1"
+local path="$2"
+b_keys_add "$id" "$path" && b_fs_removeWithOverwrite "$path"
+}
+
+#+b_keys_get [key id]
+#+Retrieve the given key from the store. If you need the content as String, please use [b_keys_getContent](#b_keys_getContent).
+#+[key id]: Unique identifier for the key to retrieve.
+#+returns: Path to the key. It may not exist, if the key store was closed in the meantime or the provided ID does not exist.
+function b_keys_get {
+local id="$1"
+echo "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key"
+}
+
+#+b_keys_getContent [key id]
+#+Retrieve the given key content from the store. For binary keys please use [b_keys_get](#b_keys_get).
+#+[key id]: Unique identifier for the key to retrieve.
+#+returns: The key content as String. If it doesn't exist or other errors occurred, [B_E](#B_E) is called.
+#+@B_E
+function b_keys_getContent {
+local id="$1"
+local path=
+path="$(b_keys_get "$id")"
+cat "$path" || { B_ERR="Failed to read $path. Maybe the $id is invalid or the key store is currently closed?" ; B_E }
+}
+
+#thread unsafe variant of b_keys_delete
+function blib_keys_delete_tu {
+local id="$1"
+local backup="${2:-0}"
+
+local path="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key"
+if [ $backup -eq 0 ] ; then
+	local bakDir="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/bak"
+	mkdir -p "$bakDir" || { B_ERR="Failed to create the backup directory $bakDir." ; B_E }
+	cp -f "$path" "$bakDir" || { B_ERR="Failed to create a backup for the key $id. Aborting..." ; B_E }
+fi
+
+rm -f "$path" || { B_ERR="Failed to delete the key $id." ; B_E }
+}
+
+#+b_keys_delete [key id] [backup]
+#+Delete the given key from the key store.
+#+[key id]: Unique identifier for the key to delete.
+#+[backup]: Whether (0) or not (1) to create a backup (default: 0).
+#+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function b_keys_delete {
+blib_mtx_op blib_keys_delete_tu "$@" || B_E
+}
+
+#thread unsafe variant of b_keys_close
+function blib_keys_close_tu {
+umount "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" &> /dev/null
+umount "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" &> /dev/null
+b_dmcrypt_close "${BLIB_STORE["BLIB_KEYS_STORE"]}" || B_E
+}
+
+#+b_keys_close
+#+Close the key store, if necessary.
+#+returns: Sets a zero exit code on success (closed key store) and errors out with [B_E](#B_E) otherwise.
+#+@B_E
+function b_keys_close {
+blib_mtx_op blib_keys_close_tu "$@" || B_E
+}
