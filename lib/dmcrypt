@@ -24,12 +24,18 @@ read -r -d '' deps << 'EOF'
 dirname
 mkdir
 head
-cryptsetup
 md5sum
 readlink
 EOF
+#NOTE: cryptsetup is not here to allow using those functions in user mode that don't require cryptsetup (which can usually only be executed by root)
 
 echo -n "$deps"
+}
+
+#blib_assertCryptsetup
+#@B_E
+function blib_assertCryptsetup {
+command -v "cryptsetup" &> /dev/null || { B_ERR="Couldn't find cryptetup (maybe you're not root?)." ; B_E }
 }
 
 #+b_dmcrypt_init [ui mode]
@@ -51,7 +57,7 @@ function b_dmcrypt_getMapperName {
 #idea: Compute a likely unique mapper name in a stateless way from the path.
 local path="$1"
 local cPath=
-cPath="$(readlink -f "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E }
+cPath="$(readlink -m "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E }
 local md5=
 md5="$(echo "$cPath" | md5sum -)" || { B_ERR="Failed to execute md5sum." ; B_E }
 md5="${md5//-/}"
@@ -60,11 +66,31 @@ echo "blib-dmcrypt-$md5"
 }
 
 #blib_dmcrypt_passwordRequired [dm-crypt option 1] ... [dm-crypt option n]
-#returns: a ero exit code, if and only if we need to ask a password from the user
+#returns: a zero exit code, if and only if we need to ask a password from the user
 function blib_dmcrypt_passwordRequired {
 local arg=
 for arg in "$@" ; do
 	[[ "$arg" == "--key-file" ]] && return 1
+done
+return 0
+}
+
+#blib_dmcrypt_getOpenKeyfileArguments [arguments]
+#returns: All arguments related to key files, usable for cryptsetup open, fully escaped. Always sets a zero exit code.
+function blib_dmcrypt_getOpenKeyfileArguments {
+local arg=
+local next=1
+for arg in "$@" ; do
+	#maybe TODO: also support the short format arguments and more proper argument parsing in general, cf. man cryptsetup
+	if [[ "$arg" == "--key"* ]] || [[ "$arg" == "--master-key-file" ]] ; then
+		printf '%s ' "$arg"
+		next=0
+	else
+		if [ $next -eq 0 ] ; then
+			printf '%q ' "$arg"
+			next=1
+		fi
+	fi
 done
 return 0
 }
@@ -89,6 +115,7 @@ local promptStr="${5:-"Password for $path: "}"
 shift 3
 shift
 shift
+blib_assertCryptsetup || B_E
 
 [ -e "$path" ] && B_ERR="$path already exists. Backing off..." && B_E
 
@@ -97,7 +124,7 @@ dir="$(dirname "$path")" || { B_ERR="Failed to run dirname." ; B_E }
 mkdir -p "$dir" || { B_ERR="Failed to run mkdir." ; B_E }
 
 local mname=
-mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
 
 #obtain password, if necessary
 local pass=""
@@ -112,8 +139,13 @@ fi
 
 	#open & create fs, if necessary
 	if [ -n "$fsType" ] ; then
-		echo -n "$pass" | cryptsetup --type luks open "$path" "$mname" 
-		mkfs -t "$fsType" "/dev/mapper/$mname"
+		if [ -n "$pass" ] ; then
+			echo -n "$pass" | cryptsetup --type luks open "$path" "$mname"
+		else
+			local keyfileArgs="$(blib_dmcrypt_getOpenKeyfileArguments "$@")"
+			cryptsetup --type luks $keyfileArgs open "$path" "$mname"
+		fi
+		mkfs -t "$fsType" "/dev/mapper/$mname" &> /dev/null
 		cryptsetup close "$mname"
 	fi
 )
@@ -132,44 +164,49 @@ pass="${pass//?/0}"
 pass=""
 }
 
-#+b_dmcrypt_open [path] [mount point] [password prompt] [dm-crypt option 1] ... [dm-crypt option n]
+#+b_dmcrypt_open [path] [mount point] [output var] [password prompt] [dm-crypt option 1] ... [dm-crypt option n]
 #+Open/Decrypt the given container and optionally mount it.
 #+[path]: Full path to the encrypted file.
-#+[mount point]: Where to mount the decrypted data. If no mount point is specified, it will not be mounted.
+#+[mount point]: Where to mount the decrypted data (optional). If no mount point is specified, it will not be mounted.
+#+[output var]: The name of the variable to write the created device to (optional).
 #+[password prompt]: Prompt string to ask the user for his password (optional).
 #+[dm-crypt option i]: These options are directly passed to `cryptsetup`.
-#+returns: The created device and sets a zero exit code on success.
+#+returns: Sets a zero exit code on success.
 #+@B_E
 function b_dmcrypt_open {
-local path="$1"
-local mp="$2"
-local promptStr="${3:-"Password for $path: "}"
+local _path="$1"
+local _mp="$2"
+local _outVar="$3"
+local _promptStr="${4:-"Password for $_path: "}"
 shift 2
 shift
+shift
+blib_assertCryptsetup || B_E
 
-local mname=
-mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+local _mname=
+_mname="$(b_dmcrypt_getMapperName "$_path")" || { B_ERR="Failed to obtain a valid mapper name for $_path." ; B_E }
 
 #obtain password, if necessary
-local pass=""
+local _passw=""
 if blib_dmcrypt_passwordRequired "$@" ; then
-	b_ui_passwordPrompt "pass" "${BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]}" "$promptStr" || B_E
+	b_ui_passwordPrompt "_passw" "${BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]}" "$_promptStr" || B_E
 fi
 
 #open
-echo -n "$pass" | cryptsetup "$@" open "$path" "$mname" || { pass="${pass//?/0}" ; pass="" ; B_ERR="Failed to open the encrypted container $path." ; B_E }
-local dev="/dev/mapper/$mname"
+echo -n "$_passw" | cryptsetup "$@" open "$_path" "$_mname" || { _passw="${_passw//?/0}" ; _passw="" ; B_ERR="Failed to open the encrypted container $_path." ; B_E }
+local _dev="/dev/mapper/$_mname"
 
 #overwrite the password in memory with zeroes, then free it
-pass="${pass//?/0}" ; pass=""
+_passw="${pass//?/0}" ; _passw=""
 
 #mount, if necessary
-if [ -n "$mp" ] ; then
-	mkdir -p "$mp" || { B_ERR="Failed to create the mount point $mp." ; B_E }
-	mount "$dev" "$mp" || { B_ERR="Failed to mount $dev to $mount." ; B_E }
+if [ -n "$_mp" ] ; then
+	mkdir -p "$_mp" || { B_ERR="Failed to create the mount point $_mp." ; B_E }
+	mount "$_dev" "$_mp" || { B_ERR="Failed to mount $_dev to $_mount." ; B_E }
 fi
 
-echo "$dev"
+#set the output variable
+[ -n "$_outVar" ] && eval $_outVar="'$_dev'"
 }
 
 #+b_dmcrypt_close [path] [dm-crypt option 1] ... [dm-crypt option n]
@@ -181,9 +218,10 @@ echo "$dev"
 function b_dmcrypt_close {
 local path="$1"
 shift
+blib_assertCryptsetup || B_E
 
 local mname=
-mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
 
 umount "/dev/mapper/$mname" &> /dev/null
 cryptsetup "$@" close "$mname" || { B_ERR="Failed to close $path." ; B_E }
@@ -196,9 +234,10 @@ cryptsetup "$@" close "$mname" || { B_ERR="Failed to close $path." ; B_E }
 #+@B_E
 function b_dmcrypt_isOpen {
 local path="$1"
+blib_assertCryptsetup || B_E
 
 local mname=
-mname="$(blib_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
 
 cryptsetup status "$mname" &> /dev/null
 }
