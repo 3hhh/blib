@@ -7,7 +7,7 @@
 #+ - password support for non-tty environments
 #+
 #+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.4
+#+0.6
 
 b_import ui
 
