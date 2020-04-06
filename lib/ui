@@ -51,6 +51,6 @@ else
 fi
 
 #set the output variable
-eval $_outVar="'$_pass'"
+[ -n "$_outVar" ] && eval $_outVar="'$_pass'"
 return 0
 }
