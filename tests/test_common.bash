@@ -86,6 +86,14 @@ function skipIfNotQubesDom0 {
 	return 0
 }
 
+#+__skipIfNotRoot
+#+Skip the test if root is not available.
+function skipIfNotRoot {
+[[ "$UTD_PW_FREE_USER" != "root" ]] && skip "This test requires password-less root access configured via UTD_PW_FREE_USER in $USER_DATA_FILE."
+
+return 0
+}
+
 #+__loadBlibTestState
 #+Load the [TEST_STATE](#TEST_STATE) with the data that was saved last via [saveBlibState](#saveBlibState). If you want to use [TEST_STATE](#TEST_STATE), call this function during test setup.
 function loadBlibTestState {

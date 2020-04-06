@@ -260,7 +260,7 @@ function ensureRemovedLoopDevice {
 }
 
 @test "b_fs_createLoopDeviceIfNecessary & b_fs_mountIfNecessary & b_fs_getMountpoints & b_fs_removeUnusedLoopDevice" {
-	[[ "$UTD_PW_FREE_USER" != "root" ]] && skip "These tests require password-less root access configured via UTD_PW_FREE_USER in $USER_DATA_FILE."
+	skipIfNotRoot
 
 	local tmpDir="$(mktemp -d)"
 	local tmpDir2="$(mktemp -d)"
