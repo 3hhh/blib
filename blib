@@ -917,7 +917,7 @@ exit 1
 #+
 #+The current execution state is not retained.
 #+[function]: The function to call when the generated script is executed. All script parameters when calling \[output file\] are passed to this function. The function must be available in the current context.
-#+[module dep i]: Names of the modules to include in the standalone file. They do not need to be imported.
+#+[module dep i]: Names of the modules to include in the standalone file. They do not need to be imported. They are loaded in the specified order.
 #+[-]: Dash used as separator between the various types of arguments. If none is provided, all parameters are assumed to be modules.
 #+[function dep j]: An arbitrary number of functions that need to be added in order to satisfy the dependencies of the function to call (e.g. if function A is meant to be called, but uses function B internally, you'll have to pass B as one of its dependencies). Dependencies that can be found in added modules should *not* be added.
 #+[function param p]: Static parameters to add to the function as single String. Dynamic parameters should be passed to the generated script.
@@ -1051,7 +1051,7 @@ eval "$funcCall"
 #+If the given user is identical to the current user, [b_execFuncAs](#b_execFuncAs) may decide to run the function in the current context. Otherwise it may run in a different process.
 #+[user]: User to execute the function as (default: root).
 #+[function]: The function to execute.
-#+[module dep i]: Names of the modules required by the function. They do not need to be imported by the function itself.
+#+[module dep i]: Names of the modules required by the function. They do not need to be imported by the function itself. They are loaded in the specified order.
 #+[-]: A dash as separator character between the various parameters.
 #+[function dep j]: An arbitrary number of functions that need to be added in order to satisfy the dependencies of the function to call (e.g. if function A is meant to be called, but uses function B internally, you'll have to pass B as one of its dependencies). Dependencies that can be found in added modules should *not* be added.
 #+[function param p]: An arbitrary number of function parameters.
