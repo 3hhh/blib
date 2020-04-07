@@ -11,7 +11,6 @@ load test_common
 function setup {
 	loadBlib
 	b_import "dmcrypt"
-
 }
 
 #testInit [ui mode]
@@ -22,9 +21,11 @@ function testInit {
 }
 
 function rootFunc {
-#NOTE: the state might not get passed to us, i.e. we need to call b_dmcrypt_init again
-b_dmcrypt_init "tty"
-"$@"
+	#NOTE: the state might not get passed to us, i.e. we need to call b_dmcrypt_init again
+	if [[ "$1" != "b_dmcrypt_init" ]] ; then
+		b_dmcrypt_init "tty" || return 66
+	fi
+	"$@"
 }
 
 #runRoot [function] [function param 1] .. [function param n]
