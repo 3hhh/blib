@@ -1048,7 +1048,7 @@ eval "$funcCall"
 #+
 #+Whether or not this works highly depends on the underlying OS and its (sudo & su) configuration. In particular this function may cause further execution to wait for the user to type in the password of the requested user.
 #+
-#+If the given user is identical to the current user, [b_execFuncAs](#b_execFuncAs) may decide to run the function in the current context. Otherwise it may run in a different process.
+#+If the given user is identical to the current user, [b_execFuncAs](#b_execFuncAs) may decide to run the function in the current context. Otherwise it may run in a different process, i.e. all initialization and state may be lost. Thus make sure to create any required state within your function.
 #+[user]: User to execute the function as (default: root).
 #+[function]: The function to execute.
 #+[module dep i]: Names of the modules required by the function. They do not need to be imported by the function itself. They are loaded in the specified order.
