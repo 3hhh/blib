@@ -300,3 +300,22 @@ TEST_RUN_ID=$(( TEST_RUN_ID +1 ))
 run "$@"
 echo "status: $status"
 }
+
+#+assertReadOnly [path]
+#+Assert that the given file or directory is read-only by attempting to write to it.
+#+[path]: Full path to a file or directory. If it is not r/o, it may be changed.
+#+returns: A zero exit code, if the path is r/o.
+#+@B_E
+function assertReadOnly {
+local path="$1"
+
+if [ -d "$path" ] ; then
+	touch "$path/testfile" &> /dev/null && return 1 || return 0
+elif [ -f "$path" ] ; then
+	touch "$path" &> /dev/null && return 2 || return 0
+elif [ ! -e "$path" ] ; then
+	mkdir -p "$path" &> /dev/null && return 3 || return 0
+else
+	return 4
+fi
+}
