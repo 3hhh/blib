@@ -202,7 +202,7 @@ _passw="${pass//?/0}" ; _passw=""
 #mount, if necessary
 if [ -n "$_mp" ] ; then
 	mkdir -p "$_mp" || { B_ERR="Failed to create the mount point $_mp." ; B_E }
-	mount "$_dev" "$_mp" || { B_ERR="Failed to mount $_dev to $_mount." ; B_E }
+	mount "$_dev" "$_mp" || { B_ERR="Failed to mount $_dev to $_mp." ; B_E }
 fi
 
 #set the output variable
