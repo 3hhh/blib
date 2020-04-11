@@ -42,6 +42,7 @@ command -v "cryptsetup" &> /dev/null || { B_ERR="Couldn't find cryptetup (maybe 
 #+Initialize this module. This function *must* be called at least once before using any of the other functions.
 #+[ui mode]: How to request a password from the user: auto|gui|tty (default: auto).
 #+returns: Nothing.
+#+@StateChanging
 #+@B_E
 function b_dmcrypt_init {
 BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]="${1:-"auto"}"
