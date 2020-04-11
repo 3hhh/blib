@@ -30,14 +30,14 @@ function rootFunc {
 	initGlobalVars || return 65
 	#"ni_" for "no init required"
 	if [[ "$1" != "b_keys_init" ]] && [[ "$1" != "ni_"* ]] ; then
-		b_keys_init "$T_APP_ID" "" "tty" "" 10000 || return 66
+		blib_keys_initVars "$T_APP_ID" "tty" "" 10000 || return 66
 	fi
 	"$@"
 }
 
 #runRoot [function] [function param 1] .. [function param n]
 function runRoot {
-	runSL b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" - "$@"
+	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" - "$@"
 }
 
 function ni_printState {
@@ -83,7 +83,7 @@ function assertOpenFunc {
 }
 
 function assertOpen {
-	runSC assertOpenFunc
+	runRoot assertOpenFunc
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
@@ -152,7 +152,6 @@ function assertNonExistentKey {
 function testOperations {
 	set -e -o pipefail
 	b_setBE 1
-
 echo 1
 	local tkey1="$(mktemp)"
 	local tkey2="$(mktemp)"
@@ -162,7 +161,6 @@ echo 1
 	echo "$keycontent2" > "$tkey2"
 	local id1="test key"
 	local id2="test key 2"
-
 echo 2
 	b_keys_add "$id1" "$tkey1"
 	b_keys_add "$id2" "$tkey2" 1
@@ -172,25 +170,22 @@ echo 3
 echo 4
 	assertExistentKey "$id1" "$keycontent1"
 	assertExistentKey "$id2" "$keycontent2"
-
 echo 5
 	#attempt overwrite (should fail)
 	b_keys_add "$id2" "$tkey1" && exit 2 || :
 	assertExistentKey "$id1" "$keycontent1"
 	assertExistentKey "$id2" "$keycontent2"
-
 echo 6
 	#attemp add from nonexisting file
 	b_keys_add "some id" "/tmp/nonexis123545" && exit 3 || :
 	assertNonExistentKey "some id"
-
 echo 7
 	#invalid get should work according to doc
+	local out=
 	out="$(b_keys_get "nonexisting")"
 	[ -n "$out" ]
 	assertReadOnly "$out"
 	b_keys_getContent "nonexisting" && exit 7 || :
-
 echo 8
 	b_keys_delete "$id2"
 	assertNonExistentKey "$id2"
@@ -201,13 +196,15 @@ echo 9
 	b_keys_delete "$id1" 1
 	assertNonExistentKey "$id1"
 	[ ! -e "$bakDir/$id1.key" ]
-	
 echo 10
+	b_keys_add "$id2" "$tkey1"
+	assertNonExistentKey "$id1"
+	assertExistentKey "$id2" "$keycontent1"
+echo 11
 	#attempt nonexisting delete
 	b_keys_delete "nonexisting id" && exit 9 || :
 	assertNonExistentKey "nonexisting id"
-
-echo 11
+echo 12
 	#cleanup
 	rm -f "$tkey1"
 }
@@ -221,21 +218,70 @@ echo 11
 	[ -n "$output" ]
 }
 
+function assertClosedFunc {
+	local mname=
+	mname="$(b_dmcrypt_getMapperName "$T_BASE_DIR/keys.lks")" || return 1
+	cryptsetup status "$mname" > /dev/null && return 2 || :
+
+	#make sure the directories are really empty / nothing written there afterwards
+	local dirs=""
+	dirs="$(find "$T_BASE_DIR" | sort)" || return 3
+	local expectedDirs="$T_BASE_DIR
+$T_BASE_DIR/keys.lks
+$T_BASE_DIR/mnt
+$T_BASE_DIR/mnt/ro
+$T_BASE_DIR/mnt/rw"
+	if [[ "$dirs" != "$expectedDirs" ]] ; then
+		echo "$dirs"
+		return 4
+	fi
+
+	return 0
+}
+
+function assertClosed {
+	runRoot assertOpenFunc
+	[ $status -ne 0 ]
+
+	runRoot assertClosedFunc
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "b_keys_close" {
 	skipIfNotRoot
-	#TODO: make sure nothing exists (empty dir!) after close!
-	#also run testOperations after close!!! (should ask for pw)
-	! assertOpen
-	[ 1 -eq 0 ]
+
+	assertOpen
+
+	runRoot b_keys_close
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertClosed
+
+	#second close shouldn't hurt
+	runRoot b_keys_close
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertClosed
+
+	#make sure that an operation requires a password
+	local tfile="$(mktemp)"
+	runRoot b_keys_add "test id" "$tfile" < /dev/null
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR: The user aborted the password prompt."* ]]
+
+	#cleanup
+	rm -f "$tfile"
 }
 
 @test "b_keys multithreading" {
 	skipIfNotRoot
-	#TODO
+	#TODO: ganz am Ende auch assertClosed!
 	[ 1 -eq 0 ]
 }
 
 @test "cleanup" {
 	skipIfNotRoot
-	#runRoot ni_cleanup
+	runRoot ni_cleanup
 }

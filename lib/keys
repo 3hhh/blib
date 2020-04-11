@@ -63,11 +63,11 @@ echo -n "$deps"
 #returns: Whatever the commands return or calls [B_E](#B_E) upon errors.
 #@B_E
 function blib_mtx_op {
-if b_mtx_waitFor "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" 1 "${BLIB_STORE["BLIB_KEYS_WAIT_TIME"]}" > /dev/null ; then
+if b_mtx_waitFor "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" 0 "${BLIB_STORE["BLIB_KEYS_WAIT_TIME"]}" > /dev/null ; then
 	local ret=
 	( set -e
-	#all operations require an open key store
-	blib_keys_open
+	#all operations except close require an open key store
+	[[ "$1" != *"_close_"* ]] && blib_keys_open
 	if [ $# -gt 0 ] ; then
 		"$@"
 	fi
@@ -82,6 +82,26 @@ fi
 return 0
 }
 
+#blib_keys_initVars [app id] [ui mode] [pass prompt] [wait time]
+#Initialize this module without any file or directory creations (required for testing only). Don't change anything about the keystore.
+function blib_keys_initVars {
+local appId="$1"
+local uiMode="${2:-"auto"}"
+local passPrompt="${3:-"Password for the blib key store (Open): "}"
+local waitTime="${4:-300}"
+
+BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
+BLIB_STORE["BLIB_KEYS_DEV"]="/dev/mapper/$(b_dmcrypt_getMapperName "${BLIB_STORE["BLIB_KEYS_STORE"]}")" || { B_ERR="Failed to obtain a device for ${BLIB_STORE["BLIB_KEYS_STORE"]}" ; B_E }
+BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
+BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
+BLIB_STORE["BLIB_KEYS_APP_ID"]="$appId"
+BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]="$passPrompt"
+BLIB_STORE["BLIB_KEYS_WAIT_TIME"]="$waitTime"
+BLIB_STORE["BLIB_KEYS_BAK"]="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/bak"
+
+b_dmcrypt_init "$uiMode"
+}
+
 #+b_keys_init [app id] [auto create] [ui mode] [password prompt] [wait time]
 #+Initialize this module. This function *must* be called at least once before any other function except [b_keys_create](#b_keys_create) can be used.
 #+May open the key store.
@@ -91,6 +111,7 @@ return 0
 #+[password prompt]: Prompt string to ask the user for his password (optional).
 #+[wait time]: Maximum time in ms to wait for another process writing to a key (default: 300) (-1 = indefinitely).
 #+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
+#+@StateChanging
 #+@B_E
 function b_keys_init {
 local appId="$1"
@@ -103,21 +124,12 @@ local waitTime="${5:-300}"
 [ -z "$appId" ] && B_ERR="No application ID provided." && B_E
 
 #set
-BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
-BLIB_STORE["BLIB_KEYS_DEV"]="/dev/mapper/$(b_dmcrypt_getMapperName "${BLIB_STORE["BLIB_KEYS_STORE"]}")" || { B_ERR="Failed to obtain a device for ${BLIB_STORE["BLIB_KEYS_STORE"]}" ; B_E }
-BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
-BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
-BLIB_STORE["BLIB_KEYS_APP_ID"]="$appId"
-BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]="$passPrompt"
-BLIB_STORE["BLIB_KEYS_WAIT_TIME"]="$waitTime"
-BLIB_STORE["BLIB_KEYS_BAK"]="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/bak"
+blib_keys_initVars "$appId" "$uiMode" "$passPrompt" "$waitTime" || B_E
 
 local keydir=
 mkdir -p "${BLIB_STORE["BLIB_KEYS_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_DIR"]}" ; B_E }
 mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" ; B_E }
 mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" ; B_E }
-
-b_dmcrypt_init "$uiMode" || B_E
 
 if [ $autoCreate -eq 0 ] && [ ! -e "${BLIB_STORE["BLIB_KEYS_STORE"]}" ] ; then
 	b_dmcrypt_createLuks "${BLIB_STORE["BLIB_KEYS_STORE"]}" "20M" "ext4" "" "Password for the blib key store (Create: ${BLIB_STORE["BLIB_KEYS_STORE"]}): " || B_E
@@ -140,13 +152,9 @@ function blib_keys_assertInitialized {
 #returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function blib_keys_open {
-blib_keys_assertInitialized || B_E
-
 #open r/w
 if ! b_dmcrypt_isOpen "${BLIB_STORE["BLIB_KEYS_STORE"]}" ; then
 	b_dmcrypt_open "${BLIB_STORE["BLIB_KEYS_STORE"]}" "" "" "${BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]}" || B_E
-	local appDir="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}"
-	mkdir -p "$appDir" || { b_keys_close ; B_ERR="Failed to create $appDir." ; B_E }
 else
 	B_E
 fi
@@ -209,6 +217,7 @@ local id="$1"
 local path="$2"
 local kflag="${3:-0}"
 
+blib_keys_assertInitialized || B_E
 blib_mtx_op blib_keys_add_tu "$id" "$path" || B_E
 
 if [ $kflag -ne 0 ] ; then
@@ -221,8 +230,11 @@ return 0
 #+Retrieve the given key from the store. If you need the content as String, please use [b_keys_getContent](#b_keys_getContent).
 #+[key id]: Unique identifier for the key to retrieve.
 #+returns: Path to the key. It may not exist, if the key store was closed in the meantime or the provided ID does not exist.
+#+@B_E
 function b_keys_get {
 local id="$1"
+
+blib_keys_assertInitialized || B_E
 echo "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key"
 }
 
@@ -234,7 +246,9 @@ echo "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.
 function b_keys_getContent {
 local id="$1"
 local path=
-path="$(b_keys_get "$id")"
+
+blib_keys_assertInitialized || B_E
+path="$(b_keys_get "$id")" || { B_ERR="Failed to obtain the path for the ID $id." ;  B_E }
 cat "$path" || { B_ERR="Failed to read $path. Maybe the ID $id is invalid or the key store is currently closed?" ; B_E }
 }
 
@@ -259,6 +273,7 @@ rm -f "$path" || { B_ERR="Failed to delete the key $id." ; B_E }
 #+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function b_keys_delete {
+blib_keys_assertInitialized || B_E
 blib_mtx_op blib_keys_delete_tu "$@" || B_E
 }
 
@@ -274,5 +289,6 @@ b_dmcrypt_close "${BLIB_STORE["BLIB_KEYS_STORE"]}" || B_E
 #+returns: Sets a zero exit code on success (closed key store) and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function b_keys_close {
+blib_keys_assertInitialized || B_E
 blib_mtx_op blib_keys_close_tu "$@" || B_E
 }
