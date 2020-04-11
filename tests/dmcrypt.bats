@@ -235,16 +235,16 @@ rm -rf "$@"
 	[ -z "$output" ]
 	
 	runRoot b_dmcrypt_close "${TEST_STATE["DMCRYPT_CONT"]}"
-	[ $status -ne 0 ]
-	[[ "$output" == *"ERROR"* ]]
+	[ $status -eq 0 ]
+	[[ -z "$output" ]]
 
 	runRoot b_dmcrypt_isOpen "${TEST_STATE["DMCRYPT_CONT"]}"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 	
 	runRoot b_dmcrypt_close "/nonexisting/nonex"
-	[ $status -ne 0 ]
-	[[ "$output" == *"ERROR"* ]]
+	[ $status -eq 0 ]
+	[[ -z "$output" ]]
 }
 
 @test "cleanup" {

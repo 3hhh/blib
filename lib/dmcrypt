@@ -214,7 +214,7 @@ fi
 #+Close the given encrypted container.
 #+[path]: Full path to the encrypted file.
 #+[dm-crypt option i]: These options are directly passed to `cryptsetup`.
-#+returns: A zero exit code on success.
+#+returns: A zero exit code on success. The exit code may also be zero for non-existing or already closed containers.
 #+@B_E
 function b_dmcrypt_close {
 local path="$1"
@@ -224,6 +224,12 @@ blib_assertCryptsetup || B_E
 local mname=
 mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
 
+#check whether it's already closed
+local stat=
+stat="$(cryptsetup status "$mname")"
+[ $? -ne 0 ] && [[ "$stat" == *"inactive"* ]] && return 0
+
+#close
 umount "/dev/mapper/$mname" &> /dev/null
 cryptsetup "$@" close "$mname" || { B_ERR="Failed to close $path." ; B_E }
 }
