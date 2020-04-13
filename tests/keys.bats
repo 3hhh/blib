@@ -37,7 +37,7 @@ function rootFunc {
 
 #runRoot [function] [function param 1] .. [function param n]
 function runRoot {
-	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" - "$@"
+	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" "testSingleAddClose" - "$@"
 }
 
 function ni_printState {
@@ -50,16 +50,18 @@ function ni_cleanup {
 	[[ "$T_MTX" == "/tmp/"* ]] || return 2
 
 	#manual cleanup in case the automatic failed
-	local dev=
-	dev="/dev/mapper/$(b_dmcrypt_getMapperName "$T_BASE_DIR/keys.lks")"
+	local mname=
+	mname="$(b_dmcrypt_getMapperName "$T_BASE_DIR/keys.lks")" || return 3
+	local dev="/dev/mapper/$mname"
 	umount "$dev" &> /dev/null
 	umount "$dev" &> /dev/null
-	cryptsetup close "$dev" &> /dev/null
+	cryptsetup close "$mname" &> /dev/null
 
 	rm -rf "$T_BASE_DIR"
 	rm -rf "$T_MTX"
-	[ ! -e "$T_BASE_DIR" ] || return 3
-	[ ! -e "$T_MTX" ] || return 4
+	[ ! -e "$T_BASE_DIR" ] || return 4
+	[ ! -e "$T_MTX" ] || return 5
+	[ ! -e "$dev" ] || return 6
 }
 
 @test "init" {
@@ -275,10 +277,104 @@ function assertClosed {
 	rm -f "$tfile"
 }
 
+#testSingleAddClose [app id] [keys to add]
+function testSingleAddClose {
+	set -e -o pipefail
+
+	local appId="$1"
+	local toAdd=$2
+
+	b_keys_init "$appId" 0 "tty" "" 60000 <<< "$T_PASS"
+
+	local tkey=
+	tkey="$(mktemp)"
+	local id=
+	local added=0
+	while [ $added -lt $toAdd ] ; do
+		local rand=$(( $RANDOM % 3 ))
+		if [ $rand -eq 0 ] ; then
+			added=$(( $added +1 ))
+			echo "$BASHPID Adding $added..."
+			echo "$added" > "$tkey"
+			b_keys_add "multi-test-$BASHPID-$added" "$tkey" <<< "$T_PASS"
+		elif [ $rand -eq 1 ] ; then
+			echo "$BASHPID Initializing..."
+			b_keys_init "$appId" 0 "tty" "" 60000 <<< "$T_PASS"
+		else
+			echo "$BASHPID Closing..."
+			b_keys_close
+		fi
+	done
+
+	rm -f "$tkey"
+}
+
+#ni_testMultiAddClose [app id] [thread count] [key to add]
+function ni_testMultiAddClose {
+	#multiple threads adding & closing
+	#this is interesting as it is _really_ important that nothing is written to a closed key store
+	local appId="$1"
+	local threads=$2
+	local toAdd=$3
+
+	local i=
+	pids=()
+	for (( i = 0; i < $threads ; i++ )) ; do
+		testSingleAddClose "$appId" $toAdd &
+		pids+=($!)
+	done
+
+	local pid=
+	local ret=0
+	for pid in "${pids[@]}" ; do
+		wait "$pid"
+		[ $? -ne 0 ] && ret=$(( $ret + 1 ))
+	done
+	[ $ret -eq 0 ] || { B_ERR="$ret threads reported a non-zero return code." ; B_E }
+
+	return 0
+}
+
+#countKeys [app id]
+function countKeys {
+	local appId="$1"
+	set -e -o pipefail
+
+	find "$T_BASE_DIR/mnt/ro/$appId/" -type f | wc -l
+}
+
 @test "b_keys multithreading" {
 	skipIfNotRoot
-	#TODO: ganz am Ende auch assertClosed!
-	[ 1 -eq 0 ]
+
+	local numThreads=4
+	local keys=4
+	local appId="multithreading app"
+	runRoot ni_testMultiAddClose "$appId" $numThreads $keys
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" != *"ERROR"* ]]
+
+	#open, if necessary
+	echo "$T_PASS" | {
+		runRoot b_keys_init "$appId" "" "tty" "" 300
+		[ $status -eq 0 ]
+		[ -z "$output" ]
+		}
+	assertOpen
+
+	#make sure all keys were added
+	local expectedNumKeys=$(( $keys * $numThreads ))
+	runRoot countKeys "$appId"
+	echo "key count: $output"
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+	[ $output -eq $expectedNumKeys ]
+
+	#make sure nothing was written anywhere without encryption
+	runRoot b_keys_close
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	assertClosed
 }
 
 @test "cleanup" {
