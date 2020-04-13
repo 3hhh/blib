@@ -104,7 +104,7 @@ b_dmcrypt_init "$uiMode"
 
 #+b_keys_init [app id] [auto create] [ui mode] [password prompt] [wait time]
 #+Initialize this module. This function *must* be called at least once before any other function except [b_keys_create](#b_keys_create) can be used.
-#+May open the key store.
+#+Will open the key store, if it's closed.
 #+[app id]: Unique application ID (recommended: [$B_SCRIPT_NAME](#B_SCRIPT)).
 #+[auto create]: Automatically create a new key store, if none exists (default: 0 = do it). Users may create their own key store using `cryptsetup` otherwise.
 #+[ui mode]: How to request the master password from the user: auto|gui|tty (default: auto).
