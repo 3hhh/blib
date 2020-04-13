@@ -136,16 +136,12 @@ fi
 #create the container
 (	set -e
 	head -c "$size" < "$entropy" > "$path"
-	echo -n "$pass" | cryptsetup -q "$@" luksFormat "$path"
+	cryptsetup -q "$@" luksFormat "$path" <<< "$pass"
 
 	#open & create fs, if necessary
 	if [ -n "$fsType" ] ; then
-		if [ -n "$pass" ] ; then
-			echo -n "$pass" | cryptsetup --type luks open "$path" "$mname"
-		else
-			local keyfileArgs="$(blib_dmcrypt_getOpenKeyfileArguments "$@")"
-			cryptsetup --type luks $keyfileArgs open "$path" "$mname"
-		fi
+		local keyfileArgs="$(blib_dmcrypt_getOpenKeyfileArguments "$@")"
+		cryptsetup --type luks $keyfileArgs open "$path" "$mname" <<< "$pass"
 		mkfs -t "$fsType" "/dev/mapper/$mname" &> /dev/null
 		cryptsetup close "$mname"
 	fi
@@ -194,7 +190,7 @@ if blib_dmcrypt_passwordRequired "$@" ; then
 fi
 
 #open
-echo -n "$_passw" | cryptsetup "$@" open "$_path" "$_mname" || { _passw="${_passw//?/0}" ; _passw="" ; B_ERR="Failed to open the encrypted container $_path." ; B_E }
+cryptsetup "$@" open "$_path" "$_mname" <<< "$_passw" || { _passw="${_passw//?/0}" ; _passw="" ; B_ERR="Failed to open the encrypted container $_path." ; B_E }
 local _dev="/dev/mapper/$_mname"
 
 #overwrite the password in memory with zeroes, then free it
