@@ -23,13 +23,16 @@ function initGlobalVars {
 	#hack: we don't use the standard key store, but our own for testing (we don't want to interfere with the official one)
 	BLIB_STORE["BLIB_KEYS_DIR"]="$T_BASE_DIR"
 	BLIB_STORE["BLIB_KEYS_MTX"]="$T_MTX"
+	BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
+	BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
+	BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
 }
 
 function rootFunc {
 	#with b_execFuncAs we are in a subshell that requires initialization (no inheritance)
 	initGlobalVars || return 65
 	#"ni_" for "no init required"
-	if [[ "$1" != "b_keys_init" ]] && [[ "$1" != "ni_"* ]] ; then
+	if [[ "$1" != "b_keys_init" ]] && [[ "$1" != "b_keys_close" ]] && [[ "$1" != "ni_"* ]] ; then
 		blib_keys_initVars "$T_APP_ID" "tty" "" 10000 || return 66
 	fi
 	"$@"
@@ -37,7 +40,7 @@ function rootFunc {
 
 #runRoot [function] [function param 1] .. [function param n]
 function runRoot {
-	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" "testSingleAddClose" - "$@"
+	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" "assertKeyCount" "assertAllKeyCount" "testSingleAddClose" - "$@"
 }
 
 function ni_printState {
@@ -151,6 +154,33 @@ function assertNonExistentKey {
 	[ ! -e "$out" ]
 }
 
+#assertKeyCount [#keys] [global]
+function assertKeyCount {
+	local expectedCnt=$1
+	local global="$2"
+
+	local keys=
+	keys="$(b_keys_getAll "$global")" || { B_ERR="Failed to run b_keys_getAll." ; B_E }
+
+	local key=
+	local cnt=0
+	if [ -n "$keys" ] ; then
+		while IFS= read -r key ; do
+			[ -f "$key" ] || { B_ERR="Not existing: $key" ; B_E }
+			[[ "$key" == "$T_BASE_DIR/mnt/ro/"* ]] || { B_ERR="Unexpected path: $key" ; B_E }
+			cnt=$(( $cnt +1 ))
+		done <<< "$keys"
+	fi
+
+	[ $cnt -eq $expectedCnt ] || { B_ERR="Unexpected count of keys: $cnt (expected: ${expectedCnt})" ; B_E }
+	return 0
+}
+
+function assertAllKeyCount {
+	assertKeyCount "$1" 0 || { B_ERR="First assertKeyCount failed." ; B_E }
+	assertKeyCount "$1" 1
+}
+
 function testOperations {
 	set -e -o pipefail
 	b_setBE 1
@@ -172,15 +202,18 @@ echo 3
 echo 4
 	assertExistentKey "$id1" "$keycontent1"
 	assertExistentKey "$id2" "$keycontent2"
+	assertAllKeyCount 2
 echo 5
 	#attempt overwrite (should fail)
 	b_keys_add "$id2" "$tkey1" && exit 2 || :
 	assertExistentKey "$id1" "$keycontent1"
 	assertExistentKey "$id2" "$keycontent2"
+	assertAllKeyCount 2
 echo 6
-	#attemp add from nonexisting file
+	#attempt to add from nonexisting file
 	b_keys_add "some id" "/tmp/nonexis123545" && exit 3 || :
 	assertNonExistentKey "some id"
+	assertAllKeyCount 2
 echo 7
 	#invalid get should work according to doc
 	local out=
@@ -192,26 +225,31 @@ echo 8
 	b_keys_delete "$id2"
 	assertNonExistentKey "$id2"
 	local bakDir="$T_BASE_DIR/mnt/rw/$T_APP_ID/bak"
+	[ -f "$bakDir/$id2.key" ]
 	[[ "$(cat "$bakDir/$id2.key")" == "$keycontent2" ]]
+	assertAllKeyCount 1
 	
 echo 9
 	b_keys_delete "$id1" 1
 	assertNonExistentKey "$id1"
 	[ ! -e "$bakDir/$id1.key" ]
+	assertAllKeyCount 0
 echo 10
 	b_keys_add "$id2" "$tkey1"
 	assertNonExistentKey "$id1"
 	assertExistentKey "$id2" "$keycontent1"
+	assertAllKeyCount 1
 echo 11
 	#attempt nonexisting delete
 	b_keys_delete "nonexisting id" && exit 9 || :
 	assertNonExistentKey "nonexisting id"
+	assertAllKeyCount 1
 echo 12
 	#cleanup
 	rm -f "$tkey1"
 }
 
-@test "b_keys_add, get, getContent, delete" {
+@test "b_keys_add, get, getContent, getAll, delete" {
 	skipIfNotRoot
 
 	runRoot testOperations
@@ -340,7 +378,8 @@ function countKeys {
 	local appId="$1"
 	set -e -o pipefail
 
-	find "$T_BASE_DIR/mnt/ro/$appId/" -type f | wc -l
+	b_keys_init "$appId" "" "tty" "" 300
+	b_keys_getAll | wc -l
 }
 
 @test "b_keys multithreading" {

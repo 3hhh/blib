@@ -22,12 +22,12 @@ b_import multithreading/mtx
 #static init
 BLIB_STORE["BLIB_KEYS_DIR"]="$B_CONF_DIR/keys"
 BLIB_STORE["BLIB_KEYS_MTX"]="/tmp/blib_keys"
+BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
+BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
+BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
 
 #set during init call
-BLIB_STORE["BLIB_KEYS_STORE"]=
 BLIB_STORE["BLIB_KEYS_DEV"]=
-BLIB_STORE["BLIB_KEYS_MNT_RW"]=
-BLIB_STORE["BLIB_KEYS_MNT_RO"]=
 BLIB_STORE["BLIB_KEYS_APP_ID"]=
 BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]=
 BLIB_STORE["BLIB_KEYS_WAIT_TIME"]=
@@ -47,6 +47,7 @@ readlink
 cp
 rm
 findmnt
+find
 EOF
 
 echo -n "$deps"
@@ -90,10 +91,7 @@ local uiMode="${2:-"auto"}"
 local passPrompt="${3:-"Password for the blib key store (Open): "}"
 local waitTime="${4:-300}"
 
-BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
 BLIB_STORE["BLIB_KEYS_DEV"]="/dev/mapper/$(b_dmcrypt_getMapperName "${BLIB_STORE["BLIB_KEYS_STORE"]}")" || { B_ERR="Failed to obtain a device for ${BLIB_STORE["BLIB_KEYS_STORE"]}" ; B_E }
-BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
-BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
 BLIB_STORE["BLIB_KEYS_APP_ID"]="$appId"
 BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]="$passPrompt"
 BLIB_STORE["BLIB_KEYS_WAIT_TIME"]="$waitTime"
@@ -150,7 +148,7 @@ function blib_keys_assertInitialized {
 #Usually requires root access rights.
 #*NOT* thread safe! Callers must ensure thread safety.
 #returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
-#+@B_E
+#@B_E
 function blib_keys_open {
 #open r/w
 if ! b_dmcrypt_isOpen "${BLIB_STORE["BLIB_KEYS_STORE"]}" ; then
@@ -238,6 +236,29 @@ blib_keys_assertInitialized || B_E
 echo "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key"
 }
 
+#+b_keys_getAll [global]
+#+Retrieve all keys from the store.
+#+[global]: If set to 0, also retrieve keys for other application IDs (default: 1).
+#+@returns: All key paths for reading as a newline-separated list. If the key store is closed or modified during the runtime, the list may be empty or incomplete.
+#+@B_E
+function b_keys_getAll {
+local global="${1:-1}"
+
+blib_keys_assertInitialized || B_E
+
+local path=
+local depth=
+if [ $global -eq 0 ] ; then
+	path="${BLIB_STORE["BLIB_KEYS_MNT_RO"]}"
+	depth=2
+else
+	path="${BLIB_STORE["BLIB_KEYS_MNT_RO"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}"
+	depth=1
+fi
+#NOTE: depth is mostly used to exclude the backup directories
+find "$path" -maxdepth $depth -mindepth $depth -type f -name '*.key' || { B_ERR="Failed to execute find." ; B_E }
+}
+
 #+b_keys_getContent [key id]
 #+Retrieve the given key content from the store. For binary keys please use [b_keys_get](#b_keys_get).
 #+[key id]: Unique identifier for the key to retrieve.
@@ -249,7 +270,7 @@ local path=
 
 blib_keys_assertInitialized || B_E
 path="$(b_keys_get "$id")" || { B_ERR="Failed to obtain the path for the ID $id." ;  B_E }
-cat "$path" || { B_ERR="Failed to read $path. Maybe the ID $id is invalid or the key store is currently closed?" ; B_E }
+cat "$path" 2> /dev/null || { B_ERR="Failed to read $path. Maybe the ID $id is invalid or the key store is currently closed?" ; B_E }
 }
 
 #thread unsafe variant of b_keys_delete
@@ -286,9 +307,10 @@ b_dmcrypt_close "${BLIB_STORE["BLIB_KEYS_STORE"]}" || B_E
 
 #+b_keys_close
 #+Close the key store, if necessary.
+#+*WARNING*: 99% of all applications should *never* call this function as it may block all subsequent read operations by any other applications using this system-wide key store. The only applications that might call this function are key store management applications and only upon explicit user request. The key store is otherwise automatically closed upon system shutdown by the running OS.
 #+returns: Sets a zero exit code on success (closed key store) and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function b_keys_close {
-blib_keys_assertInitialized || B_E
+#NOTE: no init check here as an init would possibly open it
 blib_mtx_op blib_keys_close_tu "$@" || B_E
 }
