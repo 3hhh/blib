@@ -1,0 +1,161 @@
+#!/bin/bash
+#
+#See usage().
+#
+#Copyright (C) 2020  David Hobach  GPLv3
+#version: 0.3
+#
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+
+source blib
+b_checkVersion 1 3 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.3 or higher. Please install a supported version." ; exit 1 ; }
+eval "$B_SCRIPT"
+
+b_import args
+b_import keys
+
+function usage {
+echo "
+Usage: $B_SCRIPT_NAME [options] [command] [command arg 1] ... [command arg n]
+
+Manage the system-wide blib key store.
+
+Global Options:
+	--app [str]	Use the given String as application ID (default: $B_SCRIPT_NAME).
+	--wait [time]	Maximum time in ms to wait for another process writing to a key (default: 300).
+	--no-create	Do not create a key store, if none was found (default: create en ampty key store).
+
+The following commands are available:
+
+add [key id] [key path]
+	Add the given key found at [key path] to the system-wide key store under the ID [key id].
+
+	Options:
+	--remove	Safely remove the [key path] file after adding it to the key store.
+
+delete [key id]
+	Remove the key identified by [key id] from the system-wide key store.
+
+	Options:
+	--no-backup	Do not create a backup of the key (default: create a backup).
+
+get [key id]
+	Retrieve the given key for reading. The returned file may not exist.
+
+getContent [key id]
+	Retrieve the given key content.
+
+getAll
+	Retrieve a list of all available keys.
+
+close
+	Close the key store. Since this is a system-wide operation, other applications requiring access to the
+	key store may stop working afterwards.
+"
+exit 1
+}
+
+function initKeys {
+local appId="$(b_args_getOption "--app" "$B_SCRIPT_NAME")"
+local waitTime="$(b_args_getOptionInt "--wait" 300)"
+local autoCreate=0
+b_args_getOption "--no-create" > /dev/null && autoCreate=1
+
+b_keys_init "$appId" "$autoCreate" "tty" "" "$waitTime"
+}
+
+function addC {
+local keep=0
+b_args_getOption "--remove" > /dev/null && keep=1
+
+b_keys_add "$(b_args_get 1)" "$(b_args_get 2)" $keep
+}
+
+function deleteC {
+local backup=0
+b_args_getOption "--no-backup" > /dev/null && backup=1
+
+b_keys_delete "$(b_args_get 1)" $backup
+}
+
+function getC {
+b_keys_get "$(b_args_get 1)"
+}
+
+function getContentC {
+b_keys_getContent "$(b_args_get 1)"
+}
+
+function getAllC {
+b_keys_getAll 0
+}
+
+function closeC {
+b_keys_close
+}
+
+function main {
+[[ $(whoami) == "root" ]] || { B_ERR="This script must be run as root." ; B_E }
+
+b_args_init 0 "--app" 1 "--wait" 1
+b_args_parse "$@"
+
+local cmd="$(b_args_get 0)"
+local numArgs="$(b_args_getCount)"
+
+case "$cmd" in
+	"add")
+		[ $numArgs -eq 3 ] || usage
+		b_args_assertOptions "--app" "--wait" "--no-create" "--remove"
+		initKeys
+		addC
+		;;
+	"delete")
+		[ $numArgs -eq 2 ] || usage
+		b_args_assertOptions "--app" "--wait" "--no-create" "--no-backup"
+		initKeys
+		deleteC
+		;;
+	"get")
+		[ $numArgs -eq 2 ] || usage
+		b_args_assertOptions "--app" "--wait" "--no-create"
+		initKeys
+		getC
+		;;
+	"getContent")
+		[ $numArgs -eq 2 ] || usage
+		b_args_assertOptions "--app" "--wait" "--no-create"
+		initKeys
+		getContentC
+		;;
+	"getAll")
+		[ $numArgs -eq 1 ] || usage
+		b_args_assertOptions "--app" "--wait" "--no-create"
+		initKeys
+		getAllC
+		;;
+	"close")
+		[ $numArgs -eq 1 ] || usage
+		b_args_assertOptions
+		#NOTE: no init as this may open a closed container
+		closeC
+		;;
+	*)
+		usage
+		;;
+esac
+}
+
+main "$@"
