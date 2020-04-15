@@ -34,8 +34,9 @@ Manage the system-wide blib key store.
 
 Global Options:
 	--app [str]	Use the given String as application ID (default: $B_SCRIPT_NAME).
+	--store [dir]	Use the given directory as key store backend (default: /etc/blib/keys/).
 	--wait [time]	Maximum time in ms to wait for another process writing to a key (default: 300).
-	--no-create	Do not create a key store, if none was found (default: create en ampty key store).
+	--no-create	Do not create a key store, if none was found (default: create an empty key store).
 
 The following commands are available:
 
@@ -69,11 +70,12 @@ exit 1
 
 function initKeys {
 local appId="$(b_args_getOption "--app" "$B_SCRIPT_NAME")"
+local store="$(b_args_getOption "--store")"
 local waitTime="$(b_args_getOptionInt "--wait" 300)"
 local autoCreate=0
 b_args_getOption "--no-create" > /dev/null && autoCreate=1
 
-b_keys_init "$appId" "$autoCreate" "tty" "" "$waitTime"
+b_keys_init "$appId" "$autoCreate" "tty" "" "$waitTime" "$store"
 }
 
 function addC {
@@ -99,17 +101,21 @@ b_keys_getContent "$(b_args_get 1)"
 }
 
 function getAllC {
-b_keys_getAll 0
+local appId="$(b_args_getOption "--app" "$B_SCRIPT_NAME")"
+local global=0
+[ -n "$appId" ] && global=1
+b_keys_getAll $global
 }
 
 function closeC {
-b_keys_close
+local store="$(b_args_getOption "--store")"
+b_keys_close "$store"
 }
 
 function main {
 [[ $(whoami) == "root" ]] || { B_ERR="This script must be run as root." ; B_E }
 
-b_args_init 0 "--app" 1 "--wait" 1
+b_args_init 0 "--app" 1 "--wait" 1 "--store" 1
 b_args_parse "$@"
 
 local cmd="$(b_args_get 0)"
@@ -118,37 +124,37 @@ local numArgs="$(b_args_getCount)"
 case "$cmd" in
 	"add")
 		[ $numArgs -eq 3 ] || usage
-		b_args_assertOptions "--app" "--wait" "--no-create" "--remove"
+		b_args_assertOptions "--app" "--store" "--wait" "--no-create" "--remove"
 		initKeys
 		addC
 		;;
 	"delete")
 		[ $numArgs -eq 2 ] || usage
-		b_args_assertOptions "--app" "--wait" "--no-create" "--no-backup"
+		b_args_assertOptions "--app" "--store" "--wait" "--no-create" "--no-backup"
 		initKeys
 		deleteC
 		;;
 	"get")
 		[ $numArgs -eq 2 ] || usage
-		b_args_assertOptions "--app" "--wait" "--no-create"
+		b_args_assertOptions "--app" "--store" "--wait" "--no-create"
 		initKeys
 		getC
 		;;
 	"getContent")
 		[ $numArgs -eq 2 ] || usage
-		b_args_assertOptions "--app" "--wait" "--no-create"
+		b_args_assertOptions "--app" "--store" "--wait" "--no-create"
 		initKeys
 		getContentC
 		;;
 	"getAll")
 		[ $numArgs -eq 1 ] || usage
-		b_args_assertOptions "--app" "--wait" "--no-create"
+		b_args_assertOptions "--app" "--store" "--wait" "--no-create"
 		initKeys
 		getAllC
 		;;
 	"close")
 		[ $numArgs -eq 1 ] || usage
-		b_args_assertOptions
+		b_args_assertOptions "--store"
 		#NOTE: no init as this may open a closed container
 		closeC
 		;;

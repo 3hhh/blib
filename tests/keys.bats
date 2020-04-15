@@ -16,16 +16,8 @@ function setup {
 
 function initGlobalVars {
 	T_BASE_DIR="/tmp/blib-keys-test"
-	T_MTX="/tmp/blib_keys_test_mtx"
 	T_APP_ID="my app"
 	T_PASS="passw0rd123"
-
-	#hack: we don't use the standard key store, but our own for testing (we don't want to interfere with the official one)
-	BLIB_STORE["BLIB_KEYS_DIR"]="$T_BASE_DIR"
-	BLIB_STORE["BLIB_KEYS_MTX"]="$T_MTX"
-	BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
-	BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
-	BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
 }
 
 function rootFunc {
@@ -33,7 +25,7 @@ function rootFunc {
 	initGlobalVars || return 65
 	#"ni_" for "no init required"
 	if [[ "$1" != "b_keys_init" ]] && [[ "$1" != "b_keys_close" ]] && [[ "$1" != "ni_"* ]] ; then
-		blib_keys_initVars "$T_APP_ID" "tty" "" 10000 || return 66
+		blib_keys_initVars "$T_APP_ID" "tty" "" 10000 "$T_BASE_DIR" || return 66
 	fi
 	"$@"
 }
@@ -43,14 +35,8 @@ function runRoot {
 	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" "assertKeyCount" "assertAllKeyCount" "testSingleAddClose" - "$@"
 }
 
-function ni_printState {
-	echo -n "${BLIB_STORE["BLIB_KEYS_STORE"]}"
-	echo "${BLIB_STORE["BLIB_KEYS_DIR"]}"
-}
-
 function ni_cleanup {
 	[[ "$T_BASE_DIR" == "/tmp/"* ]] || return 1
-	[[ "$T_MTX" == "/tmp/"* ]] || return 2
 
 	#manual cleanup in case the automatic failed
 	local mname=
@@ -61,21 +47,13 @@ function ni_cleanup {
 	cryptsetup close "$mname" &> /dev/null
 
 	rm -rf "$T_BASE_DIR"
-	rm -rf "$T_MTX"
 	[ ! -e "$T_BASE_DIR" ] || return 4
-	[ ! -e "$T_MTX" ] || return 5
 	[ ! -e "$dev" ] || return 6
 }
 
 @test "init" {
 	skipIfNotRoot
 	runRoot ni_cleanup
-
-	#test whether our test setup works
-	runRoot ni_printState
-	echo "$output"
-	[ $status -eq 0 ]
-	[[ "$output" == "/tmp/"* ]]
 }
 
 function assertOpenFunc {
@@ -102,7 +80,7 @@ function assertOpen {
 	local passTwice="$T_PASS"$'\n'"$T_PASS"
 
 	echo "$passTwice" | {
-		runRoot b_keys_init "$T_APP_ID" "" "tty" "" 300
+		runRoot b_keys_init "$T_APP_ID" "" "tty" "" 300 "$T_BASE_DIR"
 		echo "$output"
 		[ $status -eq 0 ]
 		[ -z "$output" ]
@@ -114,12 +92,12 @@ function assertOpen {
 	local start="$SECONDS"
 	#a second init should be no issue and not ask for any password (it is already open)
 	#if this hangs, there is an issue
-	runRoot b_keys_init "other app"
+	runRoot b_keys_init "other app" "" "" "" "" "$T_BASE_DIR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertOpen
 
-	runRoot b_keys_init "$T_APP_ID" "" "tty"
+	runRoot b_keys_init "$T_APP_ID" "" "tty" "" "" "$T_BASE_DIR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertOpen
@@ -294,13 +272,13 @@ function assertClosed {
 
 	assertOpen
 
-	runRoot b_keys_close
+	runRoot b_keys_close "$T_BASE_DIR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertClosed
 
 	#second close shouldn't hurt
-	runRoot b_keys_close
+	runRoot b_keys_close "$T_BASE_DIR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertClosed
@@ -322,7 +300,7 @@ function testSingleAddClose {
 	local appId="$1"
 	local toAdd=$2
 
-	b_keys_init "$appId" 0 "tty" "" 60000 <<< "$T_PASS"
+	b_keys_init "$appId" 0 "tty" "" 60000 "$T_BASE_DIR" <<< "$T_PASS"
 
 	local tkey=
 	tkey="$(mktemp)"
@@ -337,7 +315,7 @@ function testSingleAddClose {
 			b_keys_add "multi-test-$BASHPID-$added" "$tkey" <<< "$T_PASS"
 		elif [ $rand -eq 1 ] ; then
 			echo "$BASHPID Initializing..."
-			b_keys_init "$appId" 0 "tty" "" 60000 <<< "$T_PASS"
+			b_keys_init "$appId" 0 "tty" "" 60000 "$T_BASE_DIR" <<< "$T_PASS"
 		else
 			echo "$BASHPID Closing..."
 			b_keys_close
@@ -364,9 +342,14 @@ function ni_testMultiAddClose {
 
 	local pid=
 	local ret=0
+	local cr=
 	for pid in "${pids[@]}" ; do
 		wait "$pid"
-		[ $? -ne 0 ] && ret=$(( $ret + 1 ))
+		cr=$?
+		if [ $cr -ne 0 ] ; then
+			echo "$pid Returned: $cr"
+			ret=$(( $ret + 1 ))
+		fi
 	done
 	[ $ret -eq 0 ] || { B_ERR="$ret threads reported a non-zero return code." ; B_E }
 
@@ -378,7 +361,7 @@ function countKeys {
 	local appId="$1"
 	set -e -o pipefail
 
-	b_keys_init "$appId" "" "tty" "" 300
+	b_keys_init "$appId" "" "tty" "" 300 "$T_BASE_DIR"
 	b_keys_getAll | wc -l
 }
 
@@ -395,7 +378,7 @@ function countKeys {
 
 	#open, if necessary
 	echo "$T_PASS" | {
-		runRoot b_keys_init "$appId" "" "tty" "" 300
+		runRoot b_keys_init "$appId" "" "tty" "" 300 "$T_BASE_DIR"
 		[ $status -eq 0 ]
 		[ -z "$output" ]
 		}
@@ -410,7 +393,7 @@ function countKeys {
 	[ $output -eq $expectedNumKeys ]
 
 	#make sure nothing was written anywhere without encryption
-	runRoot b_keys_close
+	runRoot b_keys_close "$T_BASE_DIR"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	assertClosed

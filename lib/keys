@@ -4,7 +4,7 @@
 #+
 #+A key store is only opened when necessary. It'll remain open from then on until an application calls [b_keys_close](#b_keys_close).
 #+
-#+It can be found at `/etc/blib/keys/keys.lks`.
+#+The default key store can be found at `/etc/blib/keys/keys.lks`. Applications may deploy their own exclusive key store, if necessary (not recommended).
 #+
 #+Usually requires root access rights.
 #+
@@ -13,20 +13,18 @@
 #+ - retrieved keys are read-only unless managed via this interface
 #+
 #+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.5
+#+0.6
 
 b_import fs
 b_import dmcrypt
 b_import multithreading/mtx
 
-#static init
-BLIB_STORE["BLIB_KEYS_DIR"]="$B_CONF_DIR/keys"
-BLIB_STORE["BLIB_KEYS_MTX"]="/tmp/blib_keys"
-BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
-BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
-BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
-
 #set during init call
+BLIB_STORE["BLIB_KEYS_DIR"]=
+BLIB_STORE["BLIB_KEYS_MTX"]=
+BLIB_STORE["BLIB_KEYS_STORE"]=
+BLIB_STORE["BLIB_KEYS_MNT_RW"]=
+BLIB_STORE["BLIB_KEYS_MNT_RO"]=
 BLIB_STORE["BLIB_KEYS_DEV"]=
 BLIB_STORE["BLIB_KEYS_APP_ID"]=
 BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]=
@@ -83,14 +81,22 @@ fi
 return 0
 }
 
-#blib_keys_initVars [app id] [ui mode] [pass prompt] [wait time]
+#blib_keys_initVars [app id] [ui mode] [pass prompt] [wait time] [store dir]
 #Initialize this module without any file or directory creations (required for testing only). Don't change anything about the keystore.
 function blib_keys_initVars {
 local appId="$1"
 local uiMode="${2:-"auto"}"
-local passPrompt="${3:-"Password for the blib key store (Open): "}"
+local passPrompt="$3"
 local waitTime="${4:-300}"
+local storeDir="${5:-"$B_CONF_DIR/keys"}"
+[[ "$storeDir" == *"/" ]] && storeDir="${storeDir%/}"
 
+BLIB_STORE["BLIB_KEYS_DIR"]="$storeDir"
+BLIB_STORE["BLIB_KEYS_MTX"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/.mtx"
+BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
+[ -z "$passPrompt" ] && passPrompt="Password for the key store (Open: ${BLIB_STORE["BLIB_KEYS_STORE"]}): "
+BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
+BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
 BLIB_STORE["BLIB_KEYS_DEV"]="/dev/mapper/$(b_dmcrypt_getMapperName "${BLIB_STORE["BLIB_KEYS_STORE"]}")" || { B_ERR="Failed to obtain a device for ${BLIB_STORE["BLIB_KEYS_STORE"]}" ; B_E }
 BLIB_STORE["BLIB_KEYS_APP_ID"]="$appId"
 BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]="$passPrompt"
@@ -100,7 +106,7 @@ BLIB_STORE["BLIB_KEYS_BAK"]="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLI
 b_dmcrypt_init "$uiMode"
 }
 
-#+b_keys_init [app id] [auto create] [ui mode] [password prompt] [wait time]
+#+b_keys_init [app id] [auto create] [ui mode] [password prompt] [wait time] [store dir]
 #+Initialize this module. This function *must* be called at least once before any other function except [b_keys_create](#b_keys_create) can be used.
 #+Will open the key store, if it's closed.
 #+[app id]: Unique application ID (recommended: [$B_SCRIPT_NAME](#B_SCRIPT)).
@@ -108,21 +114,23 @@ b_dmcrypt_init "$uiMode"
 #+[ui mode]: How to request the master password from the user: auto|gui|tty (default: auto).
 #+[password prompt]: Prompt string to ask the user for his password (optional).
 #+[wait time]: Maximum time in ms to wait for another process writing to a key (default: 300) (-1 = indefinitely).
+#+[store dir]: Full path to a directory where to manage the keys (default: $B_CONF_DIR/keys). Only applications requiring an exclusive key store should use a non-default value here.
 #+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
 #+@StateChanging
 #+@B_E
 function b_keys_init {
 local appId="$1"
 local autoCreate="${2:-0}"
-local uiMode="${3:-"auto"}"
-local passPrompt="${4:-"Password for the blib key store (Open): "}"
-local waitTime="${5:-300}"
+local uiMode="$3"
+local passPrompt="$4"
+local waitTime="$5"
+local storeDir="$6"
 
 #sanity tests
 [ -z "$appId" ] && B_ERR="No application ID provided." && B_E
 
-#set
-blib_keys_initVars "$appId" "$uiMode" "$passPrompt" "$waitTime" || B_E
+#set (incl. defaults)
+blib_keys_initVars "$appId" "$uiMode" "$passPrompt" "$waitTime" "$storeDir" || B_E
 
 local keydir=
 mkdir -p "${BLIB_STORE["BLIB_KEYS_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_DIR"]}" ; B_E }
@@ -130,7 +138,7 @@ mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { B_ERR="Failed to create ${BLIB
 mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" ; B_E }
 
 if [ $autoCreate -eq 0 ] && [ ! -e "${BLIB_STORE["BLIB_KEYS_STORE"]}" ] ; then
-	b_dmcrypt_createLuks "${BLIB_STORE["BLIB_KEYS_STORE"]}" "20M" "ext4" "" "Password for the blib key store (Create: ${BLIB_STORE["BLIB_KEYS_STORE"]}): " || B_E
+	b_dmcrypt_createLuks "${BLIB_STORE["BLIB_KEYS_STORE"]}" "20M" "ext4" "" "Password for the key store (Create: ${BLIB_STORE["BLIB_KEYS_STORE"]}): " || B_E
 fi
 
 #open, if necessary
@@ -140,7 +148,7 @@ return 0
 }
 
 function blib_keys_assertInitialized {
-[ -n "${BLIB_STORE["BLIB_KEYS_APP_ID"]}" ] || { B_ERR="The key store was not initialized. Please call b_keys_init first." ; B_E }
+[ -n "${BLIB_STORE["BLIB_KEYS_DIR"]}" ] || { B_ERR="The key store was not initialized. Please call b_keys_init first." ; B_E }
 }
 
 #blib_keys_open
@@ -305,12 +313,26 @@ umount "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" &> /dev/null
 b_dmcrypt_close "${BLIB_STORE["BLIB_KEYS_STORE"]}" || B_E
 }
 
-#+b_keys_close
-#+Close the key store, if necessary.
+#+b_keys_close [store dir]
+#+Close the key store, if necessary. Works without initialisation (which might open the key store), if necessary.
 #+*WARNING*: 99% of all applications should *never* call this function as it may block all subsequent read operations by any other applications using this system-wide key store. The only applications that might call this function are key store management applications and only upon explicit user request. The key store is otherwise automatically closed upon system shutdown by the running OS.
+#+[store dir]: The main directory of the store to close (default: the key store directory used in [b_keys_init](#b_keys_init) or - if not initialised - $B_CONF_DIR/keys).
 #+returns: Sets a zero exit code on success (closed key store) and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function b_keys_close {
-#NOTE: no init check here as an init would possibly open it
-blib_mtx_op blib_keys_close_tu "$@" || B_E
+local storeDir="$1"
+shift || :
+
+if [ -n "${BLIB_STORE["BLIB_KEYS_DIR"]}" ] ; then
+	#initialised
+	blib_mtx_op blib_keys_close_tu "$@" || B_E
+else
+	#not initialised: initialise the global variables for the mutex etc. inside a subthread
+	(
+		blib_keys_initVars "b_keys_close" "" "" -1 "$storeDir" || B_E
+		blib_mtx_op blib_keys_close_tu "$@" || B_E
+	) || { B_ERR="Failed to close $storeDir." ; B_E }
+fi
+
+return 0
 }
