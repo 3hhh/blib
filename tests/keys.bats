@@ -365,6 +365,12 @@ function countKeys {
 	b_keys_getAll | wc -l
 }
 
+@test "b_keys_getDefaultStore" {
+	runSL b_keys_getDefaultStore
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+}
+
 @test "b_keys multithreading" {
 	skipIfNotRoot
 

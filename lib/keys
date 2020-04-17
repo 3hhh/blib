@@ -4,7 +4,7 @@
 #+
 #+A key store is only opened when necessary. It'll remain open from then on until an application calls [b_keys_close](#b_keys_close).
 #+
-#+The default key store can be found at `/etc/blib/keys/keys.lks`. Applications may deploy their own exclusive key store, if necessary (not recommended).
+#+The default key store can be found at `/etc/blib/keys`. Applications may deploy their own exclusive key store, if necessary (not recommended).
 #+
 #+Usually requires root access rights.
 #+
@@ -81,6 +81,13 @@ fi
 return 0
 }
 
+#+b_keys_getDefaultStore
+#+Get the system-wide default key store directory.
+#+returns: The default store directory. Always sets a zero exit code.
+function b_keys_getDefaultStore {
+echo "$B_CONF_DIR/keys"
+}
+
 #blib_keys_initVars [app id] [ui mode] [pass prompt] [wait time] [store dir]
 #Initialize this module without any file or directory creations (required for testing only). Don't change anything about the keystore.
 function blib_keys_initVars {
@@ -88,7 +95,7 @@ local appId="$1"
 local uiMode="${2:-"auto"}"
 local passPrompt="$3"
 local waitTime="${4:-300}"
-local storeDir="${5:-"$B_CONF_DIR/keys"}"
+local storeDir="${5:-"$(b_keys_getDefaultStore)"}"
 [[ "$storeDir" == *"/" ]] && storeDir="${storeDir%/}"
 
 BLIB_STORE["BLIB_KEYS_DIR"]="$storeDir"
@@ -114,7 +121,7 @@ b_dmcrypt_init "$uiMode"
 #+[ui mode]: How to request the master password from the user: auto|gui|tty (default: auto).
 #+[password prompt]: Prompt string to ask the user for his password (optional).
 #+[wait time]: Maximum time in ms to wait for another process writing to a key (default: 300) (-1 = indefinitely).
-#+[store dir]: Full path to a directory where to manage the keys (default: $B_CONF_DIR/keys). Only applications requiring an exclusive key store should use a non-default value here.
+#+[store dir]: Full path to a directory where to manage the keys (default: [b_keys_getDefaultStore](#b_keys_getDefaultStore)). Only applications requiring an exclusive key store should use a non-default value here.
 #+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
 #+@StateChanging
 #+@B_E
@@ -316,7 +323,7 @@ b_dmcrypt_close "${BLIB_STORE["BLIB_KEYS_STORE"]}" || B_E
 #+b_keys_close [store dir]
 #+Close the key store, if necessary. Works without initialisation (which might open the key store), if necessary.
 #+*WARNING*: 99% of all applications should *never* call this function as it may block all subsequent read operations by any other applications using this system-wide key store. The only applications that might call this function are key store management applications and only upon explicit user request. The key store is otherwise automatically closed upon system shutdown by the running OS.
-#+[store dir]: The main directory of the store to close (default: the key store directory used in [b_keys_init](#b_keys_init) or - if not initialised - $B_CONF_DIR/keys).
+#+[store dir]: The main directory of the store to close (default: the key store directory used in [b_keys_init](#b_keys_init) or - if not initialised - [b_keys_getDefaultStore](#b_keys_getDefaultStore)).
 #+returns: Sets a zero exit code on success (closed key store) and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function b_keys_close {
