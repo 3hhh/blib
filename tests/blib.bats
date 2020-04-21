@@ -1224,9 +1224,10 @@ function meFunc {
 @test "command line usage: list" {
 	runSL "$BLIB" "list"
 	[ $status -eq 0 ]
-	[[ "$output" == *"blib"* ]]
-	[[ "$output" == *"ini"* ]]
-	[[ "$output" == *"os/osid"* ]]
+	[[ "$output" == *$'\n'"blib"$'\n'* ]]
+	[[ "$output" == *$'\n'"ini"$'\n'* ]]
+	[[ "$output" == *$'\n'"os/osid"$'\n'* ]]
+	[[ "$output" != *"ERROR"* ]]
 
 	runSL "$BLIB" "list" "invalid param"
 	[ $status -ne 0 ]

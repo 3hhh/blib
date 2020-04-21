@@ -704,7 +704,7 @@ echo "$ret"
 function b_getBlibModules {
 #only compute if not in cache
 if [ -z "${BLIB_STORE_VOLATILE["BLIB_MODULE_LIST_CACHE"]}" ] ; then
-	local ret="${BLIB_STORE_VOLATILE["BLIB_SCRIPT_NAME"]}"
+	local ret="${BLIB_STORE["BLIB_SCRIPT_NAME"]}"
 	ret="$ret"$'\n'"$(blib_getBlibModules "${BLIB_STORE["BLIB_LIB_DIR"]}")"
 	BLIB_STORE_VOLATILE["BLIB_MODULE_LIST_CACHE"]="$(echo "$ret" | sort)"
 fi
@@ -1461,7 +1461,7 @@ local mods="$(b_getBlibModules)"
 local module=""
 while IFS= read -r module ; do
 	echo "$module"
-	echo "$(blib_getModuleDescription "$module")"
+	blib_getModuleDescription "$module"
 done <<< "$mods"
 }
 
