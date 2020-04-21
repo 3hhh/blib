@@ -802,6 +802,10 @@ function multiParFunc {
 	runSL b_getBlibModules
 	[ $status -eq 0 ]
 	[ -n "$output" ]
+	[[ "$output" != *"ERROR"* ]]
+	[[ "$output" == *"blib"* ]]
+	[[ "$output" == *"ini"* ]]
+	[[ "$output" == *"os/qubes4/dom0"* ]]
 }
 
 
