@@ -190,14 +190,14 @@ echo "${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]}"
 #+The concept is really simple: Each _block_ of documentation will trigger the [b_cdoc_getBlockCallback](#b_cdoc_getBlockCallback) exactly once and you may add additional parsing logic on a block-wise level.
 #+The following example will call the block callback twice (once with three `block 1` lines and once with two `block 2` lines):
 #+```{.bash}
-#+#+block 1
-#+#+block 1
-#+#+block 1
-#+
-#+#say hello
-#+echo "hello world"
-#+#+block 2
-#+#+block 2
+#+ #+block 1
+#+ #+block 1
+#+ #+block 1
+#+ 
+#+ #say hello
+#+ echo "hello world"
+#+ #+block 2
+#+ #+block 2
 #+```
 #+
 #+The other callback functions may be used for further processing.
