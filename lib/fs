@@ -270,3 +270,48 @@ sync -d "$file" || { B_ERR="Failed to sync the file $file." ; B_E }
 rm -f "$file" || { B_ERR="Failed to remove the file $file." ; B_E }
 return 0
 }
+
+#implementation of b_fs_enumerate
+function blib_fs_enumerate {
+local inList="$1"
+local nonEx="${2:-0}"
+
+local fname=""
+local fnew=
+while IFS= read -r fname ; do
+	if [ -d "$fname" ] ; then
+		#recurse dirs
+		for fnew in "$fname/"* ; do
+			[[ "$fnew" == "$fname/*" ]] && continue
+			b_fs_enumerate "$fnew" || B_E
+		done
+	elif [ $nonEx -eq 2 ] || [ -f "$fname" ] ; then
+		echo "$fname"
+	elif [ $nonEx -eq 1 ] ; then
+		:
+	elif [ ! -e "$fname" ] ; then
+		B_ERR="The given file does not exist: $fname"
+		B_E
+	else
+		#existing devices etc.
+		:
+	fi
+done <<< "$inList"
+
+return 0
+}
+
+#+b_fs_enumerate [path list] [nonexisting]
+#+Enumerate all files found in the given list of paths. Recurse into directories as necessary.
+#+[path list]: Newline-separated list of files and directories.
+#+[nonexisting]: 0 = Error out with [B_E](#B_E) on non-existing files (default). 1 = Silently drop non-existing files. 2 = Include non-exiting files in the output.
+#+returns: List of files found in all of the given paths.
+#+@B_E
+function b_fs_enumerate {
+	(
+	#subshell just for temporary shell options
+	shopt -s dotglob
+	blib_fs_enumerate "$@"
+	) || { B_ERR="Failed to enumerate the given paths." ; B_E }
+return 0
+}

@@ -536,3 +536,43 @@ function ensureRemovedLoopDevice {
 	[ $status -eq 0 ]
 	[[ "$output" == "-123000" ]]
 }
+
+@test "b_fs_enumerate" {
+	runSL b_fs_enumerate "/tmp/"$'\n'"/tmp/nonexisting-file"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_fs_enumerate "/tmp/"$'\n'"/tmp/nonexisting-file" 0
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_fs_enumerate "/tmp/"$'\n'"/tmp/nonexisting-file" 1
+	[ $status -eq 0 ]
+	[[ "$output" == *"/tmp/"* ]]
+	[[ "$output" != *"nonexisting-file"* ]]
+
+	runSL b_fs_enumerate "/tmp/"$'\n'"/tmp/nonexisting-file" 2
+	[ $status -eq 0 ]
+	[[ "$output" == *"/tmp/"* ]]
+	[[ "$output" == *"nonexisting-file"* ]]
+
+	local tdir="$(mktemp -d)"
+	local tfile="$(mktemp)"
+	touch "$tdir/.hidden"
+	mkdir -p "$tdir/my/test"
+	touch "$tdir/my/test/file"
+	touch "$tdir/my/other"
+
+	runSL b_fs_enumerate "$tfile"$'\n'"$tdir"
+	[ $status -eq 0 ]
+	local expected="$tfile
+$tdir/my/test/file
+$tdir/my/other
+$tdir/.hidden"
+	expected="$(echo "$expected" | sort)"
+	output="$(echo "$output" | sort)"
+	echo "$output"
+	[[ "$output" == "$expected" ]]
+
+	rm -rf "$tdir" "$tfile"
+}

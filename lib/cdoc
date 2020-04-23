@@ -10,8 +10,10 @@
 #+
 #+ [pandoc]: https://pandoc.org/
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
+#+Copyright (C) 2020  David Hobach  LGPLv3
 #+0.2
+
+b_import fs
 
 #storage for the getter & setters and their defaults
 BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]='^#\+(.*)$'
@@ -183,35 +185,6 @@ function b_cdoc_getSpaceCallback {
 echo "${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]}"
 }
 
-#blib_cdoc_normalizeFileList [input list]
-#Make the given list usable for b_cdoc_generate (resolve directories).
-#[input list]: newline-separated list of files and directories as provided to b_cdoc_generate
-#returns: list of files (!= directories) meant to be read by b_cdoc_generate; sets a non-zero exit code on errors & may error out
-#@B_E
-function blib_cdoc_normalizeFileList {
-local inList="$1"
-
-local fname=""
-local fnew=
-while IFS= read -r fname ; do
-	if [ -f "$fname" ] ; then
-		echo "$fname"
-	else
-		#recurse dirs
-		if [ -d "$fname" ] ; then
-			for fnew in "$fname/"* ; do
-				[[ "$fnew" == "$fname/*" ]] && continue
-				blib_cdoc_normalizeFileList "$fnew" || return 1
-			done
-		else
-			B_ERR="Failed to read $fname. Maybe it doesn't exist?" ; B_E
-		fi
-	fi
-done <<< "$inList"
-
-return 0
-}
-
 #+b_cdoc_generate [input files] [output file] [output format] [additional pandoc options]
 #+Generate a documentation file from the given list of input files or directories.
 #+
@@ -245,7 +218,7 @@ local internalAddOptions=""
 local rawOut="$(mktemp)"
 
 #generate the final file list
-fileList="$(blib_cdoc_normalizeFileList "$fileList")" || { B_ERR="Failed to normalize the file list." ; B_E }
+fileList="$(b_fs_enumerate "$fileList")" || { B_ERR="Failed to enumerate the file list." ; B_E }
 fileList="$(${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]} "$fileList")" || { B_ERR="The file filter callback function ${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]} returned an error." ; B_E }
 [ -z "$fileList" ] && B_ERR="No input files found for b_cdoc_generate." && B_E
 
