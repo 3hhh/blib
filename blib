@@ -561,7 +561,7 @@ return 0
 #+@B_E
 function b_initCachingMessageHandler {
 local max="${1:-1}"
-b_import "traps" || B_E
+ b_import "traps" || B_E
 
 local i=
 local cfile=
@@ -1282,37 +1282,37 @@ else
 fi
 }
 
-#blib_docSpaceCallback [matching line] [file] [previous space count] [document output format]
-function blib_docSpaceCallback {
-local filePath="$2"
-local prevCnt=$3
+#blib_docBlockCallback [block] [block counter] [file] [document output format]
+function blib_docBlockCallback {
+local block="$1"
+local prevCnt=$2
+local filePath="$3"
 
 local fileId="$(blib_getFileDocId "$filePath")"
 
-#add dependencies & imports after description
-if [ $prevCnt -eq 0 ] ; then
-	if b_isModule "$fileId" ; then
-		local deps=""
-		#NOTE: this _will_ source all available modules...
-		#maybe TODO: use a more lightweight method
-		deps="$(blib_getDeps "$fileId" 1 2> /dev/null)"
-		if [ $? -eq 0 ] ; then
-			[ -z "$deps" ] && deps="no dependencies"
-			echo ""
-			echo "### Dependencies ###"
-			echo "$deps"
-		fi
+[ $prevCnt -ne 0 ] && echo ""
+echo "$block"
+echo ""
 
-		local imports=""
-		imports="$(blib_getModuleImports "$fileId" 0 2> /dev/null)"
-		if [ $? -eq 0 ] && [ -n "$imports" ] ; then
-			echo ""
-			echo "### Imports ###"
-			echo "$imports"
-		fi
-		echo ""
+#add dependencies & imports after description
+if [ $prevCnt -eq 0 ] && b_isModule "$fileId" ; then
+	local deps=""
+	#NOTE: this _will_ source all available modules...
+	#maybe TODO: use a more lightweight method
+	deps="$(blib_getDeps "$fileId" 1 2> /dev/null)"
+	if [ $? -eq 0 ] ; then
+		[ -z "$deps" ] && deps="no dependencies"
+		echo "### Dependencies ###"
+		echo "$deps"
 	fi
-else
+
+	local imports=""
+	imports="$(blib_getModuleImports "$fileId" 0 2> /dev/null)"
+	if [ $? -eq 0 ] && [ -n "$imports" ] ; then
+		echo ""
+		echo "### Imports ###"
+		echo "$imports"
+	fi
 	echo ""
 fi
 }
@@ -1326,7 +1326,7 @@ local initTarget="${1:-0}"
  b_import cdoc || B_E
 
 #set cdoc callback functions for all init targets
-b_cdoc_setSpaceCallback "blib_docSpaceCallback"
+b_cdoc_setBlockCallback "blib_docBlockCallback"
 b_cdoc_setPostProcessingCallback "blib_docPostProcessingCallback $initTarget"
 
 if [ $initTarget -eq 0 ] ; then

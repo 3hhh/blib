@@ -2,18 +2,31 @@
 
 ##test02
 
+BEGIN_BLOCK
 some more comments?! but *this* _will_ be parsed as markdown
-
+END_BLOCK
+BEGIN_BLOCK
 some space above
-
+END_BLOCK
+BEGIN_BLOCK
 and some
  foobar? maybe ütf8
 hähäö
-
+END_BLOCK
+BEGIN_BLOCK
 
 and additional empty line above?
 +this should also show up
-
+END_BLOCK
+BEGIN_BLOCK
 or doesnt it?
+END_BLOCK
+BEGIN_BLOCK
+let's also
+
+
+try some empty lines between and in the end
+
+END_BLOCK
 DOC FOOTER LINE 1
 DOC FOOTER LINE 2

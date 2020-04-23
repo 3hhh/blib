@@ -11,7 +11,7 @@
 #+ [pandoc]: https://pandoc.org/
 #+
 #+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.2
+#+0.4
 
 b_import fs
 
@@ -21,7 +21,7 @@ BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]='b_cdoc_cbPrintFirstParam'
 BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]='b_nop'
 BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]='b_cdoc_cbPrintFirstParam'
 BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]='b_nop'
-BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]='b_cdoc_cbPrintNewline'
+BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]='b_cdoc_cbPrintFirstParam'
 
 #+### Functions ###
 
@@ -158,48 +158,49 @@ function b_cdoc_getDocumentEndCallback {
 echo "${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]}"
 }
 
-#+b_cdoc_setSpaceCallback [callback function name]
-#+Set the function to call by b_cdoc_generate each time it hits "space" (non-matching lines) between two matching lines.
+#+b_cdoc_setBlockCallback [callback function name]
+#+Set the function to call by b_cdoc_generate each time it hits a block of matching comments.
 #+
 #+The callback function should be declared as follows:
 #+
-#+    callback_function_name [matching line] [input file] [previous space count] [document output format]
-#+    [matching line]: The first matching line before which no match was found.
+#+    callback_function_name [block] [input file] [document output format]
+#+    [block]:         The full block of documentation that was identified.
+#+    [block counter]: Number of blocks previously seen.
 #+    [input file]:    The original input file.
-#+    [previous space count]: The number of times this function was previously 
-#+                     called for the currently processed file.
 #+    [document output format]: chosen output format
-#+    returns:         whatever should be added in front of the matching line;
+#+    returns:         whatever should be added instead of the given block;
 #+                     a non-zero exit code will abort further processing
 #+
 #+returns: nothing
 #+@StateChanging
-function b_cdoc_setSpaceCallback {
-BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]="$1"
+function b_cdoc_setBlockCallback {
+BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]="$1"
 }
 
-#+b_cdoc_getSpaceCallback
+#+b_cdoc_getBlockCallback
 #+See the setter.
 #+returns: The property that was set.
-function b_cdoc_getSpaceCallback {
-echo "${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]}"
+function b_cdoc_getBlockCallback {
+echo "${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]}"
 }
 
 #+b_cdoc_generate [input files] [output file] [output format] [additional pandoc options]
 #+Generate a documentation file from the given list of input files or directories.
 #+
-#+pseudo code description for the document generation:
+#+The concept is really simple: Each _block_ of documentation will trigger the [b_cdoc_getBlockCallback](#b_cdoc_getBlockCallback) exactly once and you may add additional parsing logic on a block-wise level.
+#+The following example will call the block callback twice (once with three `block 1` lines and once with two `block 2` lines):
+#+```{.bash}
+#+#+block 1
+#+#+block 1
+#+#+block 1
 #+
-#+   1. call the file filter callback to obtain the final list of input source code files to use for document generation, respect the order (default: use all files passed as input)
-#+   2. call the document begin callback function with the output file path to get user-specific output (default: do nothing)
-#+   3. for all input files:
-#+   	i. for all lines of a file:
-#+   		a) store lines matching b_cdoc_getExtractionRegex in a variable _o_
-#+   		b) between any two matching lines for b_cdoc_getExtractionRegex that had a non-matching line in between them: call the space callback function (default: add an empty line to the output)
-#+   	ii. pass _o_ and the file name to the post processing callback function (default: return the input) - users could add e.g. the file name as section header here
-#+   	iii. add the output of the post processing function to the output document
-#+   4. call the document end callback function with the output file path to get user-specific output (default: do nothing)
-#+   5. do all necessary output conversions using [pandoc]
+#+#say hello
+#+echo "hello world"
+#+#+block 2
+#+#+block 2
+#+```
+#+
+#+The other callback functions may be used for further processing.
 #+
 #+[input files]: Newline-separated list of files or directories to generate the documentation from. The given order is respected; directories are recursively searched for files. It is currently assumed that these files are encoded in UTF-8.
 #+[output file]: Path to the documentation file to generate. Should not exist.
@@ -229,32 +230,27 @@ ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} "$outFile" "$outFormat" >> "$
 local fname=""
 while IFS= read -r fname ; do
 	local o=""
-	local matchCnt=0
-	local lastWasMatch=1
-	local spaceCbResult=""
-	local spaceCnt=0
 
 	#read the code
 	local line=""
-	while IFS= read -r line ; do
+	local block=""
+	local lastMatched=1
+	local blockCnt=0
+	while IFS= read -r line || [ -n "$block" ] ; do
 		if [[ "$line" =~ ${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]} ]] ; then
-			if [ $matchCnt -gt 0 ] ; then
-				o="$o"$'\n'
-
-				#call the space callback if necessary
-				if [ $lastWasMatch -eq 1 ] ; then
-					#NOTE: we append "x" and remove it afterwards in order to keep trailing newlines
-					spaceCbResult="$(${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]} "$line" "$fname" $spaceCnt "$outFormat" || return 1; printf "x")" || { B_ERR="The space callback function ${BLIB_STORE["BLIB_CDOC_SPACE_CALLBACK"]} returned an error." ; B_E }
-					spaceCbResult="${spaceCbResult%x}"
-					o="${o}${spaceCbResult}"
-					spaceCnt=$(( $spaceCnt +1 ))
-				fi
-			fi
-			o="${o}${BASH_REMATCH[1]}"
-			lastWasMatch=0
-			matchCnt=$(( $matchCnt +1 ))
+			[ $lastMatched -eq 0 ] && block="$block"$'\n'"${BASH_REMATCH[1]}" || block="${BASH_REMATCH[1]}"
+			lastMatched=0
+			line=""
 		else
-			lastWasMatch=1
+			#write block, if necessary (end of block)
+			if [ -n "$block" ] ; then
+				#call block callback
+				block="$(${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat")" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
+				[ -n "$o" ] && o="${o}"$'\n'"$block" || o="$block"
+				block=""
+				(( blockCnt ++ ))
+			fi
+			lastMatched=1
 		fi
 	done < "$fname" || { B_ERR="Failed to read the code file $fname." ; B_E }
 

@@ -2,8 +2,8 @@
 # 
 #+Bats tests for the cdoc module.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.3
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.4
 
 #load common test code
 load test_common
@@ -46,7 +46,7 @@ function testGenerateDiff {
 	testGetterSetter "b_cdoc_setFileFilterCallback" "testFileFilterCb"
 	testGetterSetter "b_cdoc_setPostProcessingCallback" "testPostProcCb"
 	testGetterSetter "b_cdoc_setExtractionRegex" 'foo regex'
-	testGetterSetter "b_cdoc_setSpaceCallback" "foobar"
+	testGetterSetter "b_cdoc_setBlockCallback" "foobar"
 }
 
 function initWithTestCallbacks {
@@ -54,7 +54,7 @@ function initWithTestCallbacks {
 	b_cdoc_setDocumentEndCallback "testDocEndCb"
 	b_cdoc_setFileFilterCallback "testFileFilterCb"
 	b_cdoc_setPostProcessingCallback "testPostProcCb"
-	b_cdoc_setSpaceCallback "testSpaceCb"
+	b_cdoc_setBlockCallback "testBlockCb"
 }
 
 @test "b_cdoc_generate" {
@@ -121,11 +121,13 @@ function testDocBeginCb {
 	echo "#DOC HEADER"
 }
 
-function testSpaceCb {
+function testBlockCb {
 	#make sure the params are passed
 	[ $# -ne 4 ] && exit 1
 
-	echo ""
+	echo "BEGIN_BLOCK"
+	echo "$1"
+	echo "END_BLOCK"
 }
 
 function testDocEndCb {
