@@ -41,5 +41,9 @@ let's also
 try some empty lines between and in the end
 
 END_BLOCK
+
+##verbatim
+
+#+a verbatim message!
 DOC FOOTER LINE 1
 DOC FOOTER LINE 2

@@ -43,7 +43,7 @@ function testGenerateDiff {
 @test "setters & getters" {
 	testGetterSetter "b_cdoc_setDocumentBeginCallback" "testDocBeginCb"
 	testGetterSetter "b_cdoc_setDocumentEndCallback" "testDocEndCb"
-	testGetterSetter "b_cdoc_setFileFilterCallback" "testFileFilterCb"
+	testGetterSetter "b_cdoc_setFileCallback" "testFileCb"
 	testGetterSetter "b_cdoc_setPostProcessingCallback" "testPostProcCb"
 	testGetterSetter "b_cdoc_setExtractionRegex" 'foo regex'
 	testGetterSetter "b_cdoc_setBlockCallback" "foobar"
@@ -52,7 +52,7 @@ function testGenerateDiff {
 function initWithTestCallbacks {
 	b_cdoc_setDocumentBeginCallback "testDocBeginCb"
 	b_cdoc_setDocumentEndCallback "testDocEndCb"
-	b_cdoc_setFileFilterCallback "testFileFilterCb"
+	b_cdoc_setFileCallback "testFileCb"
 	b_cdoc_setPostProcessingCallback "testPostProcCb"
 	b_cdoc_setBlockCallback "testBlockCb"
 }
@@ -60,17 +60,15 @@ function initWithTestCallbacks {
 @test "b_cdoc_generate" {
 	initWithTestCallbacks
 
-	testGenerateDiff "$(genFileList "test01")" "$(genFileList "test01_expected")"
+	testGenerateDiff "$(genFileList "test01" "unparsed")" "$(genFileList "test01_expected")"
 	echo "1"
 	testGenerateDiff "$(genFileList "test02")" "$(genFileList "test02_expected")"
 	echo "2"
-	testGenerateDiff "$(genFileList "test02" "test01")" "$(genFileList "test03_expected")"
-	echo "2.1"
-	testGenerateDiff "$(genFileList "test01" "test02")" "$(genFileList "test03_expected")"
+	testGenerateDiff "$(genFileList "test01" "unparsed" "test02" "verbatim")" "$(genFileList "test03_expected")"
 	echo "2.2"
-	testGenerateDiff "$(genFileList "test03")" "$(genFileList "test03_expected")"
+	testGenerateDiff "$(genFileList "test03" "verbatim" "unparsed")" "$(genFileList "test03_expected")"
 	echo "3"
-	testGenerateDiff "$(genFileList "test02" "test03" "test01")" "$(genFileList "test04_expected")"
+	testGenerateDiff "$(genFileList "test01" "unparsed" "test02" "verbatim" "test03")" "$(genFileList "test04_expected")"
 	echo "4"
 }
 
@@ -107,11 +105,14 @@ function pandocTest {
 }
 
 ##### some callback functions to test with
-function testFileFilterCb {
+function testFileCb {
 	#make sure the params are passed
-	[ $# -ne 1 ] && exit 1
+	[ $# -ne 2 ] && exit 66
 
-	echo "$1" | sort
+	local file="$1"
+	[[ "$file" == *"unparsed" ]] && return 2
+	[[ "$file" == *"verbatim" ]] && return 1
+	return 0
 }
 
 function testDocBeginCb {

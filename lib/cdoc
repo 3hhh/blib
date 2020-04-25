@@ -11,13 +11,13 @@
 #+ [pandoc]: https://pandoc.org/
 #+
 #+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.4
+#+0.6
 
 b_import fs
 
 #storage for the getter & setters and their defaults
 BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]='^#\+(.*)$'
-BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]='b_cdoc_cbPrintFirstParam'
+BLIB_STORE["BLIB_CDOC_FILE_CALLBACK"]='b_nop'
 BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]='b_nop'
 BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]='b_cdoc_cbPrintFirstParam'
 BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]='b_nop'
@@ -55,30 +55,31 @@ function b_cdoc_getExtractionRegex {
 echo "${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]}"
 }
 
-#+b_cdoc_setFileFilterCallback [callback function name]
-#+Set the function to call by b_cdoc_generate exactly once right after it computed the list of applicable source code files.
+#+b_cdoc_setFileCallback [callback function name]
+#+Set the function to call by b_cdoc_generate exactly once before starting to process a source code file.
 #+
-#+The callback function should be declared as follows:
+#+The callback function can be used to filter certain files from processing or add them as-is.
+#+It should be declared as follows:
 #+
-#+    callback_function_name [file list]
-#+    [file list]: newline-separated list of files (no directories!)
-#+                 that b_cdoc_generate computed for document generation
-#+                 (in that order)
-#+    returns:     the newline-separated list to use by b_cdoc_generate for
-#+                 document generation (default: the input); a non-zero exit
-#+                 code will abort further processing
-#+
+#+    callback_function_name [file] []
+#+    [file]:           The next file to process is passed here.
+#+    [output format]:  chosen output format
+#+    returns:          Nothing. Possible exit codes:
+#+                      0 = continue normal processing (default)
+#+                      1 = include the file as-is without any processing
+#+                      2 = silently ignore that file / do not process it
+#+                      other = abort all further processing with an error
 #+returns: nothing
 #+@StateChanging
-function b_cdoc_setFileFilterCallback {
-BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]="$1"
+function b_cdoc_setFileCallback {
+BLIB_STORE["BLIB_CDOC_FILE_CALLBACK"]="$1"
 }
 
-#+b_cdoc_getFileFilterCallback
+#+b_cdoc_getFileCallback
 #+See the setter.
 #+returns: The property that was set.
-function b_cdoc_getFileFilterCallback {
-echo "${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]}"
+function b_cdoc_getFileCallback {
+echo "${BLIB_STORE["BLIB_CDOC_FILE_CALLBACK"]}"
 }
 
 #+b_cdoc_setDocumentBeginCallback [callback function name]
@@ -220,8 +221,6 @@ local rawOut="$(mktemp)"
 
 #generate the final file list
 fileList="$(b_fs_enumerate "$fileList")" || { B_ERR="Failed to enumerate the file list." ; B_E }
-fileList="$(${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]} "$fileList")" || { B_ERR="The file filter callback function ${BLIB_STORE["BLIB_CDOC_FILE_FILTER_CALLBACK"]} returned an error." ; B_E }
-[ -z "$fileList" ] && B_ERR="No input files found for b_cdoc_generate." && B_E
 
 #call doc begin callback
 ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document begin callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} returned an error." ; B_E }
@@ -231,28 +230,49 @@ local fname=""
 while IFS= read -r fname ; do
 	local o=""
 
-	#read the code
-	local line=""
-	local block=""
-	local lastMatched=1
-	local blockCnt=0
-	while IFS= read -r line || [ -n "$block" ] ; do
-		if [[ "$line" =~ ${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]} ]] ; then
-			[ $lastMatched -eq 0 ] && block="$block"$'\n'"${BASH_REMATCH[1]}" || block="${BASH_REMATCH[1]}"
-			lastMatched=0
-			line=""
-		else
-			#write block, if necessary (end of block)
-			if [ -n "$block" ] ; then
-				#call block callback
-				block="$(${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat")" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
-				[ -n "$o" ] && o="${o}"$'\n'"$block" || o="$block"
-				block=""
-				(( blockCnt ++ ))
+	#check the file callback
+	${BLIB_STORE["BLIB_CDOC_FILE_CALLBACK"]} "$fname" "$outFormat" &> /dev/null
+	case "$?" in
+		"0")
+		#normal processing
+		local line=""
+		local block=""
+		local lastMatched=1
+		local blockCnt=0
+		while IFS= read -r line || [ -n "$block" ] ; do
+			if [[ "$line" =~ ${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]} ]] ; then
+				[ $lastMatched -eq 0 ] && block="$block"$'\n'"${BASH_REMATCH[1]}" || block="${BASH_REMATCH[1]}"
+				lastMatched=0
+				line=""
+			else
+				#write block, if necessary (end of block)
+				if [ -n "$block" ] ; then
+					#call block callback
+					block="$(${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat")" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
+					[ -n "$o" ] && o="${o}"$'\n'"$block" || o="$block"
+					block=""
+					(( blockCnt ++ ))
+				fi
+				lastMatched=1
 			fi
-			lastMatched=1
-		fi
-	done < "$fname" || { B_ERR="Failed to read the code file $fname." ; B_E }
+		done < "$fname" || { B_ERR="Failed to read the code file $fname." ; B_E }
+		;;
+
+		"1")
+		#include as-is
+		o="$(<"$fname")" || { B_ERR="Failed to read ${fname}." ; B_E }
+		;;
+
+		"2")
+		#ignore
+		continue
+		;;
+
+		*)
+		B_ERR="The ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} requested an abnoral exit after seeing $fname."
+		B_E
+		;;
+	esac
 
 	#call post processing callback
 	${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} "$o" "$fname" "$outFormat" >> "$rawOut" || { B_ERR="The post processing callback function ${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} returned an error." ; B_E }
