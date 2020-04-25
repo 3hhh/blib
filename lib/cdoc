@@ -61,7 +61,7 @@ echo "${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]}"
 #+The callback function can be used to filter certain files from processing or add them as-is.
 #+It should be declared as follows:
 #+
-#+    callback_function_name [file] []
+#+    callback_function_name [file] [output format]
 #+    [file]:           The next file to process is passed here.
 #+    [output format]:  chosen output format
 #+    returns:          Nothing. Possible exit codes:
