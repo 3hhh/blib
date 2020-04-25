@@ -1162,7 +1162,7 @@ function blib_docFileCallback {
 local file="$1"
 local fname="${file##*/}"
 
-if [[ "$file" == *"/tests/fixtures/"* ]] || [[ "$fname" == "user_test_data.bash" ]] ; then
+if [[ "$file" == *"/tests/fixtures/"* ]] || [[ "$fname" == "user_test_data.bash" ]] || [[ "$fname" == "."* ]] ; then
 	return 2
 else
 	return 0
