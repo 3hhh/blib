@@ -1157,17 +1157,16 @@ echo "$header"
 fi
 }
 
-#blib_docFileFilterCallback [file list]
-function blib_docFileFilterCallback {
-local files="$1"
-local cur=""
+#blib_docFileCallback [file] [output format]
+function blib_docFileCallback {
+local file="$1"
+local fname="${file##*/}"
 
-while IFS= read -r cur ; do
-	local fname="${cur##*/}"
-	if [[ "$cur" != *"/tests/fixtures/"* ]] && [[ "$fname" != "user_test_data.bash" ]] && [[ "$fname" != .* ]] ; then
-		echo "$cur"
-	fi
-done <<< "$files"
+if [[ "$file" == *"/tests/fixtures/"* ]] || [[ "$fname" == "user_test_data.bash" ]] ; then
+	return 2
+else
+	return 0
+fi
 }
 
 #+b_isModule [module name]
@@ -1333,7 +1332,7 @@ if [ $initTarget -eq 0 ] ; then
 	#gendoc target:
 	b_cdoc_setDocumentBeginCallback "blib_docBeginCallback"
 	b_cdoc_setDocumentEndCallback "blib_docEndCallback"
-	b_cdoc_setFileFilterCallback "blib_docFileFilterCallback"
+	b_cdoc_setFileCallback "blib_docFileCallback"
 fi
 }
 
