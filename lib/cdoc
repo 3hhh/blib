@@ -231,7 +231,7 @@ while IFS= read -r fname ; do
 	local o=""
 
 	#check the file callback
-	${BLIB_STORE["BLIB_CDOC_FILE_CALLBACK"]} "$fname" "$outFormat" &> /dev/null
+	${BLIB_STORE["BLIB_CDOC_FILE_CALLBACK"]} "$fname" "$outFormat" > /dev/null
 	case "$?" in
 		"0")
 		#normal processing
