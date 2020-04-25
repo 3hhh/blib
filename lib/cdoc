@@ -218,6 +218,7 @@ local outFormat="$3"
 local internalAddOptions=""
 [ $# -le 3 ] && internalAddOptions="-s"
 local rawOut="$(mktemp)"
+local blockOut="$(mktemp)"
 
 #generate the final file list
 fileList="$(b_fs_enumerate "$fileList")" || { B_ERR="Failed to enumerate the file list." ; B_E }
@@ -248,7 +249,9 @@ while IFS= read -r fname ; do
 				#write block, if necessary (end of block)
 				if [ -n "$block" ] ; then
 					#call block callback
-					block="$(${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat")" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
+					#NOTE: we do this in the current shell to support usage of global variables within the callback
+					${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat" > "$blockOut" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
+					block="$(<"$blockOut")" || { B_ERR="Failed to read from the block output for the file $fname." ; B_E }
 					[ -n "$o" ] && o="${o}"$'\n'"$block" || o="$block"
 					block=""
 					(( blockCnt ++ ))
@@ -277,6 +280,9 @@ while IFS= read -r fname ; do
 	#call post processing callback
 	${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} "$o" "$fname" "$outFormat" >> "$rawOut" || { B_ERR="The post processing callback function ${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} returned an error." ; B_E }
 done <<< "$fileList"
+
+#cleanup
+rm -f "$blockOut"
 
 #call doc end callback
 ${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document end callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} returned an error." ; B_E }
