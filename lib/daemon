@@ -14,6 +14,7 @@
 
 b_import "multithreading/mtx"
 b_import "proc"
+b_deps "kill" "umask" "mkdir" "rm" "mktemp"
 
 BLIB_STORE["BLIB_DAEMON_QUIET"]=
 BLIB_STORE["BLIB_DAEMON_MAIN"]=
@@ -31,22 +32,6 @@ BLIB_STORE["BLIB_DAEMON_MTX_DIR"]="/tmp/blib_daemon"
 B_DAEMON_ID=""
 
 #+### Functions ###
-
-#+b_daemon_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_daemon_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-kill
-umask
-mkdir
-rm
-mktemp
-EOF
-
-echo -n "$deps"
-}
 
 #blib_daemon_info [message]
 function blib_daemon_info {

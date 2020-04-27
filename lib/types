@@ -5,6 +5,8 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.2
 
+b_deps "mktemp" "mkfifo" "rm" "wc" "strings" "tee" "head"
+
 #+### Global Variables ###
 
 #+B_TYPES_ENCODINGS
@@ -21,24 +23,6 @@ declare -gA B_TYPES_ENCODINGS=(
 	)
 
 #+### Functions ###
-
-#+b_types_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_types_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-mktemp
-mkfifo
-rm
-wc
-strings
-tee
-head
-EOF
-
-echo -n "$deps"
-}
 
 #+b_types_parseString [encoding]
 #+Checks whether whatever is lying in stdin is a string (and not binary) and if so, prints it to stdout.

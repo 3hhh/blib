@@ -18,6 +18,8 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.3
 
+b_deps "findmnt" "mkdir" "mktemp" "mv" "rm"
+
 #base directory for shared memory operations
 #idea: all namespaces get a separate sub directory there, every variable a single file --> KISS
 BLIB_STORE["BLIB_IPCV_SHM_BASE"]="/dev/shm/blib_ipcv"
@@ -31,22 +33,6 @@ findmnt "/dev/shm" &> /dev/null || { B_ERR="Your system does not appear to use /
 mkdir -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}" || { B_ERR="Failed to create the directory $BLIB_IPCV_TEMP." ; B_E }
 
 #+### Functions ###
-
-#+b_ipcv_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_ipcv_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-findmnt
-mkdir
-mktemp
-mv
-rm
-EOF
-
-echo -n "$deps"
-}
 
 #blib_ipcv_assertCorrectNamespace [namespace] [check existence]
 #Check whether the given namespace name is acceptable.

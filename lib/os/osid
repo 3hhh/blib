@@ -13,17 +13,6 @@ BLIB_STORE_VOLATILE["BLIB_OSID_NAME"]=""
 
 #+### Functions ###
 
-#+b_osid_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_osid_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-EOF
-
-echo -n "$deps"
-}
-
 #+b_osid_init [force]
 #+[force]: if set to 0, force an init even if it would otherwise not be necessary (default: 1 - only initialize if it didn't happen before)
 #+Initialize the osid module. It should normally *not* be necessary to call this function directly, but it will be called by the osid module internally as needed.

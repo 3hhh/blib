@@ -7,14 +7,6 @@
 
 #+### Functions ###
 
-#+b_ui_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_ui_getDeps {
-echo ""
-#there are a few runtime dependencies though, see below
-}
-
 #+b_ui_passwordPrompt [output var] [ui mode] [prompt string]
 #+Prompt the user for a password. Should run inside the parent process (i.e. not inside a subshell).
 #+Once you do not need the password anymore, it is recommended to wipe it from memory as such:
@@ -41,7 +33,7 @@ if [[ "$_uiMode" == "tty" ]] || [[ "$_uiMode" == "auto" && -t 0 ]] ; then
 	IFS= read -rsp "$_promptString" _pass || { B_ERR="The user aborted the password prompt." ; B_E }
 	echo ""
 else
-	#use GUI
+	#use GUI (runtime dependencies)
 	if command -v "zenity" &> /dev/null ; then
 		_pass="$(zenity --entry --hide-text --text="$_promptString" 2> /dev/null)" || { B_ERR="The user aborted the password prompt." ; B_E }
 	else

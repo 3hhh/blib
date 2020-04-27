@@ -17,9 +17,3 @@ function setup {
 	[ -n "${B_TCOLORS[green]}" ]
 	[ -n "${B_TCOLORS[red]}" ]
 }
-
-@test "b_tcolors_getDeps" {
-	runSL b_tcolors_getDeps
-	[ $status -eq 0 ]
-	[ -n "$output" ]
-}

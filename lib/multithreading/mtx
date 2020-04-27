@@ -11,29 +11,12 @@
 #+0.3
 
 b_import proc
+b_deps "mkdir" "touch" "sleep" "rm" "rmdir" "cat" "mktemp"
 
 #time in ms to sleep between active polling requests
 BLIB_STORE["BLIB_MTX_SLEEP_TIME"]=500
 
 #+### Functions ###
-
-#+b_mtx_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_mtx_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-mkdir
-touch
-sleep
-rm
-rmdir
-cat
-mktemp
-EOF
-
-echo -n "$deps"
-}
 
 #+b_mtx_setSleepTime [ms]
 #+Sets the time to sleep for this module whenever active polling is done (default: 500).

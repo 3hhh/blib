@@ -18,6 +18,7 @@
 b_import fs
 b_import dmcrypt
 b_import multithreading/mtx
+b_deps "mkdir" "cat" "readlink" "cp" "rm" "findmnt" "find"
 
 #set during init call
 BLIB_STORE["BLIB_KEYS_DIR"]=
@@ -32,24 +33,6 @@ BLIB_STORE["BLIB_KEYS_WAIT_TIME"]=
 BLIB_STORE["BLIB_KEYS_BAK"]=
 
 #+### Functions ###
-
-#+b_keys_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_keys_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-mkdir
-cat
-readlink
-cp
-rm
-findmnt
-find
-EOF
-
-echo -n "$deps"
-}
 
 # we want to achieve that writes can never happen to a closed key store (i.e. without encryption layer):
 # --> mutex strategy:

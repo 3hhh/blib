@@ -5,20 +5,9 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.2
 
+b_deps "tail" "timeout"
+
 #+### Functions ###
-
-#+b_proc_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_proc_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-tail
-timeout
-EOF
-
-echo -n "$deps"
-}
 
 #+b_proc_pidExists [pid]
 #+Check whether the given process ID exists on the system.

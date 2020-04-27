@@ -5,6 +5,8 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.2
 
+b_deps "curl"
+
 #+### Global Variables ###
 
 declare -ga B_HTTP_CHECKURLS
@@ -26,18 +28,6 @@ B_HTTP_CHECKURLS=(
 		)
 
 #+### Functions ###
-
-#+b_http_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_http_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-curl
-EOF
-
-echo -n "$deps"
-}
 
 #+b_http_rawUrlEncode [string]
 #+Encode the given string according to RFC 3986.

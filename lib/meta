@@ -1,0 +1,89 @@
+#!/bin/bash
+#
+#+Functions providing information about blib modules or other bash scripts.
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.2
+
+b_import str
+
+#+### Functions ###
+
+#+b_meta_getClearImports [path]
+#+Get the list of modules that the given script imports via [b_import](#b_import).
+#+*Important*: All [b_import](#b_import) calls are assumed to be declared on a dedicated line and to start at the first character of that line ("clear" import). This is considered a feature to evade this method (for doc purposes mostly).
+#+[path]: Full path to the script to retrieve the module imports for.
+#+returns: Newline-separated list of imports of the given script.
+#+@B_E
+function b_meta_getClearImports {
+local path="$1"
+#NOTE: the regex below allows further parameters or even code after the b_import
+local importRegex='^b_import[[:blank:]]+([^[:blank:]]+).*$'
+
+local line=
+while IFS= read -r line ; do
+	if [[ "$line" =~ $importRegex ]] ; then
+		b_str_stripQuotes "${BASH_REMATCH[1]}"
+	fi
+done < "$path" || { B_ERR="Failed to read ${path}." ; B_E }
+
+return 0
+}
+
+#blib_meta_getDepsArgs [b_deps call]
+#[b_deps call]: Full b_deps command observed.
+#returns: Newline-separated list of dependencies declared by this call.
+#@B_E
+function blib_meta_getDepsArgs {
+local code="$1"
+
+#idea: re-declare b_deps inside a subshell and execute the code, i.e. use bash to parse bash code
+(
+	function b_deps {
+		local arg=
+		for arg in "$@" ; do
+			echo "$arg"
+		done
+
+		#there may be more code at the end of the given code, e.g. b_deps foo && rm -rf / --> we need to exit after this function
+		exit 33
+	}
+	eval "$code"
+)
+[ $? -eq 33 ] || { B_ERR="Failed to correctly execute the b_deps code." ; B_E }
+return 0
+}
+
+#+b_meta_getClearDeps [path]
+#+Get the list of dependencies that the given script declares via [b_deps](#b_deps).
+#+*Important*: All [b_deps](#b_deps) calls are assumed to be declared on a dedicated line and to start at the first character of that line ("clear" dependency). This is considered a feature to evade this method (for doc purposes mostly).
+#+[path]: Full path to the script to retrieve the dependencies for.
+#+returns: Newline-separated list of dependencies of the given script.
+#+@B_E
+function b_meta_getClearDeps {
+local path="$1"
+local depsRegex='^b_deps[[:blank:]]+.*$'
+
+#NOTE: b_deps may have parameters with spaces etc. --> proper parsing of the function required without executing it --> we use bash for that
+local line=
+local toCheck=""
+while IFS= read -r line ; do
+	if [[ "$line" =~ $depsRegex ]] ; then
+		toCheck="$line"
+	elif [ -n "$toCheck" ] ; then
+		if [[ "$line" == *'\' ]] ; then
+			#continuing line
+			toCheck="$toCheck"$'\n'"$line"
+		else
+			blib_meta_getDepsArgs "$toCheck"$'\n'"$line" || B_E
+			toCheck=""
+		fi
+	fi
+done < "$path" || { B_ERR="Failed to read ${path}." ; B_E }
+
+if [ -n "$toCheck" ] ; then
+	blib_meta_getDepsArgs "$toCheck" || B_E
+fi
+
+return 0
+}

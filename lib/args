@@ -46,13 +46,6 @@ BLIB_STORE["BLIB_ARGS_OPSEP"]='	'
 
 #+### Functions ###
 
-#+b_args_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_args_getDeps {
-return 0
-}
-
 #+b_args_setOptionParamSeparator [separator]
 #+Set the separator for multiple option parameters.
 #+[separator]: String to use as separator for multiple option parameters.

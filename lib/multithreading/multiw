@@ -22,25 +22,11 @@
 
 #possible improvement: For those OSes where symlink replacements are not atomic, we could pass reading through this module as well and simply always read the most recent *.done file for which we succeed to obtain a file handle (try again if we don't).
 
+b_deps "shuf" "mv" "ln" "stat" "rm"
+
 BLIB_STORE["BLIB_MULTIW_MAX_HANG"]=3
 
 #+### Functions ###
-
-#+b_multiw_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_multiw_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-shuf
-mv
-ln
-stat
-rm
-EOF
-
-echo -n "$deps"
-}
 
 #+b_multiw_setMaxHangTime [seconds]
 #+Set the maximum time that a process is expected to hang between two instructions. This is relevant for various internal guarantees.

@@ -14,6 +14,7 @@
 #+0.6
 
 b_import fs
+b_deps "mv" "rm" "mktemp"
 
 #storage for the getter & setters and their defaults
 BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]='^#\+(.*)$'
@@ -24,21 +25,6 @@ BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]='b_nop'
 BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]='b_cdoc_cbPrintFirstParam'
 
 #+### Functions ###
-
-#+b_cdoc_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_cdoc_getDeps {
-#NOTE: pandoc is *not* added here as we might not need it, if the input format equals the output format (e.g. for blib list) and we don't want to create heavy dependencies
-local deps=""
-read -r -d '' deps << 'EOF'
-mv
-rm
-mktemp
-EOF
-
-echo -n "$deps"
-}
 
 #+b_cdoc_setExtractionRegex [regex]
 #+Set the regular expression used to check for matching lines in code files. The first match (${BASH_REMATCH[1]}) is added to the documentation output.
@@ -214,7 +200,7 @@ local fileList="$1"
 local outFile="$2"
 [ -e "$outFile" ] && B_ERR="The output file $outFile already exists." && B_E
 local outFormat="$3"
-[ -n "$outFormat" ] && ( b_checkDeps "pandoc" || { B_ERR="pandoc is not installed." ; B_E } )
+[ -n "$outFormat" ] && b_deps "pandoc"
 local internalAddOptions=""
 [ $# -le 3 ] && internalAddOptions="-s"
 local rawOut="$(mktemp)"

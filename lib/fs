@@ -5,26 +5,9 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.3
 
+b_deps "wc" "findmnt" "mktemp" "mount" "head" "stat" "rm" "sync"
+
 #+### Functions ###
-
-#+b_fs_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_fs_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-wc
-findmnt
-mktemp
-mount
-head
-stat
-rm
-sync
-EOF
-
-echo -n "$deps"
-}
 
 #+b_fs_isEmptyDir [dir]
 #+Check whether the given directory is empty or non-existing. It is not checked whether the passed parameter is a file preventing a directory from being created.

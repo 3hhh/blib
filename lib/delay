@@ -17,13 +17,6 @@ B_DELAY_EXECUTED=0
 
 #+### Functions ###
 
-#+b_delay_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_delay_getDeps {
-:
-}
-
 #+b_delay_to [timestamp] [command]
 #+Delay the given command to be executed at the given time.
 #+[timestamp]: An integer timestamp (e.g. $SECONDS, Unix timestamp in s/ms/ns, ...).

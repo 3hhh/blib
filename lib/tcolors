@@ -11,6 +11,8 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.1
 
+b_deps "tput"
+
 #+### Global Variables ###
 
 #+B_TCOLORS
@@ -27,12 +29,3 @@ declare -gA B_TCOLORS=(
 	["cyan"]=6
 	["white"]=7
 	)
-
-#+### Functions ###
-
-#+b_tcolors_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_tcolors_getDeps {
-echo "tput"
-}

@@ -12,6 +12,9 @@ b_import ui
 b_import proc
 b_import types
 
+b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "dirname" \
+"basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar"
+
 #private vars
 BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
 #set to the correct value, if we're in dom0:
@@ -35,42 +38,6 @@ mktemp"
 BLIB_STORE["BLIB_DOM0_VM_DEPS"]="${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"
 
 #+### Functions ###
-
-#+b_dom0_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_dom0_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-qvm-run
-qvm-block
-qvm-ls
-qvm-shutdown
-qvm-check
-qvm-pool
-qubes-prefs
-qubesdb-write
-qubesdb-rm
-dirname
-basename
-mktemp
-ps
-sleep
-cat
-timeout
-dd
-tee
-xxd
-python3
-kill
-losetup
-setsid
-sort
-tar
-EOF
-
-echo -n "$deps"
-}
 
 #+b_dom0_setVMDeps [list] [keep defaults]
 #+Set the dependencies for all VMs used with this module to the given list of binaries.
@@ -165,8 +132,11 @@ local addParams="-p"
 local prefix="\x12\x13\x14\x12\x13\x14\x66"
 local tPrefix="$(mktemp)"
 local depsEsc=
-printf -v depsEsc '%q' "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
-cmd="$(declare -f "b_checkDeps") ; b_checkDeps $depsEsc &> /dev/null && printf '%b' \"$prefix\x66\" || { printf '%b' \"$prefix\x67\" ; exit 127 ; } ; $cmd"
+local dep=
+while IFS= read -r dep ; do
+	printf -v depsEsc '%q ' "$dep"
+done <<< "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
+cmd="$(declare -f "b_deps") ; b_deps $depsEsc &> /dev/null && printf '%b' \"$prefix\x66\" || { printf '%b' \"$prefix\x67\" ; exit 127 ; } ; $cmd"
 local ret=5
 local oldOpts=""
 [[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"

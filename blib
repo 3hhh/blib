@@ -35,9 +35,7 @@
 #+ #.   set exit codes (!= 0 --> issue) wherever it makes sense
 #+ #.   keep the global namespace clean whenever possible
 #+ #.   declare -g must be used in order to allow sourcing from a function ([b_import](#b_import))
-#+ #.   modules must implement a function such as
-#+      *b\_\[module\]\_getDeps*
-#+      *returns*: newline-separated list of dependencies of the module
+#+ #.   modules must check their dependencies via [b_deps](#b_deps)
 #+ #.   modules should provide a header similar to that of the blib source file in order to make the documentation generation work
 #+ #.   modules may be placed in subfolders of arbitrary depth
 #+ #.   use 0 to indicate true and 1 to indicate false for variables; for exit codes use a non-zero exit code to indicate the number of errors
@@ -749,116 +747,22 @@ done <<< "$list"
 return 1
 }
 
-#+b_checkDeps [list]
-#+check whether the given list of dependencies is met by the system running this function.
-#+[list]: newline-separated list of binaries or commands that the system must be able to execute
-#+returns: list of dependencies not met; a non-zero exit code is set, if the list contains elements
-function b_checkDeps {
-local depList="$1"
-local ret=""
+#+b_deps [dependency 1] ... [dependency n]
+#+Assert that the given dependencies are met and error out with [B_E](#B_E) otherwise.
+#+This function is meant to be used by modules or scripts to declare all of their dependencies.
+#+[dependency i]: Command that is absolutely required to run this script.
+#+returns: Nothing. Errors out with [B_E](#B_E), if dependencies are not met.
+#+@B_E
+function b_deps {
+local dep=
+local unmet=""
 
-local bin=""
-while IFS= read -r bin ; do
-	[ -z "$bin" ] && continue
-	command -v "$bin" &> /dev/null || ret="${ret}${bin}"$'\n'
-done <<< "$depList"
+#maybe TODO: support more dependency types
+for dep in "$@" ; do
+	command -v "$dep" &> /dev/null || unmet="$dep"$'\n'"$unmet"
+done
 
-#return & set exit code
-echo -n "$ret"
-[ -z "$ret" ]
-}
-
-#+b_blib_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_blib_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-dirname
-readlink
-whoami
-sort
-cat
-mktemp
-rm
-mv
-su
-EOF
-
-echo -n "$deps"
-}
-
-#blib_getModuleImports [module] [markdown link]
-#get the list of other modules that the given module imports via b_import (in its header)
-#[module]: module to check the imports for; may be a relative path
-#[markdown link]: whether or not to print the output as markdown link (default: 1/false)
-#returns: newline-separated list of imports of the given module; sets a non-zero status code on errors
-#@B_E
-function blib_getModuleImports {
-local module="$1"
-local markLink="${2:-1}"
-local modulePath=""
-modulePath="$(blib_getModulePath "$module")" || { B_ERR="Failed to obtain the path for the module $module."; B_E; }
-#NOTE: space in front of b_import will make the below ignore it (this is meant to allow for dynamic imports not to be reported as e.g. below)
-local importRegex='^b_import[[:blank:]]+(.*)$'
-local import=""
-
-local outFormat='%s\n'
-[ $markLink -eq 0 ] && outFormat=' [%s]\n\n'
-
-#unfortunately we need str here
- b_import str || B_E
-
-local line=""
-while IFS= read -r line ; do
-	if [[ "$line" =~ $importRegex ]] ; then
-		import="$(b_str_stripQuotes "${BASH_REMATCH[1]}")"
-		printf "$outFormat" "$import"
-	fi
-done < "$modulePath"
-
-return 0
-}
-
-#blib_getDeps [module] [source = 0|1]
-#get the list of dependencies for the given module; the module function to retrieve the dependencies must be available in the current namespace
-#[module]: module to check dependencies for; may be a relative path
-#[source]: whether (1) or not (0) to source the module before checking dependencies (default: 0 = don't source)
-#returns: newline-separated list of dependencies of the given module; sets a non-zero status code on errors
-#@B_E
-function blib_getDeps {
-local module="$1"
-local moduleName="${module##*/}"
-local toSource="${2:-0}"
-
-#make sure we don't source ourselves
-[[ "$moduleName" == "${BLIB_STORE["BLIB_SCRIPT_NAME"]}" ]] && toSource=0
-
-#check the deps
-if [ $toSource -eq 1 ] ; then
-	local modulePath=""
-	modulePath="$(blib_getModulePath "$module")" || { B_ERR="Failed to obtain the path for the module $module."; B_E; }
-	source "$modulePath" || { B_ERR="Failed to import the module $module from ${modulePath}."; B_E; }
-fi
-b_${moduleName}_getDeps || { B_ERR="The module $module doesn't seem to define a dependency getter function or it is not available in the current namespace."; B_E; }
-
-return 0
-}
-
-#blib_errorOutOnDepFail [module]
-#error out if the self-proclaimed dependencies of the given module are not met
-#@B_E
-function blib_errorOutOnDepFail {
-local module="$1"
-local deps=""
-deps="$(blib_getDeps "$module")" || { B_ERR="Failed to retrieve the dependencies for the module $module."; B_E; }
-local missingDeps=""
-
-#check dependencies
-missingDeps="$(b_checkDeps "$deps")"
-[ -n "$missingDeps" ] && B_ERR="Missing dependencies for module $module:"$'\n'"$missingDeps" && B_E
-
-return 0
+[ -z "$unmet" ] || { B_ERR="The script requires the following commands, but they were not found:"$'\n'"$unmet" ; B_E }
 }
 
 #+b_import [module] [double import]
@@ -882,9 +786,6 @@ if [ "${BLIB_STORE["BLIB_STANDALONE_MODE"]}" -ne 0 ] ; then
 	modulePath="$(blib_getModulePath "$module")" || { B_ERR="Failed to obtain the path for the module $module."; B_E; }
 	source "$modulePath" || { B_ERR="Failed to import the module $module from ${modulePath}."; B_E; }
 fi
-
-#check dependencies
-blib_errorOutOnDepFail "$module" || B_E
 
 #add to list of imported modules
 BLIB_STORE["BLIB_IMPORTED_MODULES"]="${BLIB_STORE["BLIB_IMPORTED_MODULES"]}"$'\n'"$module"
@@ -1296,23 +1197,30 @@ echo ""
 #add dependencies & imports after description
 if [ $prevCnt -eq 0 ] && b_isModule "$fileId" ; then
 	local deps=""
-	#NOTE: this _will_ source all available modules...
-	#maybe TODO: use a more lightweight method
-	deps="$(blib_getDeps "$fileId" 1 2> /dev/null)"
-	if [ $? -eq 0 ] ; then
-		[ -z "$deps" ] && deps="no dependencies"
-		echo "### Dependencies ###"
-		echo "$deps"
-	fi
+	deps="$(b_meta_getClearDeps "$filePath")" || { B_ERR="Failed to obtain the dependencies from ${filePath}." ; B_E }
+	deps="$(sort <<< "$deps")" || { B_ERR="Failed to sort." ; B_E }
+	[ -z "$deps" ] && deps="no dependencies"
+	echo "### Dependencies ###"
+	echo "$deps"
 
 	local imports=""
-	imports="$(blib_getModuleImports "$fileId" 0 2> /dev/null)"
-	if [ $? -eq 0 ] && [ -n "$imports" ] ; then
-		echo ""
-		echo "### Imports ###"
-		echo "$imports"
-	fi
+	imports="$(b_meta_getClearImports "$filePath")" || { B_ERR="Failed to obtain the imports of ${filePath}." ; B_E }
+	imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E }
+
 	echo ""
+	echo "### Imports ###"
+	if [ -n "$imports" ] ; then
+		#add md links
+		local line=
+		local mdImports=""
+		while IFS= read -r line ; do
+			[ -n "$mdImports" ] && mdImports="$mdImports"$'\n'$'\n'"[${line}]" || mdImports="[${line}]"
+		done <<< "$imports"
+
+		echo "$mdImports"
+	else
+		echo "no imports"
+	fi
 fi
 }
 
@@ -1323,6 +1231,7 @@ function blib_initCdoc {
 local initTarget="${1:-0}"
 
  b_import cdoc || B_E
+ b_import meta || B_E
 
 #set cdoc callback functions for all init targets
 b_cdoc_setBlockCallback "blib_docBlockCallback"
@@ -1368,8 +1277,7 @@ function blib_test {
 local module="$1"
 local testDir="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/tests"
 
-b_checkDeps "bats" || { B_ERR="bats is not installed."; B_E; }
-b_checkDeps "find" || { B_ERR="find is not installed."; B_E; }
+b_deps "bats" "find"
 
 B_TEST_MODE=0
 
@@ -1506,7 +1414,7 @@ exit 0
 }
 
 #check dependencies
-blib_errorOutOnDepFail "blib" || B_E
+b_deps "dirname" "readlink" "whoami" "sort" "cat" "mktemp" "rm" "mv" "su"
 
 #check bash version
 #currently at least 4.2 is needed for declare -gA support

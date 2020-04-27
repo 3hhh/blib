@@ -853,41 +853,20 @@ set -e
 }
 
 
-@test "b_checkDeps" {
-local testDeps=""
-local unmetDepsExpected=""
-set +e
-read -r -d '' testDeps << 'EOF'
-unmet dependency 1
-bash
-unmet dependency 2
-sort
-EOF
-
-read -r -d '' unmetDepsExpected << 'EOF'
-unmet dependency 1
-unmet dependency 2
-EOF
-
-set -e
-
-	runSL b_checkDeps "bash"
+@test "b_deps" {
+	runSL b_deps "bash"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_checkDeps ""
+	runSL b_deps
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
-	runSL b_checkDeps "$testDeps"
+	runSL b_deps "unmet dependency 1" "bash" "unmet dependency 2" "sort"
 	[ $status -ne 0 ]
-	[[ "$output" == "$unmetDepsExpected" ]]
-}
-
-@test "b_blib_getDeps" {
-	runSL b_blib_getDeps
-	[ $status -eq 0 ]
-	[ -n "$output" ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"unmet dependency 1"* ]]
+	[[ "$output" == *"unmet dependency 2"* ]]
 }
 
 @test "b_isModule" {
@@ -1183,12 +1162,17 @@ function meFunc {
 	echo 1
 	[[ "$output" == *"blib"* ]]
 	echo 2
-	[[ "$output" == *"b_blib_getDeps"* ]]
-	echo 3
+	[[ "$output" == *"b_deps"* ]]
+	[[ "$output" == *"b_import"* ]]
+	echo 3.1
 	[[ "$output" == *"Dependencies"* ]]
-	echo 4
+	echo 3.2
+	[[ "$output" == *"Imports"* ]]
+	echo 4.1
+	[[ "$output" == *"no imports"* ]]
+	echo 4.2
 
-	#check whether dependencies are in the list
+	#check whether imports & dependencies are in the list
 	[[ "$output" == *"sort"* ]]
 	echo 5
 	[[ "$output" == *"dirname"* ]]
@@ -1199,10 +1183,9 @@ function meFunc {
 	echo 7
 	[[ "$output" == *"os/qubes4/dom0"* ]]
 	echo 8
-	[[ "$output" == *"b_dom0_getDeps"* ]]
-	echo 9
 	[[ "$output" == *"Dependencies"* ]]
 	[[ "$output" == *"Imports"* ]]
+	echo 9
 	[[ "$output" == *"Functions"* ]]
 	[[ "$output" == *"qubes-prefs"* ]]
 	echo 10

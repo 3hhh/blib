@@ -7,13 +7,6 @@
 
 #+### Functions ###
 
-#+b_traps_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_traps_getDeps {
-echo ""
-}
-
 #+b_traps_getCodeFor [signal]
 #+Retrieve the current trap code / commands for the given signal.
 #+returns: The current code and sets a zero exit code on success.

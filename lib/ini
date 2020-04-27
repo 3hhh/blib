@@ -29,13 +29,6 @@ BLIB_STORE["BLIB_INI_SEP"]="]"
 
 #+### Functions ###
 
-#+b_ini_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_ini_getDeps {
-echo ""
-}
-
 #+b_ini_read [ini file]
 #+read the given ini file and keep it in thread-local memory so that subsequent calls to the b_ini_get functions will return the values from the ini file; subsequent calls to this function will update the internal state to represent the file last read in this thread
 #+[ini file]: path to the ini file to read

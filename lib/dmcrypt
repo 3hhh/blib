@@ -10,27 +10,11 @@
 #+0.6
 
 b_import ui
+b_deps "dirname" "mkdir" "head" "md5sum" "readlink"
 
 BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]="auto"
 
 #+### Functions ###
-
-#+b_dmcrypt_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_dmcrypt_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-dirname
-mkdir
-head
-md5sum
-readlink
-EOF
-#NOTE: cryptsetup is not here to allow using those functions in user mode that don't require cryptsetup (which can usually only be executed by root)
-
-echo -n "$deps"
-}
 
 #blib_assertCryptsetup
 #@B_E

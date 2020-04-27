@@ -7,13 +7,6 @@
 
 #+### Functions ###
 
-#+b_str_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_str_getDeps {
-echo ""
-}
-
 #+b_str_stripQuotes [string]
 #+Remove any single or double quotes around the given string.
 #+[string]: string which might be enclosed in single or double quotes (' or ")

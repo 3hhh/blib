@@ -32,17 +32,6 @@ BLIB_STORE["BLIB_IPCM_MTX"]="/dev/shm/${BLIB_STORE["BLIB_IPCM_NS"]}_mtx"
 
 #+### Functions ###
 
-#+b_ipcm_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_ipcm_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-EOF
-
-echo -n "$deps"
-}
-
 #+b_ipcm_setNamespace [namespace]
 #+Set the common process namespace to use. All processes inside the same namespace share a common state.
 #+It is recommended to call this function a single time before any other functions of this module. Otherwise the default namespace, which may include unrelated processes, is used.

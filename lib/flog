@@ -22,6 +22,8 @@
 #+0.3
 
 b_import fs
+b_deps "date" "tail" "cat" "mktemp"
+
 
 #set all internal variables to their defaults
 #blib_flog_reset
@@ -244,21 +246,6 @@ b_setErrorHandler "$oldHandler"
 B_ERR="$msg"
 
 b_defaultErrorHandler $errorOut $printErr $printStack
-}
-
-#+b_flog_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_flog_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-date
-tail
-cat
-mktemp
-EOF
-
-echo -n "$deps"
 }
 
 ################### setters & getters ###################

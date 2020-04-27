@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+#+some doc comments
+#+
+
+#import test
+b_import "os/qubes4/dom0"
+
+b_deps "mount" "somecommand" "my com_mand-with-numb3r!s"
+
+function somefunc {
+	echo "hello world"
+}
+
+#the below shouldn't be added
+ b_import someimp
+ b_deps "more" "deps"
+
+b_deps 'anotherCommand'
+
+echo "hello all!"
+
+b_deps no spaces
+b_import str
+
+b_deps "even a" \
+	multiline 'dep declaration should' \
+\
+  "really" really \
+	work
+
+exit 33
+function anotherfunc {
+b_import 'should-be-added'
+b_deps this "as well" 'my friend'
+}

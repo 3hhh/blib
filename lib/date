@@ -5,6 +5,8 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.3
 
+b_deps "date"
+
 #BLIB_DATE_UNIT2SECSMULT
 #Translates units to multiples of seconds.
 declare -gA BLIB_DATE_UNIT2SECSMULT=(
@@ -15,18 +17,6 @@ declare -gA BLIB_DATE_UNIT2SECSMULT=(
 	)
 
 #+### Functions ###
-
-#+b_date_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_date_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-date
-EOF
-
-echo -n "$deps"
-}
 
 #+b_date_add [date] [time] [unit] [format] [utc flag]
 #+Add the given number of seconds to the given date.

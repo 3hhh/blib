@@ -7,18 +7,6 @@
 
 #+### Functions ###
 
-#+b_arr_getDeps
-#+Get the dependencies of this module.
-#+returns: newline-separated list of dependencies of this module
-function b_arr_getDeps {
-local deps=""
-read -r -d '' deps << 'EOF'
-printf
-EOF
-
-echo -n "$deps"
-}
-
 #+b_arr_join [delimiter] [array]
 #+Join the given array; elements are separated with the given delimiter. The array is not checked to exist.
 #+[delimiter]: String to use as delimiter.
