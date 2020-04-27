@@ -862,6 +862,10 @@ set -e
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
+	runSL b_deps "" "bash" ""
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
 	runSL b_deps "unmet dependency 1" "bash" "unmet dependency 2" "sort"
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]

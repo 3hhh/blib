@@ -759,6 +759,7 @@ local unmet=""
 
 #maybe TODO: support more dependency types
 for dep in "$@" ; do
+	[ -z "$dep" ] && continue
 	command -v "$dep" &> /dev/null || unmet="$dep"$'\n'"$unmet"
 done
 
