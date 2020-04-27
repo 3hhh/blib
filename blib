@@ -1215,7 +1215,7 @@ if [ $prevCnt -eq 0 ] && b_isModule "$fileId" ; then
 		local line=
 		local mdImports=""
 		while IFS= read -r line ; do
-			[ -n "$mdImports" ] && mdImports="$mdImports"$'\n'$'\n'"[${line}]" || mdImports="[${line}]"
+			[ -n "$mdImports" ] && mdImports="$mdImports"$'\n'$'\n'" [${line}]" || mdImports=" [${line}]"
 		done <<< "$imports"
 
 		echo "$mdImports"
