@@ -331,7 +331,7 @@ function checkHeartbeat {
 }
 
 @test "b_dom0_qvmRun" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	echo "hello from stdin" | { runSL b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" 'cat - ; echo "hello from dispvm" ; [ 1 -eq 1 ]'
 	[ $status -eq 0 ]
@@ -454,7 +454,7 @@ function testExecIn {
 }
 
 @test "b_dom0_execIn" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	local execFile1="$(getDom0Fixture "execFile1")"
 	local execFile2="$(getDom0Fixture "execFile2")"
@@ -463,7 +463,7 @@ function testExecIn {
 }
 
 @test "b_dom0_execStrIn" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	local execFile1="$(getDom0Fixture "execFile1")"
 	local execFile1Str="$(cat "$execFile1")"
@@ -492,7 +492,7 @@ function testFunc01Dep {
 }
 
 @test "b_dom0_execFuncIn" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	#the in-depth test is done in the b_generateStandalone test, we just do some basic testing here
 	runSL b_dom0_execFuncIn "${TEST_STATE["DOM0_TESTVM_1"]}" "" "testFunc01" "os/osid" - "testFunc01Dep" - 33 "holy moly"
@@ -518,6 +518,8 @@ In Qubes VM.'
 }
 
 @test "b_dom0_setVMDeps & b_dom0_getVMDeps" {
+	skipIfNoTestVMs
+
 	local invalidDeps="sed"$'\n'"nonexistingDep"$'\n'"test"
 
 	runSL b_dom0_getVMDeps
@@ -795,7 +797,7 @@ function testSuccAttachFile {
 }
 
 @test "b_dom0_createLoopDeviceIfNecessary & b_dom0_mountIfNecessary & b_dom0_removeUnusedLoopDevice" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	#some failing tests
 	runSL b_dom0_createLoopDeviceIfNecessary "${TEST_STATE["DOM0_TESTVM_1"]}" "/tmp/non-existing-file"
@@ -925,7 +927,7 @@ function testSuccAttachFile {
 }
 
 @test "b_dom0_attachFile" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 	local loopFile="$(getDom0Fixture "ext4loop")"
 	local tmpLoop="$(mktemp)"
 	cat "$loopFile" > "$tmpLoop"
@@ -950,7 +952,7 @@ function testSuccAttachFile {
 }
 
 @test "b_dom0_detachDevice" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	[ -z "${TEST_STATE["DOM0_DETACH_DEVICE"]}" ] && skip "Didn't find a device to test the detach operation with. Maybe the previous test failed?"
 
@@ -1041,7 +1043,7 @@ function crossAttachTest {
 }
 
 @test "b_dom0_crossAttachDevice & b_dom0_crossAttachFile" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 	#b_dom0_crossAttachFile currently uses b_dom0_crossAttachDevice, so we only need to test the first one
 
 	runSL b_dom0_crossAttachFile "${TEST_STATE["DOM0_TESTVM_1"]}" "/tmp/nonexistingfile" "${TEST_STATE["DOM0_TESTVM_2"]}"
@@ -1093,7 +1095,7 @@ function assertMd5 {
 }
 
 @test "b_dom0_copy" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	local testFile="$(getDom0Fixture "ext4loop")"
 	local md5TestFile="$(md5sum "$testFile" | cut -f1 -d' ')"
@@ -1216,7 +1218,7 @@ function testSuccCrossCopy {
 }
 
 @test "b_dom0_crossCopy" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 	local tfile="/etc/passwd"
 	local tfileName="passwd"
 
@@ -1268,7 +1270,7 @@ function testSuccCrossCopy {
 }
 
 @test "b_dom0_openCrypt & b_dom0_closeCrypt" {
-	skipIfNoTestVMs 
+	skipIfNoTestVMs
 
 	local luksFile="$(getDom0Fixture "luksloop")"
 	local luksKey="$(getDom0Fixture "lukskey")"

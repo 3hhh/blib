@@ -134,9 +134,9 @@ local tPrefix="$(mktemp)"
 local depsEsc=
 local dep=
 while IFS= read -r dep ; do
-	printf -v depsEsc '%q ' "$dep"
+	printf -v depsEsc '%s %q' "$depsEsc" "$dep"
 done <<< "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
-cmd="$(declare -f "b_deps") ; b_deps $depsEsc &> /dev/null && printf '%b' \"$prefix\x66\" || { printf '%b' \"$prefix\x67\" ; exit 127 ; } ; $cmd"
+cmd="$(declare -f "b_deps") ; ( b_deps $depsEsc &> /dev/null ) && printf '%b' \"$prefix\x66\" || { printf '%b' \"$prefix\x67\" ; exit 127 ; } ; $cmd"
 local ret=5
 local oldOpts=""
 [[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
@@ -155,7 +155,7 @@ eval "$oldOpts"
 local prefixFound="$(cat "$tPrefix")"
 rm -f "$tPrefix" &> /dev/null
 [[ ! "$prefixFound" =~ ^121314121314666[67]$ ]] && B_ERR="Failed to execute qvm-run. Maybe the VM $vm is not running or incorrect parameters were passed?" && B_E
-[[ "$prefixFound" != *"6" ]] && B_ERR="The VM $vm failed the dependency check. Required commands:"$'\n'"${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}" && B_E
+[[ "$prefixFound" != *"6" ]] && B_ERR="The VM $vm failed the dependency check. Required dependencies:"$'\n'"${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}" && B_E
 
 return $ret
 }
