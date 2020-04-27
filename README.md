@@ -82,6 +82,8 @@ b_checkVersion 1 2 || { >&2 echo "This script depends on blib (https://github.co
 b_import str
 ```
 
+Check out the module implementations or the [qcrypt code](#https://github.com/3hhh/qcrypt) for real-life examples on how to use the library.
+
 ## Documentation
 
 The blib code reference is available in many formats:
@@ -108,6 +110,6 @@ If you didn't install to `/usr/lib`, you'll have to provide the installer script
 
 ## Copyright
 
-© 2019 David Hobach
+© 2020 David Hobach
 
 blib is released under the LGPLv3 license; see `LICENSE` for details.
