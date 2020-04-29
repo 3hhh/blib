@@ -14,7 +14,7 @@
 #+0.6
 
 b_import fs
-b_deps "mv" "rm" "mktemp"
+b_deps "mv" "rm" "mktemp" "cat"
 
 #storage for the getter & setters and their defaults
 BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]='^#\+(.*)$'
