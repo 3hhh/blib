@@ -237,8 +237,10 @@ while IFS= read -r fname ; do
 					#call block callback
 					#NOTE: we do this in the current shell to support usage of global variables within the callback
 					${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat" > "$blockOut" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
-					block="$(<"$blockOut")" || { B_ERR="Failed to read from the block output for the file $fname." ; B_E }
-					[ -n "$o" ] && o="${o}"$'\n'"$block" || o="$block"
+					#NOTE: the x stuff is just done in order to keep trailing newlines
+					block="$(cat "$blockOut" ; echo x)" || { B_ERR="Failed to read from the block output for the file $fname." ; B_E }
+					block="${block%x}"
+					[ -n "$o" ] && o="${o}$block" || o="$block"
 					block=""
 					(( blockCnt ++ ))
 				fi
@@ -249,7 +251,8 @@ while IFS= read -r fname ; do
 
 		"1")
 		#include as-is
-		o="$(<"$fname")" || { B_ERR="Failed to read ${fname}." ; B_E }
+		o="$(cat "$fname" ; echo x)" || { B_ERR="Failed to read ${fname}." ; B_E }
+		o="${o%x}"
 		;;
 
 		"2")
@@ -258,7 +261,7 @@ while IFS= read -r fname ; do
 		;;
 
 		*)
-		B_ERR="The ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} requested an abnoral exit after seeing $fname."
+		B_ERR="The ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} requested an abnormal exit after seeing $fname."
 		B_E
 		;;
 	esac

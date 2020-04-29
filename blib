@@ -1193,7 +1193,6 @@ local fileId="$(blib_getFileDocId "$filePath")"
 
 [ $prevCnt -ne 0 ] && echo ""
 echo "$block"
-echo ""
 
 #add dependencies & imports after description
 if [ $prevCnt -eq 0 ] && b_isModule "$fileId" ; then
@@ -1201,6 +1200,7 @@ if [ $prevCnt -eq 0 ] && b_isModule "$fileId" ; then
 	deps="$(b_meta_getClearDeps "$filePath")" || { B_ERR="Failed to obtain the dependencies from ${filePath}." ; B_E }
 	deps="$(sort <<< "$deps")" || { B_ERR="Failed to sort." ; B_E }
 	[ -z "$deps" ] && deps="no dependencies"
+	echo ""
 	echo "### Dependencies ###"
 	echo "$deps"
 

@@ -150,5 +150,5 @@ function testPostProcCb {
 	echo ""
 	echo "##$(basename "$inFile")"
 	echo ""
-	echo "$input"
+	echo -n "$input"
 }
