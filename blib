@@ -1267,7 +1267,7 @@ blib_initCdoc || B_E
 #generate the doc
 local outPath=""
 echo -n "Generating $outFormat documentation...  "
-outPath="$(b_cdoc_generateBlibStyle "$cdocInput" "$cdocOutput" "$outFormat")" || { B_ERR="Failed to generate the $outFormat documentation."; B_E; }
+outPath="$(b_cdoc_generateBlibStyle "$cdocInput" "${cdocOutput}.$outFormat" "$outFormat")" || { B_ERR="Failed to generate the $outFormat documentation."; B_E; }
 echo "Done."
 echo "${outPath}"
 }

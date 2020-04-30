@@ -193,7 +193,7 @@ echo "${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]}"
 #+[output file]: Path to the documentation file to generate. Should not exist.
 #+[output format]: The target format of the documentation to generate. See [pandoc] for a list of available output formats. If none is specified, [pandoc] is bypassed and the input format is chosen as output format. Passing "pandoc" will let [pandoc] decide based on the extension of the output file.
 #+[additional pandoc options]: All remainining parameters will be directly passed to [pandoc]. If none are provided, -s is implicitly added as default.
-#+returns: Sets a non-zero exit code and exits the script on errors. output from [pandoc] and other calls may be printed. Otherwise nothing is returned.
+#+returns: Sets a non-zero exit code and exits the script on errors. Output from [pandoc] and other calls may be printed. Otherwise nothing is returned.
 #+@B_E
 function b_cdoc_generate {
 local fileList="$1"
@@ -294,10 +294,10 @@ fi
 return 0
 }
 
-#+b_cdoc_generateBlibStyle [input files] [output file base path] [output format] [delete existing]
+#+b_cdoc_generateBlibStyle [input files] [output file] [output format] [delete existing]
 #+A convenience wrapper for b_cdoc_generate which sets various reasonable parameters depending on the output format.
 #+[input files]: see b_cdoc_generate
-#+[output file base path]: path to a directory and base file name where to store the generated output documentation file; the final file name may differ as it is chosen by this function
+#+[output file]: where to write the generated output documentation to
 #+[output format]: currently one of raw|html|pdf|man is supported (default: raw)
 #+[delete existing]: whether or not to delete previously created output files (default: true/0); if set to false (1), the function will error out if a previously created file was found
 #+returns: full path to the created documentation file on success; otherwise the function may error out
@@ -309,21 +309,19 @@ local outFormat="${3:-raw}"
 local deleteExisting="${4:-0}"
 
 local cdocAdditional=("-s" "--toc" "--toc-depth=3" "-f" "markdown+hard_line_breaks" "--section-divs")
-local cdocOutFormat=""
+local cdocOutFormat=
 
 case "$outFormat" in
 	raw)
-	cdocOutput="$cdocOutput.md"
 	cdocOutFormat=""
 	;;
 
 	pdf)
-	cdocOutput="$cdocOutput.pdf"
+	[[ "$cdocOutput" == *".pdf" ]] || { B_ERR="Currently only output files of format pdf with a pdf file ending are supported. So please adjust your file name." ; B_E }
 	cdocOutFormat="pandoc"
 	;;
 
 	html)
-	cdocOutput="$cdocOutput.html"
 	cdocOutFormat="html5"
 	cdocAdditional+=("--self-contained")
 	cdocAdditional+=("-c")
@@ -331,7 +329,6 @@ case "$outFormat" in
 	;;
 
 	man)
-	cdocOutput="$cdocOutput.man"
 	cdocOutFormat="man"
 	;;
 
@@ -348,7 +345,7 @@ local out=""
 out="$(b_cdoc_generate "$fileList" "$cdocOutput" "$cdocOutFormat" "${cdocAdditional[@]}")" || { B_ERR="Failed to generate the doc: $out" ; B_E }
 
 #return
-echo "${cdocOutput}"
+echo "$cdocOutput"
 return 0
 }
 
