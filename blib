@@ -133,10 +133,10 @@ read -r -d '' B_SCRIPT << 'EOF'
 B_SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 B_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
 EOF
-#+
+
 #+B_SCRIPT_NAME
 #+Path of the sourced or executed bash script executing the eval (symlinks are resolved) of [B_SCRIPT](#B_SCRIPT).
-#+
+
 #+B_SCRIPT_DIR
 #+Name of the sourced or executed bash script executing the eval (symlinks are resolved) of [B_SCRIPT](#B_SCRIPT).
 
