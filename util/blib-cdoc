@@ -1,0 +1,438 @@
+#!/bin/bash
+#
+#See usage().
+#
+#Copyright (C) 2020  David Hobach  GPLv3
+#version: 0.7
+#
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+
+#blib might not (yet) be installed --> attempt to load blib from ../blib
+B_SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+B_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
+BLIB="$B_SCRIPT_DIR/../blib"
+[ -f "$BLIB" ] && source "$BLIB" || source blib
+
+b_checkVersion 1 3 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.3 or higher. Please install a supported version." ; exit 1 ; }
+
+b_import "args"
+b_import "arr"
+b_import "cdoc"
+b_import "meta"
+
+b_deps "file" "mktemp" "cat" "readlink" "sort"
+
+#parsed arguments & options
+OUTPUT=
+OUTPUT_BASE=
+OUTPUT_EXT=
+DELETE_EXISTING= #-n option, inversed
+declare -A EXCL=()
+declare -A VERB=()
+ADD_REFTABLE=
+ADD_DEPS=
+ADD_IMPORTS=
+IN_LIST=
+HEADER_LEVEL_INIT=
+ID_REGEX=
+
+#reference table caches
+REF_CACHE_VAR=()
+REF_CACHE_FUNC=()
+
+#for cb_postProcessing
+HEADER_LEVEL=
+
+function usage {
+echo "
+Usage: $B_SCRIPT_NAME [options] [output] [input 1] ... [input n]
+
+Generate a documentation file from the given bash source code.
+
+The documentation content must be provided inline as part of the source code in blib-style
+markdown. Only lines starting with _#+_ (remove the underscores) are considered to be part of
+the documentation. Thereby blib-style markdown is identical to pandoc's markdown [1] with a
+few added conventions, namely:
+	- A block of #+ comments with a single _#+returns: text_ line is assumed to document a
+	  function. The first line of such a block must start with the function name.
+	- Function parameters may be documented with _[param]: text_ without escaping the braces
+	  around _[param]_. Any following braces need to be escaped as usual with pandoc's syntax.
+	- Function documentation may contain lines starting with _#+@_. These are interpreted as
+	  tags. Each line may only hold a single tag.
+	- All #+ blocks starting with a single line of just capital letters, numbers or underscores
+	  are assumed to document a global variable named as the first line.
+	  Example:
+	    #+MY_PASS
+	    #+Holds the super secret password.
+	    MY_PASS='password'
+	- Only ATX-style headings are supported. Setext-style headings may yield unexpected results.
+
+
+[output]	File path where to write the documentation to. The output format is decided from the
+		file ending.
+		Currently supported: raw|md|pdf|html|man
+		Thereby the raw format is blib-style markdown, the md format pandoc-style markdown.
+		Use .raw|.md|.pdf|.html|.man to write to stdout.
+[input i]	Bash source code files or directories. Directories are recursively traversed and all
+		files inside are included, if they have a valid bash header. Directly specified files
+		are always included regardless of their header and processed in the order they are
+		specified.
+
+Options:
+  -n		Do not overwrite existing output files.
+  -r		Add a reference list of all functions and global variables at the end of the created
+  		document.
+  -d		Add dependencies declared via b_deps to the output document.
+  -i		Add imports declared via b_import to the output document.
+  --excl [file]	Exclude the given [file] from processing. Useful in combination with directory traversal.
+  		Repeatable.
+  --verb [file]	Fully include the given file as-is, i.e. without any parsing (\"verbatim\"), when it is
+  		found in the input file list. Repeatable.
+  --hl [level]  Header level at which to start for each input (default: 1).
+  --id [regex]	POSIX extended regular expression to extract an identifier from the given input files.
+  		The concatenated regex capture groups form the ID. That identifier is used for e.g.
+		markdown headers. Default: File name
+
+
+For more fine-grained control over the generated document or in order to support languages other than
+bash please use the cdoc module directly.
+
+[1] https://pandoc.org/MANUAL.html#pandocs-markdown
+"
+exit 1
+}
+
+#parseArgs [@]
+function parseArgs {
+b_args_init 1 "-n" 0 "-r" 0 "-d" 0 "-i" 0 "--excl" 1 "--verb" 1 "--hl" 1 "--id" 1
+b_args_parse "$@"
+local argCnt="$(b_args_getCount)"
+[ $argCnt -lt 2 ] && usage
+
+#output
+OUTPUT="$(b_args_get 0)"
+OUTPUT_EXT="${OUTPUT##*.}"
+OUTPUT_BASE="${OUTPUT%.$OUTPUT_EXT}"
+if [ -z "$OUTPUT_EXT" ] || [[ "$OUTPUT_BASE" == "$OUTPUT_EXT" ]] ; then
+	B_ERR="The output must be specified with an extension."
+	B_E
+fi
+
+#inputs
+#NOTE: we need to normalize the paths with readlink for --verb and --excl comparisons
+local i=1
+local cur="$(b_args_get $i)"
+while [ -n "$cur" ] ; do
+	[ -e "$cur" ] || { B_ERR="Does not exist: $cur" ; B_E }
+	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E }
+	[ -n "$IN_LIST" ] && IN_LIST="$IN_LIST"$'\n'"$cur" || IN_LIST="$cur"
+	(( i++ ))
+	cur="$(b_args_get $i)"
+done
+
+#--excl
+local i=0
+local cur="$(b_args_getOption "--excl" "" $i)"
+while [ -n "$cur" ] ; do
+	[ -f "$cur" ] || { B_ERR="No file: $cur" ; B_E }
+	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E }
+	EXCL["$cur"]=0
+	(( i++ ))
+	cur="$(b_args_getOption "--excl" "" $i)"
+done
+
+#--verb
+local i=0
+local cur="$(b_args_getOption "--verb" "" $i)"
+while [ -n "$cur" ] ; do
+	[ -f "$cur" ] || { B_ERR="No file: $cur" ; B_E }
+	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E }
+	VERB["$cur"]=0
+	(( i++ ))
+	cur="$(b_args_getOption "--verb" "" $i)"
+done
+
+##--hl
+HEADER_LEVEL_INIT="$(b_args_getOptionInt "--hl" 1)"
+
+##--id
+ID_REGEX="$(b_args_getOption "--id")"
+
+#-n
+DELETE_EXISTING=0
+b_args_getOption "-n" > /dev/null && DELETE_EXISTING=1
+
+#-r
+ADD_REFTABLE=1
+b_args_getOption "-r" > /dev/null && ADD_REFTABLE=0
+
+#-d
+ADD_DEPS=1
+b_args_getOption "-d" > /dev/null && ADD_DEPS=0
+
+#-i
+ADD_IMPORTS=1
+b_args_getOption "-i" > /dev/null && ADD_IMPORTS=0
+}
+
+#initCdoc
+#Init cdoc with the required parameters.
+function initCdoc {
+b_cdoc_setFileCallback "cb_file"
+b_cdoc_setBlockCallback "cb_block"
+b_cdoc_setDocumentEndCallback "cb_end"
+}
+
+#cb_file [file] [output format]
+function cb_file {
+local file="$1"
+
+#normalize
+file="$(readlink -e "$file")"
+
+[ ${EXCL["$file"]+exists} ] && return 2
+[ ${VERB["$file"]+exists} ] && return 1
+
+local mtype=
+mtype="$(file -b --mime-type "$file")" || { B_RC=66 ; B_ERR="Failed to identify the mime type of the file ${file}." ; B_E }
+[[ "$mtype" == "text/x-shellscript" ]] && return 0
+
+return 2
+}
+
+#getDocId [file path]
+#[file path]: path for which to get the documentation ID
+#returns: The documentation ID for that file (is the module name if the file is a module).
+#@B_E
+function getDocId {
+local filePath="$1"
+
+if [ -n "$ID_REGEX" ] ; then
+	if [[ "$filePath" =~ $ID_REGEX ]] ; then
+		[ ${#BASH_REMATCH} -gt 0 ] || { B_ERR="Not enough captures found for $filePath matching $ID_REGEX. At least a single capture group is required." ; B_E }
+		local i=
+		for ((i=0; i < ${#BASH_REMATCH}; i++)) ; do echo -n "${BASH_REMATCH[$i]}" ; done
+	else
+		B_ERR="Could not extract an ID from $filePath. It doesn't match the ID regex: $ID_REGEX"
+		B_E
+	fi
+else
+	echo "${filePath##*/}"
+fi
+return 0
+}
+
+#cb_block [block] [block counter] [input file] [output format]
+function cb_block {
+local in="$1"
+local blockCnt="$2"
+local file="$3"
+local varRegex='^([A-Z_0-9]+)$'
+local funcNameRegex='^([^[:space:]]+).*$'
+local varName=""
+local funcName=""
+local line=
+local out="$in"
+
+local docId=
+docId="$(getDocId "$file")" || { B_ERR="Failed to obtain an ID for $file." ; B_E }
+if [ $blockCnt -eq 0 ] ; then
+	#print file header, if first block
+	HEADER_LEVEL=$HEADER_LEVEL_INIT
+	[[ "$OUTPUT_EXT" == "raw" ]] && printHeader "$docId" || printHeader "$docId" "$docId"
+else
+	#add some space to previous block
+	echo ""
+fi
+
+#obtain & cache function & variable names
+if [ $ADD_REFTABLE -eq 0 ] || [[ "$OUTPUT_EXT" != "raw" ]] ; then
+	IFS= read -r line <<< "$in"
+	if [[ "$line" =~ $varRegex ]] ; then
+		varName="${BASH_REMATCH[1]}"
+		REF_CACHE_VAR+=("$varName")
+	elif [[ "$in" == *$'\n'"returns:"* ]] ; then
+		isFunc=0
+		if [[ "$line" =~ $funcNameRegex ]] ; then
+			funcName="${BASH_REMATCH[1]}"
+			REF_CACHE_FUNC+=("$funcName")
+		else
+			B_ERR="Failed to identify the function name on line $line of file $file."
+			B_E
+		fi
+	fi
+fi
+
+#convert to pandoc markdown
+if [[ "$OUTPUT_EXT" != "raw" ]] ; then
+	if [ -n "$varName" ] ; then
+		#variable block
+		local headerDone=1
+		while IFS= read -r line ; do
+			if [ $headerDone -ne 0 ] ; then
+				printHeader "$line" "$varName" $(( HEADER_LEVEL +1 ))
+				echo "<small>*${docId}/${varName}*</small>"
+				headerDone=0
+			else
+				echo "$line"
+			fi
+		done <<< "$in"
+	elif [ -n "$funcName" ] ; then
+		#function block
+		local i=0
+		local funcReturnsRegex='^returns\:'
+		local funcAnnotateRegex='^(@[a-zA-Z_\-]+)[[:blank:]]*$'
+		local funcParRegex='^\[([^]]+)\](.*)$'
+		while IFS= read -r line ; do
+			if [ $i -eq 0 ] ; then
+				#header
+				printHeader "$line" "$funcName" $(( HEADER_LEVEL +1 ))
+				echo "<small>*${docId}/${funcName}*</small>"
+			elif [[ "$line" =~ $funcReturnsRegex ]] ; then
+				#make "returns:" bold & add html identifier
+				echo '<span class="ret">'"${line/returns:/**returns**:}"'</span>'
+			elif [[ "$line" =~ $funcAnnotateRegex ]] ; then
+				#change annotations to italic & add html identifier
+				echo '<span class="ann">'"${line/${BASH_REMATCH[1]}/*${BASH_REMATCH[1]}*}"'</span>'
+			elif [[ "$line" =~ $funcParRegex ]] ; then
+				#parameters after first line with []
+				echo '<span class="par">'"\[${BASH_REMATCH[1]}\]${BASH_REMATCH[2]}"'</span>'
+			else
+				echo "$line"
+			fi
+			(( i++ ))
+		done <<< "$in"
+	else
+		#some other block
+		updateHeaderLevel "$in"
+		echo "$in"
+	fi
+else
+	updateHeaderLevel "$in"
+	echo "$in"
+fi
+
+#dependencies & imports are always added after the first block
+#NOTE: both are meant to be one level below the document header
+if [ $blockCnt -eq 0 ] ; then
+	#dependencies
+	if [ $ADD_DEPS -eq 0 ] ; then
+		echo ""
+		printHeader "Dependencies" "" $(( HEADER_LEVEL_INIT +1 ))
+		local deps=
+		deps="$(b_meta_getClearDeps "$file")" || { B_ERR="Failed to obtain the dependencies for $file." ; B_E }
+		[ -z "$deps" ] && echo "no dependencies" || sort <<< "$deps"
+	fi
+
+	#imports
+	if [ $ADD_IMPORTS -eq 0 ] ; then
+		echo ""
+		printHeader "Imports" "" $(( HEADER_LEVEL_INIT +1 ))
+		local imports=
+		imports="$(b_meta_getClearImports "$file")" || { B_ERR="Failed to obtain the imports for $file." ; B_E }
+		if [ -n "$imports" ] ; then
+			imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E }
+			local line=
+			while IFS= read -r line ; do
+				echo "[${line}]"
+			done <<< "$imports"
+		else
+			echo "no imports"
+		fi
+	fi
+fi
+return 0
+}
+
+#updateHeaderLevel [block]
+#check whether we have new header lines & update HEADER_LEVEL if so
+function updateHeaderLevel {
+local block="$1"
+local headerRegex='^(#+)[ ]+.*$'
+local blankRegex='^[[:blank:]]*$'
+
+local line=
+local lineBefore=""
+while IFS= read -r line ; do
+	#pandoc and we require a blank line before and a space after the header
+	[[ "$lineBefore" =~ $blankRegex ]] && [[ "$line" =~ $headerRegex ]] && HEADER_LEVEL="${#BASH_REMATCH[1]}"
+	lineBefore="$line"
+done <<< "$block"
+return 0
+}
+
+#printHeader [header content] [id] [header level]
+#[header content]: header line
+#[id]: optional ID to reference the header (default: none)
+#[header level]: optional level (default: HEADER_LEVEL)
+function printHeader {
+local content="$1"
+local id="$2"
+local level="${3:-$HEADER_LEVEL}"
+
+local headerIndent=""
+for ((i=0; i < $level; i++)) ; do headerIndent="${headerIndent}#" ; done
+local idStr=""
+[ -n "$id" ] && idStr="    {#$id}"
+echo "$headerIndent $content ${headerIndent}${idStr}"
+}
+
+#cb_end [output file] [output format]
+function cb_end {
+if [ $ADD_REFTABLE -eq 0 ] ; then
+	local refId="reflist"
+	[[ "$OUTPUT_EXT" == "raw" ]] && refId=""
+	printHeader "Reference List" "$refId" $(( HEADER_LEVEL_INIT +1 ))
+	echo ""
+	local list="$(b_arr_toList "${REF_CACHE_VAR[@]}" "${REF_CACHE_FUNC[@]}")"
+	list="$(sort <<< "$list")" || { B_ERR="Failed to sort." ; B_E }
+
+	local line=
+	while IFS= read -r line ; do
+		[ -z "$line" ] && continue
+		echo "[$line](#$line)"
+		echo ""
+	done <<< "$list"
+fi
+return 0
+}
+
+function main {
+parseArgs "$@"
+initCdoc
+
+#special case: do we need to print to stdout?
+local printStdout=1
+if [ -z "$OUTPUT_BASE" ] ; then
+	printStdout=0
+	OUTPUT_BASE="$(mktemp -u)" || { B_ERR="Failed to create a temp file." ; B_E }
+	OUTPUT="${OUTPUT_BASE}.$OUTPUT_EXT"
+fi
+
+#run
+local outFormat="$OUTPUT_EXT"
+#md and raw are identical except for some callbacks doing less processing @raw
+[[ "$outFormat" == "md" ]] && outFormat="raw"
+
+b_cdoc_generateBlibStyle "$IN_LIST" "$OUTPUT" "$outFormat" $DELETE_EXISTING > /dev/null
+
+#print, if necessary
+if [ $printStdout -eq 0 ] ; then
+	cat "$OUTPUT" || { B_ERR="Failed to run cat." ; B_E }
+	rm -f "$OUTPUT"
+fi
+}
+
+main "$@"
