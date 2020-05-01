@@ -8,6 +8,8 @@
 #+
 #+Various callback functions can be used to add content to the output of b_cdoc_generate. See the documentation of that function for details.
 #+
+#+If you wish to create code documentation for your bash project in blib style, please use `../util/blib-cdoc`.
+#+
 #+ [pandoc]: https://pandoc.org/
 #+
 #+Copyright (C) 2020  David Hobach  LGPLv3
