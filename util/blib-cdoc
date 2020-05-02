@@ -346,7 +346,8 @@ if [ $blockCnt -eq 0 ] ; then
 			imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E }
 			local line=
 			while IFS= read -r line ; do
-				echo "[${line}]"
+				#NOTE: the links may be dead, if the module is not included in the doc
+				echo "[${line}](#${line})"
 			done <<< "$imports"
 		else
 			echo "no imports"
