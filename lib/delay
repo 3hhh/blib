@@ -11,6 +11,8 @@
 #map of timestamps --> commands
 declare -gA BLIB_DELAY_CMDS=()
 
+#+### Global Variables ###
+
 #+B_DELAY_EXECUTED
 #+The number of commands executed during the last invocation of [b_delay_execute](#b_delay_execute).
 B_DELAY_EXECUTED=0
