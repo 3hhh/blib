@@ -48,6 +48,10 @@ ADD_IMPORTS=
 IN_LIST=
 HEADER_LEVEL_INIT=
 
+#whether a particular file was already processed
+#useful with e.g. symbolic links
+declare -A DONE=()
+
 #reference table caches
 REF_CACHE_VAR=()
 REF_CACHE_FUNC=()
@@ -197,6 +201,7 @@ function initCdoc {
 b_cdoc_setFileCallback "cb_file"
 b_cdoc_setBlockCallback "cb_block"
 b_cdoc_setDocumentEndCallback "cb_end"
+b_cdoc_setPostProcessingCallback "cb_postProc"
 }
 
 #cb_file [file] [output format]
@@ -204,14 +209,19 @@ function cb_file {
 local file="$1"
 
 #normalize
-file="$(readlink -e "$file")"
+file="$(readlink -e "$file")" || { B_ERR="Failed to execute readlink." ; B_E }
 
+#already done before?
+[ ${DONE["$file"]+exists} ] && return 2
+
+#--ex or --verb?
 local re=
 for re in "${EX_RE[@]}" ; do
 	[[ "$file" =~ $re ]] && return 2
 done
 [ ${VERB["$file"]+exists} ] && return 1
 
+#is it a bash file?
 local mtype=
 mtype="$(file -b --mime-type "$file")" || { B_RC=66 ; B_ERR="Failed to identify the mime type of the file ${file}." ; B_E }
 [[ "$mtype" == "text/x-shellscript" ]] && return 0
@@ -415,6 +425,19 @@ for ((i=0; i < $level; i++)) ; do headerIndent="${headerIndent}#" ; done
 local idStr=""
 [ -n "$id" ] && idStr="    {#$id}"
 echo "$headerIndent $content ${headerIndent}${idStr}"
+}
+
+#cb_postProc [processed input] [input file] [document output format]
+function cb_postProc {
+local in="$1"
+local file="$2"
+
+#normalize
+file="$(readlink -e "$file")" || { B_ERR="Failed to execute readlink." ; B_E }
+
+DONE["$file"]=0
+
+echo "$in"
 }
 
 #cb_end [output file] [output format]
