@@ -25,7 +25,7 @@ B_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
 BLIB="$B_SCRIPT_DIR/../blib"
 [ -f "$BLIB" ] && source "$BLIB" || source blib
 
-b_checkVersion 1 3 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.3 or higher. Please install a supported version." ; exit 1 ; }
+b_checkVersion 1 4 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.3 or higher. Please install a supported version." ; exit 1 ; }
 
 b_import "args"
 b_import "arr"
@@ -39,8 +39,8 @@ OUTPUT=
 OUTPUT_BASE=
 OUTPUT_EXT=
 DELETE_EXISTING= #-n option, inversed
-declare -A EXCL=()
 declare -A VERB=()
+declare -a EX_RE=()
 declare -a ID_RE=()
 ADD_REFTABLE=
 ADD_DEPS=
@@ -96,7 +96,7 @@ Options:
   		document.
   -d		Add dependencies declared via b_deps to the output document.
   -i		Add imports declared via b_import to the output document.
-  --excl [file]	Exclude the given [file] from processing. Useful in combination with directory traversal.
+  --ex [regex]	Exclude files matching the given regex from processing. The full path is tested.
   		Repeatable.
   --verb [file]	Fully include the given file as-is, i.e. without any parsing (\"verbatim\"), when it is
   		found in the input file list. Repeatable.
@@ -116,7 +116,7 @@ exit 1
 
 #parseArgs [@]
 function parseArgs {
-b_args_init 1 "-n" 0 "-r" 0 "-d" 0 "-i" 0 "--excl" 1 "--verb" 1 "--hl" 1 "--id" 1
+b_args_init 1 "-n" 0 "-r" 0 "-d" 0 "-i" 0 "--ex" 1 "--verb" 1 "--hl" 1 "--id" 1
 b_args_parse "$@"
 local argCnt="$(b_args_getCount)"
 [ $argCnt -lt 2 ] && usage
@@ -131,7 +131,7 @@ if [ -z "$OUTPUT_EXT" ] || [[ "$OUTPUT_BASE" == "$OUTPUT_EXT" ]] ; then
 fi
 
 #inputs
-#NOTE: we need to normalize the paths with readlink for --verb and --excl comparisons
+#NOTE: we need to normalize the paths with readlink for --verb and --ex comparisons
 local i=1
 local cur="$(b_args_get $i)"
 while [ -n "$cur" ] ; do
@@ -142,15 +142,13 @@ while [ -n "$cur" ] ; do
 	cur="$(b_args_get $i)"
 done
 
-#--excl
+#--ex
 local i=0
-local cur="$(b_args_getOption "--excl" "" $i)"
+local cur="$(b_args_getOption "--ex" "" $i)"
 while [ -n "$cur" ] ; do
-	[ -f "$cur" ] || { B_ERR="No file: $cur" ; B_E }
-	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E }
-	EXCL["$cur"]=0
+	EX_RE+=("$cur")
 	(( i++ ))
-	cur="$(b_args_getOption "--excl" "" $i)"
+	cur="$(b_args_getOption "--ex" "" $i)"
 done
 
 #--verb
@@ -208,7 +206,10 @@ local file="$1"
 #normalize
 file="$(readlink -e "$file")"
 
-[ ${EXCL["$file"]+exists} ] && return 2
+local re=
+for re in "${EX_RE[@]}" ; do
+	[[ "$file" =~ $re ]] && return 2
+done
 [ ${VERB["$file"]+exists} ] && return 1
 
 local mtype=
