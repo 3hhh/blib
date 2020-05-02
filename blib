@@ -65,6 +65,7 @@ declare -gA BLIB_STORE=(
 	["BLIB_STATIC_DOC_DIR"]="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/doc_static"
 	["BLIB_TESTS_DIR"]="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/tests"
 	["BLIB_UTIL_DIR"]="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/util"
+	["BLIB_CDOC"]="${BLIB_STORE["BLIB_UTIL_DIR"]}/blib-cdoc"
 	["BLIB_IMPORTED_MODULES"]=""
 	["BLIB_STANDALONE_MODE"]="1"
 	["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]=" "
@@ -1312,14 +1313,7 @@ local modulePath=""
 
 modulePath="$(blib_getModulePath "$module")" || { B_ERR="Invalid or non-existing module: $module"; B_E; }
 
-blib_initCdoc 1 || B_E
-
-local outPath="$(mktemp -u)"
-b_cdoc_generate "$modulePath" "$outPath" || B_E
-cat "$outPath" || { B_ERR="Failed to read ${outPath}."; B_E; }
-
-#cleanup
-rm -f "$outPath" || { B_ERR="Failed to remove ${outPath}."; B_E; }
+"${BLIB_STORE["BLIB_CDOC"]}" --id '^.*/lib/(.*)$' --id '^.*/(blib)$' -id ".raw" "$modulePath" || { B_ERR="Failed to correctly execute ${BLIB_STORE["BLIB_CDOC"]}." ; B_E }
 
 return 0
 }
