@@ -237,7 +237,7 @@ echo "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.
 #+b_keys_getAll [global]
 #+Retrieve all keys from the store.
 #+[global]: If set to 0, also retrieve keys for other application IDs (default: 1).
-#+@returns: All key paths for reading as a newline-separated list. If the key store is closed or modified during the runtime, the list may be empty or incomplete.
+#+returns: All key paths for reading as a newline-separated list. If the key store is closed or modified during the runtime, the list may be empty or incomplete.
 #+@B_E
 function b_keys_getAll {
 local global="${1:-1}"

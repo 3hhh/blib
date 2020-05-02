@@ -162,7 +162,7 @@ return $ret
 
 #+b_dom0_getDispVMs
 #+Get a list of all currently existing disposable VMs.
-#+[returns]: The currently existing disposable VMs as newline-separated list.
+#+returns: The currently existing disposable VMs as newline-separated list.
 #+@B_E
 function b_dom0_getDispVMs {
 local all=""
@@ -306,6 +306,9 @@ b_dom0_execStrIn "$vm" "$toExec" "$user"
 #+b_dom0_waitForFileIn [vm] [file] [maximum time]
 #+Convenience wrapper for [b_fs_waitForFile](#b_fs_waitForFile).
 #+[vm]: VM where to execute.
+#+[file]: See [b_fs_waitForFile].
+#+[maximum time]: See [b_fs_waitForFile].
+#+returns: See [b_fs_waitForFile].
 #+@B_E
 function b_dom0_waitForFileIn {
 local vm="$1"

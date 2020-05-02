@@ -231,7 +231,7 @@ return 0
 #+b_args_assertOptions [option 1] ... [option n]
 #+Assert that the parsed options contain only the given allowed options (or less).
 #+[option i]: Option to check against.
-#+[returns]: Sets a zero exit code, if the current parsed state contains only allowed options and errors out with [B_E](#B_E) otherwise. Prints a list of invalid options in the error case.
+#+returns: Sets a zero exit code, if the current parsed state contains only allowed options and errors out with [B_E](#B_E) otherwise. Prints a list of invalid options in the error case.
 #+@B_E
 function b_args_assertOptions {
 declare -A expected

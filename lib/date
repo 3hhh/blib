@@ -53,7 +53,12 @@ fi
 
 #+b_date_addDays [date] [days] [format] [utc flag]
 #+Convenience wrapper to [b_date_add](#b_date_add) with days.
-#+[days]: number of days to add
+#+[date]: See [b_date_add](#b_date_add).
+#+[days]: Number of days to add.
+#+[format]: See [b_date_add](#b_date_add).
+#+[utc flag]: See [b_date_add](#b_date_add).
+#+returns: See [b_date_add](#b_date_add).
+#+@B_E
 function b_date_addDays {
 local date="$1"
 local days="$2"
