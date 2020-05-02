@@ -686,7 +686,7 @@ blib_dom0_checkRunningMultiple 1 "$@"
 
 #+b_dom0_isHalted [vm 1] ... [vm n]
 #+Check whether the given VMs are halted.
-#This is not necessarily the inverse of [b_dom0_isRunning](#b_dom0_isRunning) as VMs may e.g. be paused.
+#+This is not necessarily the inverse of [b_dom0_isRunning](#b_dom0_isRunning) as VMs may e.g. be paused.
 #+[vm i]: The VM to check.
 #+returns: Nothing. [B_E](#B_E) will be called for VMs that are not halted (or don't exist?).
 #+@B_E
