@@ -76,7 +76,6 @@ declare -gA BLIB_STORE=(
 #meant for data that changes quite frequently, but shouldn't cause stateless testing with [runSL](#runSL) to fail (i.e. state changes here are _not_ monitored)
 declare -gA BLIB_STORE_VOLATILE=(
 	["BLIB_MODULE_LIST_CACHE"]=""
-	["BLIB_CB_REF_LIST_CACHE"]=""
 	["BLIB_ERR_ESET"]=""
 	["BLIB_ERR_HANDLER"]="b_defaultErrorHandler"
 	["BLIB_MSG_HANDLER"]="b_defaultMessageHandler"
@@ -251,7 +250,7 @@ function b_nop {
 function b_version {
 local part="${1:0}"
 local major=1
-local minor=3
+local minor=4
 
 case "$part" in
 	1)
@@ -597,6 +596,7 @@ echo "${BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]}"
 #+Set the prefix to use for the default message handler and the given message type.
 #+[message type]: 0=informational message, 1=error message.
 #+[prefix]: A string to prefix all messages of the given type.
+#+returns: Nothing.
 function b_setDefaultMessageHandlerPrefix {
 BLIB_DEFAULT_MSG_HANDLER_PREFIXES["$1"]="$2"
 }
@@ -807,7 +807,7 @@ list 			list all available modules
 info [module]		print the description of the given module including all functions and global variables made available by the module
 gendoc [-t] [format]	generate the blib code documentation in the given format at "${BLIB_STORE["BLIB_DOC_DIR"]}"
 			-t	: include the test code documentation
-			[format]: one of raw, pdf, html, man (default: raw)
+			[format]: one of raw, md, pdf, html, man (default: raw)
 test [module]		run unit tests for the given module; if no module is specified, run all available unit tests
 help			print this help
 version			print the blib version"
@@ -1026,17 +1026,28 @@ rm -f "$eFile" &> /dev/null
 return $ret
 }
 
-#blib_docBeginCallback [document output file] [document output format]
-#Callback function for doc generation.
-function blib_docBeginCallback {
+#+b_isModule [module name]
+#+Test whether the given name represents a blib module name.
+#+returns: sets a zero exit code if the given name is a valid module name
+function b_isModule {
+local modTest="$1"
+#execute in subshell to avoid error out:
+$(blib_getModulePath "$modTest" &> /dev/null)
+}
+
+#getDocHeader [doc format]
+#Retrieve the documentation header.
+#[doc format]: The format of the documentation to create.
+#returns: The header.
+function blib_getDocHeader {
 local header=""
-local outFormat="$2"
+local format="$1"
 local version="$(b_version)"
 read -r -d '' header << 'EOF'
 ---
 title: 'blib Code Reference vVERSION'
 author: 'David Hobach'
-rights: '(C) 2018  David Hobach  CC BY-NC'
+rights: '(C) 2020  David Hobach  CC BY-NC'
 lang: 'en'
 header: 'blib Code Reference'
 section: 3
@@ -1045,7 +1056,7 @@ EOF
 header="${header/VERSION/$version}"
 echo "$header"
 
-if [[ "$outFormat" == "man" ]] ; then
+if [[ "$format" == "man" ]] ; then
 read -r -d '' header << 'EOF'
 # NAME #
 
@@ -1059,193 +1070,6 @@ echo "$header"
 fi
 }
 
-#blib_docFileCallback [file] [output format]
-function blib_docFileCallback {
-local file="$1"
-local fname="${file##*/}"
-
-if [[ "$file" == *"/tests/fixtures/"* ]] || [[ "$fname" == "user_test_data.bash" ]] || [[ "$fname" == "."* ]] ; then
-	return 2
-else
-	return 0
-fi
-}
-
-#+b_isModule [module name]
-#+Test whether the given name represents a blib module name.
-#+returns: sets a zero exit code if the given name is a valid module name
-function b_isModule {
-local modTest="$1"
-#execute in subshell to avoid error out:
-$(blib_getModulePath "$modTest" &> /dev/null)
-}
-
-#blib_getFileDocId [file path]
-#[file path]: path for which to get the documentation ID
-#returns: The documentation ID for that file (is the module name if the file is a module).
-function blib_getFileDocId {
-local filePath="$1"
-
-local fileId="${filePath#"${BLIB_STORE["BLIB_LIB_DIR"]}"}"
-fileId="${fileId#"${BLIB_STORE["BLIB_SCRIPT_DIR"]}"}"
-[[ "$fileId" == /* ]] && fileId="${fileId#/}"
-
-echo "$fileId"
-}
-
-#blib_docEndCallback [document file] [document output format]
-function blib_docEndCallback {
-echo ""
-echo "## Reference List ##    {#reflist}"
-echo ""
-
-BLIB_STORE_VOLATILE["BLIB_CB_REF_LIST_CACHE"]="$(echo "${BLIB_STORE_VOLATILE["BLIB_CB_REF_LIST_CACHE"]}" | sort)"
-
-local ref=""
-while IFS= read -r ref ; do
-	[ -n "$ref" ] && echo "[$ref](#$ref)"$'\n'
-done <<< "${BLIB_STORE_VOLATILE["BLIB_CB_REF_LIST_CACHE"]}"
-}
-
-#blib_docPostProcessingCallback [init target] [input] [file] [document output format]
-function blib_docPostProcessingCallback {
-local initTarget="$1"
-local input="$2"
-local filePath="$3"
-local docId="$(blib_getFileDocId "$filePath")"
-
-echo ""
-echo "## $docId ##"
-echo ""
-
-#gendoc init target
-if [ $initTarget -eq 0 ] ; then
-	#blib doc syntax --> markdown
-	#NOTE: [:blank:]* in front of these regexes is explicitly *not* supported in order not to break whitespace-related markdown functionality (e.g. verbatim blocks, fenced code blocks, ...)
-	local funcParRegex='^\[([^]]+)\](.*)$'
-	#@funcRegex: __[name] may also indicate a function named [name] (if no prefix is used in e.g. test environments)
-	local funcRegex='^(([a-z]_|__)[^[:blank:]]+).*$'
-	local varRegex='^([A-Z_0-9]+)$'
-	local headerRegex='^(#+)[^#].*$'
-	local returnsRegex='^returns\:'
-	local funcAnnotateRegex='^(@[a-zA-Z_\-]+)[[:blank:]]*$'
-	local headerLevel=4
-
-	#read file
-	local line=""
-	while IFS= read -r line ; do
-
-		#escape all [] for function & global variable names
-		if [[ "$line" =~ $funcRegex ]] || [[ "$line" =~ $varRegex ]] ; then
-			line="${line//\[/\\\[}"
-			line="${line//\]/\\\]}"
-
-			local name="${BASH_REMATCH[1]}"
-
-			#remove __ prefix for non-prefixed variables or functions
-			line="${line#__}"
-			name="${name#__}"
-
-			local headerIndent=""
-			for ((i=0; i < headerLevel; i++)) ; do headerIndent="${headerIndent}#" ; done
-			#set an explicit header ID (= name)
-			line="$headerIndent $line $headerIndent    {#$name}"
-
-			#add to func list for further processing by doc end callback
-			BLIB_STORE_VOLATILE["BLIB_CB_REF_LIST_CACHE"]="${BLIB_STORE_VOLATILE["BLIB_CB_REF_LIST_CACHE"]}$name"$'\n'
-			#print full name
-			line="$line"$'\n'"<small>*${docId}/${name}*</small>"$'\n'
-
-		#escape the first [] for parameters, further [] may be used for links
-		#we also add an html identifier
-		elif [[ "$line" =~ $funcParRegex ]] ; then
-			line=$'\n''<span class="par">'"\[${BASH_REMATCH[1]}\]${BASH_REMATCH[2]}"'</span>'
-
-		elif [[ "$line" =~ $headerRegex ]] ; then
-			headerLevel=$(( ${#BASH_REMATCH[1]} +1))
-
-		#make "returns" bold in function doc
-		#we also add an html identifier
-		elif [[ "$line" =~ $returnsRegex ]] ; then
-			line=$'\n''<span class="ret">'"${line/returns:/**returns**:}"'</span>'
-
-		#change @ annotations to italic
-		#we also add an html identifier
-		elif [[ "$line" =~ $funcAnnotateRegex ]] ; then
-			line=$'\n''<span class="ann">'"${line/${BASH_REMATCH[1]}/*${BASH_REMATCH[1]}*}"'</span>'
-		fi
-
-		echo "$line"
-	done <<< "$input"
-else
-	#command-line init target = no modifications
-	echo "$input"
-fi
-}
-
-#blib_docBlockCallback [block] [block counter] [file] [document output format]
-function blib_docBlockCallback {
-local block="$1"
-local prevCnt=$2
-local filePath="$3"
-
-local fileId="$(blib_getFileDocId "$filePath")"
-
-[ $prevCnt -ne 0 ] && echo ""
-echo "$block"
-
-#add dependencies & imports after description
-if [ $prevCnt -eq 0 ] && b_isModule "$fileId" ; then
-	local deps=""
-	deps="$(b_meta_getClearDeps "$filePath")" || { B_ERR="Failed to obtain the dependencies from ${filePath}." ; B_E }
-	deps="$(sort <<< "$deps")" || { B_ERR="Failed to sort." ; B_E }
-	[ -z "$deps" ] && deps="no dependencies"
-	echo ""
-	echo "### Dependencies ###"
-	echo "$deps"
-
-	local imports=""
-	imports="$(b_meta_getClearImports "$filePath")" || { B_ERR="Failed to obtain the imports of ${filePath}." ; B_E }
-	imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E }
-
-	echo ""
-	echo "### Imports ###"
-	if [ -n "$imports" ] ; then
-		#add md links
-		local line=
-		local mdImports=""
-		while IFS= read -r line ; do
-			[ -n "$mdImports" ] && mdImports="$mdImports"$'\n'$'\n'" [${line}]" || mdImports=" [${line}]"
-		done <<< "$imports"
-
-		echo "$mdImports"
-	else
-		echo "no imports"
-	fi
-fi
-}
-
-#blib_initCdoc [init target]
-#[init target]: if set to 0, init for gendoc (default); if set to 1, init for a command-line output
-#Init cdoc with the parameters requires for its usage within blib.
-function blib_initCdoc {
-local initTarget="${1:-0}"
-
- b_import cdoc || B_E
- b_import meta || B_E
-
-#set cdoc callback functions for all init targets
-b_cdoc_setBlockCallback "blib_docBlockCallback"
-b_cdoc_setPostProcessingCallback "blib_docPostProcessingCallback $initTarget"
-
-if [ $initTarget -eq 0 ] ; then
-	#gendoc target:
-	b_cdoc_setDocumentBeginCallback "blib_docBeginCallback"
-	b_cdoc_setDocumentEndCallback "blib_docEndCallback"
-	b_cdoc_setFileCallback "blib_docFileCallback"
-fi
-}
-
 #see usage
 function blib_gendoc {
 local includeTestDoc=1
@@ -1255,22 +1079,30 @@ if [[ "$1" == "-t" ]] ; then
 fi
 local outFormat="${1:-raw}"
 
-local cdocInput="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/${BLIB_STORE["BLIB_SCRIPT_NAME"]}"$'\n'"${BLIB_STORE["BLIB_LIB_DIR"]}"
-local cdocOutput="${BLIB_STORE["BLIB_DOC_DIR"]}/blib"
+#create header
+local header=
+header="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+blib_getDocHeader "$outFormat" > "$header"
+
+input=( "$header"
+	"${BLIB_STORE["BLIB_SCRIPT_DIR"]}/${BLIB_STORE["BLIB_SCRIPT_NAME"]}"
+	"${BLIB_STORE["BLIB_LIB_DIR"]}" )
+local output="${BLIB_STORE["BLIB_DOC_DIR"]}/blib.$outFormat"
 
 if [ $includeTestDoc -eq 0 ] ; then
-	cdocInput="$cdocInput"$'\n'"${BLIB_STORE["BLIB_TESTS_DIR"]}"
-	cdocOutput="${cdocOutput}_test"
+	input+=( "${BLIB_STORE["BLIB_TESTS_DIR"]}" )
+	output="${BLIB_STORE["BLIB_DOC_DIR"]}/blib_test.$outFormat"
 fi
 
-blib_initCdoc || B_E
-
 #generate the doc
-local outPath=""
-echo -n "Generating $outFormat documentation...  "
-outPath="$(b_cdoc_generateBlibStyle "$cdocInput" "${cdocOutput}.$outFormat" "$outFormat")" || { B_ERR="Failed to generate the $outFormat documentation."; B_E; }
+echo -n "Generating the $outFormat documentation...  "
+"${BLIB_STORE["BLIB_CDOC"]}" --hl 2 --ex '^.*/tests/fixtures/.*$' \
+	--id '^.*/lib/(.*)$' --id '^.*/(blib)$' --id '^.*/(tests/.*)$' \
+	--verb "$header" -rid "$output" "${input[@]}" || { B_ERR="Failed to correctly execute ${BLIB_STORE["BLIB_CDOC"]}." ; B_E }
+
+rm -f "$header" &> /dev/null
 echo "Done."
-echo "${outPath}"
+echo "${output}"
 }
 
 #see usage
@@ -1293,7 +1125,7 @@ if [ -z "$module" ] ; then
 		bats -p "$tst"
 		ret=$(( $ret + $?))
 		testFiles=$(( $testFiles +1 ))
-	done <<< "$(find "$testDir" -name "*.bats" | sort)"
+	done <<< "$(set -o pipefail ; find "$testDir" -name "*.bats" | sort)" || { B_ERR="Failed to execute find." ; B_E }
 
 	[ $testFiles -le 2 ] && B_ERR="Failed to find any relevant tests." && B_E
 
