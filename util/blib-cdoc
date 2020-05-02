@@ -221,9 +221,9 @@ local filePath="$1"
 
 if [ -n "$ID_REGEX" ] ; then
 	if [[ "$filePath" =~ $ID_REGEX ]] ; then
-		[ ${#BASH_REMATCH} -gt 0 ] || { B_ERR="Not enough captures found for $filePath matching $ID_REGEX. At least a single capture group is required." ; B_E }
+		[ ${#BASH_REMATCH} -gt 1 ] || { B_ERR="Not enough captures found for $filePath matching $ID_REGEX. At least a single capture group is required." ; B_E }
 		local i=
-		for ((i=0; i < ${#BASH_REMATCH}; i++)) ; do echo -n "${BASH_REMATCH[$i]}" ; done
+		for ((i=1; i < ${#BASH_REMATCH}; i++)) ; do echo -n "${BASH_REMATCH[$i]}" ; done
 	else
 		B_ERR="Could not extract an ID from $filePath. It doesn't match the ID regex: $ID_REGEX"
 		B_E
