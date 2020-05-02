@@ -49,8 +49,9 @@ eval "$ALIASES"
 
 #+### Functions ###
 
-#+__loadBlib
+#+loadBlib
 #+Loads blib for testing.
+#+returns: Nothing
 function loadBlib {
 #blib requires +e as some executed commands may fail - especially inside the bats environment
 set +e
@@ -61,24 +62,27 @@ set -e
 B_TEST_MODE=0
 }
 
-#+__skipIfNoUserData 
+#+skipIfNoUserData 
 #+Skip the test if no user data was found.
+#+returns: Nothing.
 function skipIfNoUserData {
 [ $USER_DATA_AVAILABLE -ne 0 ] && skip "The user test data file $USER_DATA_FILE was not found or could not be loaded."
 
 return 0
 }
 
-#+__skipIfNoPandoc
+#+skipIfNoPandoc
 #+Skip the test if pandoc is not installed.
+#+returns: Nothing.
 function skipIfNoPandoc {
 ! command -v pandoc &> /dev/null && skip "pandoc is not installed."
 
 return 0
 }
 
-#+__skipIfNotQubesDom0
+#+skipIfNotQubesDom0
 #+Skip the test if we're not running inside Qubes OS dom0.
+#+returns: Nothing.
 function skipIfNotQubesDom0 {
 	skipIfNoUserData
 	[[ "$UTD_QUBES" != "dom0" ]] && skip "Not running in Qubes OS dom0."
@@ -86,16 +90,18 @@ function skipIfNotQubesDom0 {
 	return 0
 }
 
-#+__skipIfNotRoot
+#+skipIfNotRoot
 #+Skip the test if root is not available.
+#+returns: Nothing.
 function skipIfNotRoot {
 [[ "$UTD_PW_FREE_USER" != "root" ]] && skip "This test requires password-less root access configured via UTD_PW_FREE_USER in $USER_DATA_FILE."
 
 return 0
 }
 
-#+__loadBlibTestState
+#+loadBlibTestState
 #+Load the [TEST_STATE](#TEST_STATE) with the data that was saved last via [saveBlibState](#saveBlibState). If you want to use [TEST_STATE](#TEST_STATE), call this function during test setup.
+#+returns: Nothing.
 function loadBlibTestState {
 if [ -f "$TEST_STATE_FILE" ] ; then
 	unset TEST_STATE
@@ -105,8 +111,9 @@ fi
 return 0
 }
 
-#+__saveBlibState
+#+saveBlibTestState
 #+Save the current [TEST_STATE](#TEST_STATE) to make it available for further tests.
+#+returns: Nothing.
 function saveBlibTestState {
 local tmp="$(declare -p TEST_STATE)"
 #for some reason declare -p drops the -g (but we need it)
@@ -116,8 +123,9 @@ echo "$tmp" > "$TEST_STATE_FILE"
 return 0
 }
 
-#+__clearBlibTestState
+#+clearBlibTestState
 #+Clears the current test state and removes its persistent files.
+#+returns: Nothing.
 function clearBlibTestState {
 unset TEST_STATE
 declare -gA TEST_STATE
@@ -126,7 +134,7 @@ rm -f "$TEST_STATE_FILE" &> /dev/null
 return 0
 }
 
-#+__testGetterSetter [setter function] [value to set] [reset]
+#+testGetterSetter [setter function] [value to set] [reset]
 #+Executes the given setter function _in the current environment_ and makes sure the respective getter function (assumed to have the same name with just a _get_ instead of _set_) returns that value.
 #+[setter function]: name of the setter function to call
 #+[value to set]: value to set with the setter function
@@ -169,14 +177,14 @@ fi
 return 0
 }
 
-#+__startTimer
+#+startTimer
 #+Start a new time measurement window.
 #+returns: nothing
 function startTimer {
 TIMER_START="$(date +%s)"
 }
 
-#+__endTimer
+#+endTimer
 #+Get the differencee in time in seconds since the last time [startTimer](#startTimer) was called.
 #+returns: time difference in seconds
 function endTimer {
@@ -184,7 +192,7 @@ local now="$(date +%s)"
 echo $(( $now - $TIMER_START ))
 }
 
-#+__funcTimeout [timeout] [function] [args]
+#+funcTimeout [timeout] [function] [args]
 #+Run the given function with a timeout inside a subshell.
 #+[timeout]: Timeout in seconds after which to terminate the function.
 #+[function]: The function to execute.
@@ -266,7 +274,7 @@ trap "printRelevantState > $IGNORE_POST_FD" exit
 "$@"
 }
 
-#+__runSL [commands]
+#+runSL [commands]
 #+A version of the bats `run` command which makes sure that the bash runtime state does not change after running the given commands (SL = stateless).
 #+This *should* be the default method of executing tests for blib.
 #+If the given commands are expected to change the state, use [runSC](#runSC) instead. In particular the default bats `run` should almost never be used.
@@ -287,7 +295,7 @@ diff --suppress-common-lines "$stateBefore" "$stateAfter"
 rm -f "$stateBefore" "$stateAfter"
 }
 
-#+__runSC [commands]
+#+runSC [commands]
 #+A version of the bats `run` command which ignore changes to the bash runtime state (SC = state changing).
 #+If the given commands are expected to be stateless, use [runSL](#runSL) instead. In particular the default bats `run` should almost never be used.
 #+Also prints an identifier for easier debugging. The identifier starts at 1 on the first run call per test and increases with each further run call.
