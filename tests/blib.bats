@@ -1229,7 +1229,6 @@ function testGendoc {
 	local format="$1"
 	local ending="${1:-raw}"
 	local exp=$2
-	[[ $ending == "raw" ]] && ending="md"
 	local out="$DOC_DIR/blib.$ending"
 	local outTest="$DOC_DIR/blib_test.$ending"
 
@@ -1246,7 +1245,7 @@ function testGendoc {
 	fi
 
 	echo b
-	if [[ "$ending" == "md" ]] ; then
+	if [[ "$ending" == "raw" ]] || [[ "$ending" == "md" ]] ; then
 		grep -E '^title: ' "$out"
 		grep 'LGPLv3' "$out"
 		grep ' WITHOUT ANY WARRANTY;' "$out"
@@ -1276,6 +1275,8 @@ function testGendoc {
 	echo 1
 	testGendoc "raw" 0
 	echo 2
+	testGendoc "md" 0
+	echo 3
 	testGendoc "foo" 1
 }
 
@@ -1286,5 +1287,7 @@ function testGendoc {
 	echo 1
 	testGendoc "html" 0
 	echo 2
+	testGendoc "man" 0
+	echo 3
 	testGendoc "asd" 1
 }
