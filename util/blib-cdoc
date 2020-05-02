@@ -404,7 +404,7 @@ function cb_end {
 if [ $ADD_REFTABLE -eq 0 ] ; then
 	local refId="reflist"
 	[[ "$OUTPUT_EXT" == "raw" ]] && refId=""
-	printHeader "Reference List" "$refId" $(( HEADER_LEVEL_INIT +1 ))
+	printHeader "Reference List" "$refId" $(( HEADER_LEVEL_INIT ))
 	echo ""
 	local list="$(b_arr_toList "${REF_CACHE_VAR[@]}" "${REF_CACHE_FUNC[@]}")"
 	list="$(sort <<< "$list")" || { B_ERR="Failed to sort." ; B_E }
