@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#+ Collection of functions supporting scripting in Qubes OS 4.x dom0.
+#+Collection of functions supporting scripting in Qubes OS 4.x dom0.
 #+
-#+ **Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
+#+**Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
 #+0.5
