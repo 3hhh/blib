@@ -41,12 +41,12 @@ OUTPUT_EXT=
 DELETE_EXISTING= #-n option, inversed
 declare -A EXCL=()
 declare -A VERB=()
+declare -a ID_RE=()
 ADD_REFTABLE=
 ADD_DEPS=
 ADD_IMPORTS=
 IN_LIST=
 HEADER_LEVEL_INIT=
-ID_REGEX=
 
 #reference table caches
 REF_CACHE_VAR=()
@@ -103,7 +103,7 @@ Options:
   --hl [level]  Header level at which to start for each input (default: 1).
   --id [regex]	POSIX extended regular expression to extract an identifier from the given input files.
   		The concatenated regex capture groups form the ID. That identifier is used for e.g.
-		markdown headers. Default: File name
+		markdown headers. Repeatable. Default: File name
 
 
 For more fine-grained control over the generated document or in order to support languages other than
@@ -168,7 +168,13 @@ done
 HEADER_LEVEL_INIT="$(b_args_getOptionInt "--hl" 1)"
 
 ##--id
-ID_REGEX="$(b_args_getOption "--id")"
+local i=0
+local cur="$(b_args_getOption "--id" "" $i)"
+while [ -n "$cur" ] ; do
+	ID_RE+=("$cur")
+	(( i++ ))
+	cur="$(b_args_getOption "--id" "" $i)"
+done
 
 #-n
 DELETE_EXISTING=0
@@ -219,15 +225,18 @@ return 2
 function getDocId {
 local filePath="$1"
 
-if [ -n "$ID_REGEX" ] ; then
-	if [[ "$filePath" =~ $ID_REGEX ]] ; then
-		[ ${#BASH_REMATCH} -gt 1 ] || { B_ERR="Not enough captures found for $filePath matching $ID_REGEX. At least a single capture group is required." ; B_E }
-		local i=
-		for ((i=1; i < ${#BASH_REMATCH}; i++)) ; do echo -n "${BASH_REMATCH[$i]}" ; done
-	else
-		B_ERR="Could not extract an ID from $filePath. It doesn't match the ID regex: $ID_REGEX"
-		B_E
-	fi
+if [ ${#ID_RE[@]} -gt 0 ] ; then
+	local re=
+	local found=1
+	for re in "${ID_RE[@]}" ; do
+		if [[ "$filePath" =~ $re ]] && [ ${#BASH_REMATCH[@]} -gt 1 ] ; then
+			local i=
+			for ((i=1; i < ${#BASH_REMATCH[@]}; i++)) ; do echo -n "${BASH_REMATCH[$i]}" ; done
+			found=0
+			break
+		fi
+	done
+	[ $found -ne 0 ] && B_ERR="Could not extract an ID from $filePath. It doesn't match any of the provided ID regexes." && B_E
 else
 	echo "${filePath##*/}"
 fi
