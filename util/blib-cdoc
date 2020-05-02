@@ -354,11 +354,15 @@ if [ $blockCnt -eq 0 ] ; then
 		imports="$(b_meta_getClearImports "$file")" || { B_ERR="Failed to obtain the imports for $file." ; B_E }
 		if [ -n "$imports" ] ; then
 			imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E }
-			local line=
-			while IFS= read -r line ; do
-				#NOTE: the links may be dead, if the module is not included in the doc
-				echo "[${line}](#${line})"
-			done <<< "$imports"
+			if [[ "$OUTPUT_EXT" == "raw" ]] ; then
+				echo "$imports"
+			else
+				local line=
+				while IFS= read -r line ; do
+					#NOTE: the links may be dead, if the module is not included in the doc
+					echo "[${line}](#${line})"
+				done <<< "$imports"
+			fi
 		else
 			echo "no imports"
 		fi
