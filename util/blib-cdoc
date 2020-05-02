@@ -360,7 +360,7 @@ if [ $blockCnt -eq 0 ] ; then
 				local line=
 				while IFS= read -r line ; do
 					#NOTE: the links may be dead, if the module is not included in the doc
-					echo "[${line}](#${line})"
+					echo "[${line}](#$(generateId "$line"))"
 				done <<< "$imports"
 			fi
 		else
@@ -369,6 +369,18 @@ if [ $blockCnt -eq 0 ] ; then
 	fi
 fi
 return 0
+}
+
+#generateId [str]
+#One-way function to generate a pandoc markdown ID for document referencing from the given string.
+#[str]: String to generate an ID for.
+#returns: A valid pandoc markdown ID. Never errors out.
+function generateId {
+local str="$1"
+#NOTES:
+# - for user convenience (manual referencing etc.), IDs should always be identical to the input, if possible
+# - slashes are however not allowed --> remove them
+echo "${str//\//}"
 }
 
 #updateHeaderLevel [block]
@@ -390,12 +402,13 @@ return 0
 
 #printHeader [header content] [id] [header level]
 #[header content]: header line
-#[id]: optional ID to reference the header (default: none)
+#[id]: optional ID to reference the header (default: none), [generateId](#generateId) will be called on it to generate the real ID
 #[header level]: optional level (default: HEADER_LEVEL)
 function printHeader {
 local content="$1"
 local id="$2"
 local level="${3:-$HEADER_LEVEL}"
+id="$(generateId "$id")"
 
 local headerIndent=""
 for ((i=0; i < $level; i++)) ; do headerIndent="${headerIndent}#" ; done
