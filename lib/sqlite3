@@ -1,0 +1,180 @@
+#!/bin/bash
+#
+#+Stateful sqlite driver for bash.
+#+
+#+This module provides all features of the sqlite interactive mode to non-interactive bash scripts. See `man sqlite3` for the available commands.
+#+
+#+Keeping a single database connection open usually exhibits better performance than calling `sqlite3` in batch mode over and over again.
+#+
+#+Side Note: If you want to read or write csv files, this module can also do the job for you with standard SQL syntax. See `man sqlite3` on how to read and write csv files with sqlite.
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.5
+
+b_deps "sqlite3" "mkfifo" "mktemp" "rm"
+
+#b_sqlite3_open parameters
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_FILE"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_TIMEOUT"]=""
+
+#others
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]=""
+
+#eof marker for single sqlite3 executions
+BLIB_STORE["BLIB_SQLITE3_EOF"]="BLIB_SQLITE3_EOFBLIB_SQLITE3_EOFBLIB_SQLITE3_EOF"
+
+#+### Functions ###
+
+#+b_sqlite3_open [db file] [timeout]
+#+Open a new sqlite connection to a database. This **must** be called exactly once before any calls to [b_sqlite3_exec](#b_sqlite3_exec).
+#+[db file]: The database file to connect to (default: a new in-memory database). If it doesn't exist, it may be created (the behaviour is identical to `sqlite3`).
+#+[timeout]: Maximum time in seconds to wait for a command to execute on the database via [b_sqlite3_exec](#b_sqlite3_exec). Default: -1 = indefinitely
+#+returns: Nothing.
+#+@StateChanging
+#+@B_E
+function b_sqlite3_open {
+local db="$1"
+local timeout="${2:-"-1"}"
+b_sqlite3_getOpen > /dev/null && B_ERR="Another database is currently open. Please close it before opening a new one." && B_E
+
+#set vars
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_FILE"]="$db"
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_TIMEOUT"]="$timeout"
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]="$(mktemp -d)" || { blib_sqlite3_reset ; B_ERR="Failed to create a temporary directory." ; B_E }
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]="${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}/in"
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]="${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}/out"
+
+#initialize
+mkfifo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" || { blib_sqlite3_reset ; B_ERR="Failed to create a pipe." ; B_E }
+mkfifo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" || { blib_sqlite3_reset ; B_ERR="Failed to create a pipe." ; B_E }
+sqlite3 -interactive "$db" < "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" &> "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" &
+exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]}>"${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" || { blib_sqlite3_reset ; B_ERR="Failed to redirect a pipe." ; B_E }
+exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]}<"${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" || { blib_sqlite3_reset ; B_ERR="Failed to redirect a pipe." ; B_E }
+
+#test first exec here to make sure it's open in the background & to remove the version info
+local out=
+out="$(b_sqlite3_exec ".print init_done")"
+if [[ "$out" == *"init_done" ]] && [[ "$out" == "SQLite version"* ]] ; then
+	return 0
+else
+	blib_sqlite3_reset
+	B_ERR="Failed to connect to the sqlite database."
+	B_E
+fi
+}
+
+#blib_sqlite3_reset
+#Reset all variables and remove working directories etc.
+#returns: Nothing. Always sets a zero exit code.
+function blib_sqlite3_reset {
+#close FDs
+#NOTE: closing the IN_FD will automatically terminate sqlite3, if it's running
+[ -n "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]}" ] && exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]}>&-
+[ -n "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]}" ] && exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]}>&-
+
+#remove temporary files
+[ -n "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}" ] && rm -rf "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}"
+
+#reset vars
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_FILE"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_TIMEOUT"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]=""
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]=""
+}
+
+#+b_sqlite3_getOpen
+#+Retrieve the currently open database.
+#+returns: Prints the currently open database and an empty string for an unnamed database. Sets a zero exit code, if and only if a database is currently open.
+function b_sqlite3_getOpen {
+echo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_FILE"]}"
+[ -n "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}" ]
+}
+
+#assertValidCommand [command]
+#Assert that the given chain of commands is valid/allowed for execution and if not, error out with [B_E](#B_E).
+#@B_E
+function blib_sqlite3_assertValidCommand {
+local cmd="$1"
+#NOTE: actually the "command" may contain multiple lines with commands each
+
+local line=
+local outputRe='^[[:space:]]*\.output[[:space:]]+.*$'
+while IFS= read -r line ; do
+	[[ "$line" =~ $outputRe ]] && B_ERR="The command contains a disallowed .output statement." && B_E
+done <<< "$cmd"
+}
+
+#+b_sqlite3_exec [command] [timeout] [filter input]
+#+Executes the given command on an open sqlite database (cf. [b_sqlite3_open](#b_sqlite3_open)).
+#+[command]: The command to execute. All commands supported by `sqlite3` in interactive mode incl. the SQL commands are supported. The only exception is the `.output` command. Please use the bash output redirection instead of `.output`. **Warning**: Incomplete (e.g. missing `;`) or incorrect commands may cause this function to make your bash script hang forever, if no \[timeout\] is specified.
+#+[timeout]: Maximum time in seconds to wait for the command to execute on the database (default: the timeout initialized via [b_sqlite3_open](#b_sqlite3_open)).
+#+[filter input]: Whether or not to filter command input lines from the returned output (default: 0 = true).
+#+returns: The output provided by the database in response to the executed command incl. potential errors. The function attempts to set a non-zero exit code, if the output contains error messages. [B_E](#B_E) is only called on timeouts or other database connectivity issues.
+#+@B_E
+function b_sqlite3_exec {
+local cmd="$1"
+local timeout="${2:-${BLIB_STORE_VOLATILE["BLIB_SQLITE3_TIMEOUT"]}}"
+local filterInput="${3:-0}"
+
+b_sqlite3_getOpen > /dev/null || { B_ERR="No database open." ; B_E }
+blib_sqlite3_assertValidCommand "$cmd"
+
+#start reader thread
+(
+	local line=
+	local ret=
+	local err=1
+	local addOpts=""
+	[ $timeout -gt 0 ] && addOpts="-t $timeout"
+
+	while IFS= read -r -u ${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]} $addOpts line ; do
+		#for errors we assume that one line of sqlite3 output looks like "Error: [message]"
+		#NOTE: since users may queue multiple commands, such lines may occur anywhere in the output
+		[[ "$line" == "Error: "* ]] && err=0
+		[[ "$line" == "${BLIB_STORE["BLIB_SQLITE3_EOF"]}" ]] && break
+		[[ "$line" == "sqlite> .print ${BLIB_STORE["BLIB_SQLITE3_EOF"]}" ]] && continue
+
+		#filter input lines, if necessary
+		if [ $filterInput -eq 0 ] ; then
+			[[ "$line" == "sqlite> "* ]] && continue
+			[[ "$line" == "   ...> "* ]] && continue
+		fi
+
+		echo -E "$line"
+	done
+	ret=$?
+	[ $err -eq 0 ] && ret=7
+	exit $ret
+) &
+local readerPid=$!
+
+#execute
+#idea: we add a line in the end to identify when sqlite3 is done
+cmd="$cmd"$'\n'".print ${BLIB_STORE["BLIB_SQLITE3_EOF"]}"
+echo -E "$cmd" >& "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]}"
+local ret=
+wait $readerPid
+ret=$?
+if [ $ret -ne 0 ] && [ $ret -ne 7 ] ; then
+	[ $ret -gt 128 ] && B_ERR="The database connection timed out." || B_ERR="Unexpected database connection error (exit code: $ret)."
+	B_E
+fi
+return $ret
+}
+
+#+b_sqlite3_close
+#+Closes a currently open database connection.
+#+It is highly recommended to execute this function once you don't need the database connection anymore (usually at the end of a script).
+#+returns: Nothing. A non-zero exit code indicates a failed close operation.
+#+@StateChanging
+function b_sqlite3_close {
+b_sqlite3_getOpen > /dev/null || return 0
+blib_sqlite3_reset
+}
