@@ -131,10 +131,6 @@ b_flog_setLogReductionLinesApprox "${3:-3000}"
 #open the file for appending, let bash choose the file descriptor
 exec {BLIB_STORE["BLIB_FLOG_FD"]}>>"${BLIB_STORE["BLIB_FLOG_FILENAME"]}" || { B_ERR="Failed to open the log output ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E }
 
-#make sure the log is closed on exit
-#NOTE: this cannot be tested as bats uses EXIT traps for its own functionality
-[ $B_TEST_MODE -ne 0 ] && trap b_flog_close EXIT
-
 #set the init done flag
 BLIB_STORE["BLIB_FLOG_INIT_DONE"]=0
 }
