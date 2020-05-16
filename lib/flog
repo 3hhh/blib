@@ -101,7 +101,7 @@ return 0
 
 #+b_flog_init [log file name] [header callback function] [log reduction lines]
 #+Initialize this log writer. This function **must** be called before any others.
-#+[log file name]: name of the log file to write to; special files such as /dev/stdout, /dev/stderr (default), /dev/tcp, /dev/udp are supported if your bash version supports them; the file doesn't need to exist, but directories above it must exist
+#+[log file name]: name of the log file to write to; special files such as /dev/stdout, /dev/stderr (default), /dev/tcp, /dev/udp are supported if your bash version supports them; the file doesn't need to exist, but its parent directories must exist
 #+[header callback function]: optional name of the function to be called whenever a new log entry is generated; the function must be defined as follows:
 #+
 #+     [header callback function] [severity]
@@ -333,7 +333,9 @@ BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]="$1"
 #+[severity]: the default header ignores the severity
 #+returns: the default header meant to be used for the current moment in time
 function b_flog_defaultHeader {
-date +"${BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]} " | tr -d '\n'
+local date=
+date="$(date +"${BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]}")" || return 1
+printf '%s ' "$date"
 return 0
 }
 
@@ -343,8 +345,8 @@ return 0
 #+returns: the default header with the severity appended
 function b_flog_headerDateSeverity {
 local severity="$1"
-b_flog_defaultHeader "$severity"
-b_flog_printSeverity "$severity"
+b_flog_defaultHeader "$severity" || return 1
+b_flog_printSeverity "$severity" || return 2
 echo -n " "
 return 0
 }
@@ -355,9 +357,9 @@ return 0
 #+returns: the default header with the calling script and severity appended
 function b_flog_headerDateScriptSeverity {
 local severity="$1"
-b_flog_defaultHeader "$severity"
+b_flog_defaultHeader "$severity" || return 1
 echo -n "$B_CALLER_NAME "
-b_flog_printSeverity "$severity"
+b_flog_printSeverity "$severity" || return 2
 echo -n " "
 return 0
 }
