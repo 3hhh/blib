@@ -474,7 +474,10 @@ else
 	prefix="${BLIB_STORE["BLIB_DEFAULT_MSG_HANDLER_INTERMEDIATE"]}"
 fi
 
-[ $last -eq 0 ] && suffix=$'\n'
+if [ $last -eq 0 ] ; then
+	suffix=$'\n'
+	[ -z "$msg" ] && prefix="" #special case: no message, just finalize any previous message parts
+fi
 
 if [ $mtype -eq 0 ] ; then
 	printf '%s%s%s' "$prefix" "$msg" "$suffix"
