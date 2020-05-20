@@ -81,12 +81,24 @@ function createSample01 {
 	
 	for (( i=$s;i<$e;i++)) ; do
 		local sev="$(getSample01Severity $i)"
-		runSL b_flog_log "Msg $i " "$sev"
-		[ $status -eq $eStatus ]
-		if [ $status -eq 0 ] ; then
-			[ -z "$output" ]
+		if [ $(( $RANDOM % 2 )) -eq 0 ] ; then
+			runSL b_flog_log "Msg $i " "$sev"
+			[ $status -eq $eStatus ]
+			if [ $status -eq 0 ] ; then
+				[ -z "$output" ]
+			else
+				[ -n "$output" ]
+			fi
 		else
-			[ -n "$output" ]
+			runSL b_flog_log "Msg" "$sev" 0 1
+			[ $status -eq $eStatus ]
+			if [ $status -eq 0 ] ; then
+				[ -z "$output" ]
+			else
+				[ -n "$output" ]
+			fi
+			runSL b_flog_log "$i " "" 1 0
+			#NOTE: status may be 0 here regardless of the previous one as headers are not checked on partial messages
 		fi
 	done
 }
@@ -100,7 +112,7 @@ function stripTimestamps {
 	local line=""
 
 	while IFS= read -r line ; do
-		[[ "$line" =~ $re ]] && echo "${BASH_REMATCH[1]}" >> "$out"
+		[[ "$line" =~ $re ]] && echo "${BASH_REMATCH[1]}" >> "$out" || echo "$line" >> "$out"
 	done < "$file"
 
 	echo "$out"
@@ -293,45 +305,121 @@ function runValid01Tests {
 
 #createError [msg]
 function createError {
+b_setErrorHandler "b_defaultErrorHandler 0 0 1"
 B_ERR="$1" ; B_E
 }
 
-@test "b_flog_errorHandler" {
-	b_setErrorHandler "b_flog_errorHandler"
-	echo 1
+@test "b_flog_messageHandler" {
+	b_setMessageHandler "b_flog_messageHandler"
 
 	#without init
-	runSL createError "error! fatal!"
-	echo 2
-	[ $status -ne 0 ]
-	[ -n "$output" ]
-	[[ "$output" != *"error!"* ]]
+	runSL b_info "test info"
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"Failed to log a message"* ]]
+	[[ "$output" == *"test info"* ]]
 
 	#with init
 	local logFile="$(mktemp)"
 	b_flog_init "$logFile" "b_flog_headerDateSeverity"
 	runSL createError "error! fatal!"
-	echo 3
 	echo "STAT: $status"
 	echo "OUT: $output"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 	diffLog "$logFile" "refe01.log"
-	closeLog "$logFile"
 
-	#with different sev
-	b_flog_init "$logFile" "b_flog_headerDateSeverity"
-	b_setErrorHandler "b_flog_errorHandler 0 1 1 0 1 ${B_FLOG_SEV["emergency"]}"
-	runSL createError "super fatal error"
-	echo 4
+	#some more entries
+	runSL b_info "an additional" 0 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	runSL b_info "and irrelevant" 1 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	runSL b_info "info message" 1 0
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	runSL b_error "An error"$'\n'"with a newline"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	runSL createError "error! fatal!"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 	diffLog "$logFile" "refe02.log"
 
-	#maybe TODO: test some more options
+	#cleanup
+	closeLog "$logFile"
+	b_setMessageHandler "b_default_messageHandler"
+}
+
+function sleepShortRand {
+	local rand=$(( 1 + $RANDOM % 3 ))
+	sleep "0.0$rand"
+}
+
+function loggingThread {
+	local i=
+
+	for ((i=0;i<10;i++)) ; do
+		sleepShortRand
+		b_flog_log "1:$BASHPID" "" 0 1 || exit 1
+		sleepShortRand
+		b_flog_log "2:$BASHPID" "" 1 1 || exit 2
+		sleepShortRand
+		b_flog_log "3:$BASHPID" "" 1 0 || exit 3
+	done
+	exit 0
+}
+
+@test "multiple logging threads" {
+	#idea: 4 threads, each writing 10 messages consisting of 3 partial messages and each partial message contains their $BASHPID --> we can check the output for consistency in the end: Each line must contain only a single $BASHPID and there must be 40 messages.
+	local logFile="$(mktemp)"
+	echo "test log: $logFile"
+	b_flog_init "$logFile" "b_flog_headerDateSeverity" -1 0
+	echo "1"
+
+	#start threads
+	local i=
+	declare -A pids=()
+	for ((i=0;i<4;i++)) ; do
+		loggingThread &
+		pids["$!"]=0
+	done
+	echo "2"
+	local pid=
+	for pid in "${!pids[@]}" ; do
+		wait $pid
+		[ $? -eq 0 ]
+		echo "pid: $pid"
+	done
+	echo "3"
+
+	#check
+	local line=
+	local re='^[^ ]+ [^ ]+ [^ ]+ [^ ]+ 1:([0-9]+) 2:([0-9]+) 3:([0-9]+)$'
+	local lineCnt=0
+	while IFS= read -r line ; do
+		echo "$line"
+		[[ "$line" =~ $re ]]
+		local pid="${BASH_REMATCH[1]}"
+		[ -n "$pid" ]
+		[[ "$pid" == "${BASH_REMATCH[2]}" ]]
+		[[ "$pid" == "${BASH_REMATCH[3]}" ]]
+
+		(( pids["$pid"]++ )) || :
+		(( lineCnt++ )) || :
+	done < "$logFile"
+
+	echo "lineCnt: $lineCnt"
+	[ $lineCnt -eq 40 ]
+
+	local pid=
+	for pid in "${!pids[@]}" ; do
+		echo "$pid cnt: ${pids["$pid"]}"
+		[ ${pids["$pid"]} -eq 10 ]
+	done
 
 	#cleanup
-	echo 5
 	closeLog "$logFile"
-	b_setErrorHandler "b_default_errorHandler"
 }

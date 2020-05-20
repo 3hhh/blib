@@ -1,11 +1,14 @@
 #!/bin/bash
 #
-#+Flexible log writer for bash supporting arbitrary piped output (files, network streams, stdout, stderr, ...) in a user-defined output format.
-#+Log files can be automatically reduced to their last X lines.
+#+Flexible log writer for bash.
+#+
+#+Features:
+#+ - arbitrary output support (files, network streams, stdout, stderr, ...) in a user-defined format
+#+ - optional log file reduction
+#+ - optional thread safety
+#+ - support for partial messages
 #+
 #+In order to log to the system log, please use the logger command instead. This library is mostly meant for application logs handled in a more custom manner.
-#+
-#+Currently only a single writer per instance of this library/thread is kept in memory, but you can user multiple one after another or in multiple threads. Each writer should have a dedicated log file to write to.
 #+
 #+Exact format of log entries:
 #+
@@ -18,11 +21,13 @@
 #+     [default date]: current date in the format as used
 #+               by date +"%F %T %Z" (the format can be changed)
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.3
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.6
 
-b_import fs
-b_deps "date" "tail" "cat" "mktemp"
+b_import "fs"
+b_import "hash"
+b_import "multithreading/mtx"
+b_deps "date" "tail" "cat" "mktemp" "rm" "mkdir" "readlink"
 
 
 #set all internal variables to their defaults
@@ -35,6 +40,10 @@ BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]="not initialized"
 BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]=""
 BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]=""
 BLIB_STORE["BLIB_FLOG_DATE_FORMAT"]="%F %T %Z"
+BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]=""
+BLIB_STORE["BLIB_FLOG_INTERMEDIATE"]=""
+BLIB_STORE["BLIB_FLOG_MTX_DIR"]="/tmp/blib-flog-mtx"
+BLIB_STORE["BLIB_FLOG_ID"]=""
 BLIB_STORE["BLIB_FLOG_INIT_DONE"]=1
 
 #the used file descriptor
@@ -99,9 +108,9 @@ blib_flog_reset
 return 0
 }
 
-#+b_flog_init [log file name] [header callback function] [log reduction lines]
+#+b_flog_init [log file name] [header callback function] [log reduction lines] [thread safe] [intermediate]
 #+Initialize this log writer. This function **must** be called before any others.
-#+[log file name]: name of the log file to write to; special files such as /dev/stdout, /dev/stderr (default), /dev/tcp, /dev/udp are supported if your bash version supports them; the file doesn't need to exist, but its parent directories must exist
+#+[log file name]: name of the log file to write to; special files such as /dev/stdout, /dev/stderr (default), /dev/tcp, /dev/udp are supported if your bash version supports them; the file doesn't need to exist
 #+[header callback function]: optional name of the function to be called whenever a new log entry is generated; the function must be defined as follows:
 #+
 #+     [header callback function] [severity]
@@ -112,6 +121,8 @@ return 0
 #+              message to be logged without header
 #+
 #+[log reduction lines]: if set to a positive integer, reduce the log file approximately to that number of lines during logging (default: 3000) - see b_flog_setLogReductionLinesApprox for details; this option has no effect on non-file outputs (stdout, network output, ...)
+#+[thread safe]: Whether calls to [b_flog_log](#b_flog_log) should be thread safe (0) or not (default: 1 = not thread safe).
+#+[intermediate]: String to use as intermediate separator when chaining partial log messages (default: [b_getDefaultMessageHandlerIntermediate](#b_getDefaultMessageHandlerIntermediate)).
 #+returns: sets a non-zero exit code on errors and may exit the script
 #+@StateChanging
 #+@B_E
@@ -124,11 +135,26 @@ BLIB_STORE["BLIB_FLOG_INIT_DONE"]=1
 BLIB_STORE["BLIB_FLOG_FILENAME"]="${1:-/dev/stderr}"
 b_flog_setHeaderFunction "${2:-b_flog_defaultHeader}"
 b_flog_setLogReductionLinesApprox "${3:-3000}"
+BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]="${4:-1}"
+BLIB_STORE["BLIB_FLOG_INTERMEDIATE"]="${5:-$(b_getDefaultMessageHandlerIntermediate)}"
 
-#create the file if it doesn't exit (but don't create any directories above)
-[ ! -e "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] && > "${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
+#generate ID (exactly one ID per output must be generated)
+local path="$(readlink -m "${BLIB_STORE["BLIB_FLOG_FILENAME"]}")"
+BLIB_STORE["BLIB_FLOG_ID"]="$(b_hash_md5Str "$path")" || { B_ERR="Failed to obtain the md5 sum for $path." ; B_E }
 
-#open the file for appending, let bash choose the file descriptor
+#create the mutex directory, if needed
+if [ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] ; then
+	mkdir -p "${BLIB_STORE["BLIB_FLOG_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIBBLIB_STORE["BLIB_FLOG_MTX_DIR"]}." ; B_E }
+fi
+
+#create the output file, if needed
+if [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] ; then
+	[[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != *"/"* ]] && B_ERR="Unexpected file name without slashes: ${BLIB_STORE["BLIB_FLOG_FILENAME"]}" && B_E
+	mkdir -p "${BLIB_STORE["BLIB_FLOG_FILENAME"]%/*}" || { B_ERR="Failed to create the parent directories of ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E }
+	[ ! -e "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] && > "${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
+fi
+
+#open the output for appending, let bash choose the file descriptor
 exec {BLIB_STORE["BLIB_FLOG_FD"]}>>"${BLIB_STORE["BLIB_FLOG_FILENAME"]}" || { B_ERR="Failed to open the log output ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E }
 
 #set the init done flag
@@ -146,7 +172,7 @@ if  [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] && [ ${BLIB_STORE["B
 	local rnd=0
 	#only check for reduction every 20 calls on average (we must not use any state for that)
 	#we don't do that during testing to get deterministic logs
-	[ $B_TEST_MODE -ne 0 ] && rnd=$(( $RANDOM % 20 ))
+	[ $B_TEST_MODE -ne 0 ] && rnd=$(( $RANDOM % 50 ))
 
 	if [ $rnd -eq 0 ] ; then
 		local cnt=""
@@ -164,6 +190,7 @@ if  [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] && [ ${BLIB_STORE["B
 			tmp="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
 			tail -n ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} "$log" > "$tmp" || { B_ERR="Failed to reduce the log $log." ; B_E }
 			cat "$tmp" > "$log" || { B_ERR="Failed to write the reduced log back." ; B_E }
+			rm -f "$tmp" &> /dev/null
 			b_flog_log "Reduced the log to its last ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} lines." || B_E
 		fi
 	fi
@@ -172,76 +199,110 @@ fi
 return 0
 }
 
-#+b_flog_log [message] [severity]
+#+b_flog_log [message] [severity] [first part] [last part]
 #+Log the given message with the given optional severity.
+#+If the \[thread safe\] variant [was chosen](#b_flog_init), may wait for other log sources to write their message first.
 #+[message]: message to log
 #+[severity]: users may pass arbitrary numbers or even Strings here, but it is recommended to stick to the priorities defined in $BLIB_FLOG_SEV (default: ${B_FLOG_SEV\["info"\]})
-#+returns: sets a non-zero exit code on errors and may exit the script
+#+[first part]: If set to 0, assume that the given message is the first part of an overall chain of messages (default: 0).
+#+[last part]: If set to 0, assume that the given message is the final part of an overall chain of messages (default: 0). Please note that other threads may be blocked from writing to the output, if the last message of a chain was not yet received.
+#+returns: Sets a non-zero exit code on errors. [B_E](#B_E) is only called, if logging failed entirely.
 #+@B_E
 function b_flog_log {
+#IMPORTANT: this function MUST NOT write any state in order to be usable by subshells
 local msg="$1"
 local sev="${2:-${B_FLOG_SEV["info"]}}"
-local header=""
+local first="${3:-0}"
+local last="${4:-0}"
+local prefix=""
 local ret=0
-
-#IMPORTANT: this function MUST NOT write any state in order to be usable by subshells
 
 [ ${BLIB_STORE["BLIB_FLOG_INIT_DONE"]} -ne 0 ] && B_ERR="Calling b_flog_log without init is not supported." && B_E
 
-#get the header
-header="$(${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]} "$sev")"
-if [ $? -ne 0 ] ; then
-	header="$(b_flog_defaultHeader "$sev")"
-	msg="The header function ${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]} returned an error. Thus falled back to the default header. Message: $msg"
-	ret=1
+if [ $first -eq 0 ] ; then
+	if [ -n "$msg" ] ; then
+		#obtain prefix via the header function
+		prefix="$(${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]} "$sev")"
+		if [ $? -ne 0 ] ; then
+			prefix="$(b_flog_defaultHeader "$sev")"
+			msg="The header function ${BLIB_STORE["BLIB_FLOG_HEADER_FUNCTION"]} returned an error. Thus fell back to the default header. Message: $msg"
+			ret=1
+		fi
+	fi
+else
+	prefix="${BLIB_STORE["BLIB_FLOG_INTERMEDIATE"]}"
+fi
+
+local suffix=""
+if [ $last -eq 0 ] ; then
+	suffix=$'\n'
+	[ -z "$msg" ] && prefix=""
+fi
+
+#obtain mutex, if necessary
+local mtx="${BLIB_STORE["BLIB_FLOG_MTX_DIR"]}/${BLIB_STORE["BLIB_FLOG_ID"]}"
+if [ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] ; then
+	b_mtx_waitFor "$mtx" "$BASHPID" 0 -1 > /dev/null || { B_ERR="Failed to obtain the log file mutex." ; B_E }
 fi
 
 #write
-echo "${header}${msg}" >&${BLIB_STORE["BLIB_FLOG_FD"]} || { B_ERR="Failed to write to the log output at ${BLIB_STORE["BLIB_FLOG_FILENAME"]}. Missing call to b_flog_init?" ; B_E }
+printf '%s%s%s' "$prefix" "$msg" "$suffix" >&${BLIB_STORE["BLIB_FLOG_FD"]}
+if [ $? -ne 0 ] ; then
+	#release mutex, if necessary (since we're in an error situation, we do it even if it wasn't the last message)
+	[ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] && b_mtx_release "$mtx" "$BASHPID"
+	B_ERR="Failed to write to the log output at ${BLIB_STORE["BLIB_FLOG_FILENAME"]}."
+	B_E
+fi
 
 #log reduction
-blib_flog_reduceLog || B_E
+b_setBE 1
+blib_flog_reduceLog
+
+#release mutex when the last message part was printed
+[ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] && [ $last -eq 0 ] && b_mtx_release "$mtx" "$BASHPID"
+b_resetErrorHandler
+B_E
 
 return $ret
 }
 
-#+b_flogErrorHandler [error out] [print stderr] [print stack trace] [print log errors] [log stack trace] [severity]
-#+An alternative to [b_defaultErrorHandler](#b_defaultErrorHandler) which will log program errors using flog.
-#+[error out]: see [b_defaultErrorHandler](#b_defaultErrorHandler) (default: 0)
-#+[print stderr]: see [b_defaultErrorHandler](#b_defaultErrorHandler) (default: 1 / log only)
-#+[print stack trace]: see [b_defaultErrorHandler](#b_defaultErrorHandler) (default: 1 / log only)
-#+[print log errors]: whether or not to print errors related to the logging itself to stderr (default: 0 / print)
-#+[log stack trace]: whether or not to log the stack trace (default: 1 / do not log it)
-#+[severity]: the severity to use for all errors, defaults to ${B_FLOG_SEV\["critical"\]}
-#+returns: see [b_defaultErrorHandler](#b_defaultErrorHandler)
-function b_flog_errorHandler {
-local errorOut=${1:-0}
-local printErr=${2:-1}
-local printStack=${3:-1}
-local printLogErr="${4:-0}"
-local logStack=${5:-1}
-local sev="${6:-${B_FLOG_SEV["critical"]}}"
+#blib_flog_nopErrorHandler
+function blib_flog_nopErrorHandler {
+	return 1
+}
 
-#make sure b_flog_log doesn't recursively call us & we manage to handle log failures
-local oldHandler="$(b_getErrorHandler)"
-b_setErrorHandler "b_defaultErrorHandler $errorOut $printLogErr $printLogErr"
-local msg="$B_ERR"
-B_ERR=""
+#+b_flog_messageHandler [message type] [message] [first part] [last part]
+#+A [message handler](#b_defaultMessageHandler) implementation that handles messages by logging them via [b_flog_log](#b_flog_log).
+#+Issues with the logging system itself (e.g. log file not writable) are written to stderr.
+#+If you don't want to log all messages and/or handle some of them differently, you can simply write a wrapper for this function.
+#+[message type]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+[message]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+[first part]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+[last part]: See [b_defaultMessageHandler](#b_defaultMessageHandler).
+#+returns: Nothing. Never causes errors.
+function b_flog_messageHandler {
+local mtype="$1"
+local msg="$2"
+local first="${3:-0}"
+local last="${4:-0}"
 
-b_flog_log "$msg" "$sev"
+local sev=${B_FLOG_SEV["error"]}
+[ $mtype -eq 0 ] && sev=${B_FLOG_SEV["info"]}
 
-if [ $logStack -eq 0 ] ; then
+local ret=
+#NOTE: we cannot use the b_defaultErrorHandler as that will call b_error, which will then call us again and so on...
+b_setErrorHandler "blib_flog_nopErrorHandler"
+b_flog_log "$msg" "$sev" "$first" "$last"
+ret=$?
+if [ $ret -ne 0 ] ; then
+	echo "ERROR: Failed to log a message due to the following error: $B_ERR" >&2
+	echo "Exit code: $ret" >&2
+	echo "Original message: $msg" >&2
 	local stack="$(b_printStackTrace 1)"
-	b_flog_log "Stack Trace:"$'\n'"$stack" "$sev"
+	echo "Stack Trace:"$'\n'"$stack" >&2
+	B_ERR=""
 fi
-
-[ $errorOut -eq 0 ] && b_flog_log "Terminating $B_CALLER_NAME due to the above error..." "$sev"
-
-#reset to previous error handler
-b_setErrorHandler "$oldHandler"
-B_ERR="$msg"
-
-b_defaultErrorHandler $errorOut $printErr $printStack
+b_resetErrorHandler
 }
 
 ################### setters & getters ###################
