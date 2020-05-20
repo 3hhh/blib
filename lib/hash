@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+#+Hash functions.
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.2
+
+b_deps "md5sum"
+
+#+b_hash_md5 [file]
+#+Compute the md5 sum of the given file.
+#+[file]: Full path to the file.
+#+returns: The md5 sum of the given file.
+#+@B_E
+function b_hash_md5 {
+local file="$1"
+
+local out=
+out="$(md5sum "$file")" || { B_ERR="Failed to execute md5sum." ; B_E }
+echo "${out%% *}"
+}
+
+#+b_hash_md5Str [string]
+#+Compute the md5 sum of the given string.
+#+[string]: String which to compute the hash for.
+#+returns: The md5 sum of the given string.
+#+@B_E
+function b_hash_md5Str {
+local str="$1"
+
+local out=
+out="$(md5sum - <<< "$str")" || { B_ERR="Failed to execute md5sum." ; B_E }
+echo "${out%% *}"
+}
