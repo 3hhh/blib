@@ -32,7 +32,7 @@ function rootFunc {
 
 #runRoot [function] [function param 1] .. [function param n]
 function runRoot {
-	runSC b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" "assertKeyCount" "assertAllKeyCount" "testSingleAddClose" - "$@"
+	runSC b_execFuncAs "root" "rootFunc" "ui" "hash" "dmcrypt" "fs" "proc" "multithreading/mtx" "keys" - "$1" "initGlobalVars" "assertReadOnly" "assertExistentKey" "assertNonExistentKey" "assertKeyCount" "assertAllKeyCount" "testSingleAddClose" - "$@"
 }
 
 function ni_cleanup {

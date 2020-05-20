@@ -9,8 +9,9 @@
 #+Copyright (C) 2020  David Hobach  LGPLv3
 #+0.6
 
-b_import ui
-b_deps "dirname" "mkdir" "head" "md5sum" "readlink"
+b_import "ui"
+b_import "hash"
+b_deps "dirname" "mkdir" "head" "readlink"
 
 BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]="auto"
 
@@ -44,9 +45,7 @@ local path="$1"
 local cPath=
 cPath="$(readlink -m "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E }
 local md5=
-md5="$(echo "$cPath" | md5sum -)" || { B_ERR="Failed to execute md5sum." ; B_E }
-md5="${md5//-/}"
-md5="${md5// /}"
+md5="$(b_hash_md5Str "$cPath")" || { B_ERR="Failed to obtain the md5 hash." ; B_E }
 echo "blib-dmcrypt-$md5"
 }
 

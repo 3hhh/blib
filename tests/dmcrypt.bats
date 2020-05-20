@@ -30,7 +30,7 @@ function rootFunc {
 
 #runRoot [function] [function param 1] .. [function param n]
 function runRoot {
-	runSL b_execFuncAs "root" "rootFunc" "ui" "dmcrypt" - "$1" - "$@"
+	runSL b_execFuncAs "root" "rootFunc" "ui" "hash" "dmcrypt" - "$1" - "$@"
 }
 
 @test "init" {
