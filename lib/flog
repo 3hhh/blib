@@ -140,7 +140,7 @@ BLIB_STORE["BLIB_FLOG_INTERMEDIATE"]="${5:-$(b_getDefaultMessageHandlerIntermedi
 
 #generate ID (exactly one ID per output must be generated)
 local path="$(readlink -m "${BLIB_STORE["BLIB_FLOG_FILENAME"]}")"
-BLIB_STORE["BLIB_FLOG_ID"]="$(b_hash_md5Str "$path")" || { B_ERR="Failed to obtain the md5 sum for $path." ; B_E }
+BLIB_STORE["BLIB_FLOG_ID"]="$(b_hash_str "$path")" || { B_ERR="Failed to obtain the md5 sum for $path." ; B_E }
 
 #create the mutex directory, if needed
 if [ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] ; then

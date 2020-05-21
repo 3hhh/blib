@@ -3,32 +3,58 @@
 #+Hash functions.
 #+
 #+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.2
+#+0.5
 
-b_deps "md5sum"
+#map: algorithm --> program
+declare -gA BLIB_HASH_PROGRAMS=(
+	["md5"]="md5sum"
+	["sha1"]="sha1sum"
+	["sha224"]="sha224sum"
+	["sha256"]="sha256sum"
+	["sha384"]="sha384sum"
+	["sha512"]="sha512sum"
+	["crc"]="cksum"
+	["blake2"]="b2sum"
+)
 
-#+b_hash_md5 [file]
-#+Compute the md5 sum of the given file.
+#+b_hash_file [file] [algorithm]
+#+Compute the hash of the given file.
 #+[file]: Full path to the file.
-#+returns: The md5 sum of the given file.
+#+[algorithm]: Algorithm to use. Currently supported: md5|sha1|sha224|sha256|sha384|sha512|crc|blake2 (default: md5).
+#+returns: The hash of the given file.
 #+@B_E
-function b_hash_md5 {
+function b_hash_file {
 local file="$1"
+local algo="${2:-"md5"}"
+
+local prog="${BLIB_HASH_PROGRAMS["$algo"]}"
+[ -z "$prog" ] && B_ERR="Unsupported algorithm: $algo" && B_E
+
+#NOTE: we prefer runtime dependencies here in order to support systems that only have a few of the programs installed
+ b_deps "$prog"
 
 local out=
-out="$(md5sum "$file")" || { B_ERR="Failed to execute md5sum." ; B_E }
+out="$($prog "$file")" || { B_ERR="Failed to execute $prog." ; B_E }
 echo "${out%% *}"
 }
 
-#+b_hash_md5Str [string]
-#+Compute the md5 sum of the given string.
+#+b_hash_str [string] [algorithm]
+#+Compute the hash of the given string.
 #+[string]: String which to compute the hash for.
-#+returns: The md5 sum of the given string.
+#+[algorithm]: Algorithm to use. Currently supported: md5|sha1|sha224|sha256|sha384|sha512|crc|blake2 (default: md5).
+#+returns: The hash of the given string.
 #+@B_E
-function b_hash_md5Str {
+function b_hash_str {
 local str="$1"
+local algo="${2:-"md5"}"
+
+local prog="${BLIB_HASH_PROGRAMS["$algo"]}"
+[ -z "$prog" ] && B_ERR="Unsupported algorithm: $algo" && B_E
+
+#NOTE: we prefer runtime dependencies here in order to support systems that only have a few of the programs installed
+ b_deps "$prog"
 
 local out=
-out="$(md5sum - <<< "$str")" || { B_ERR="Failed to execute md5sum." ; B_E }
+out="$($prog <<< "$str")" || { B_ERR="Failed to execute $prog." ; B_E }
 echo "${out%% *}"
 }

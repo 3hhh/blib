@@ -45,7 +45,7 @@ local path="$1"
 local cPath=
 cPath="$(readlink -m "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E }
 local md5=
-md5="$(b_hash_md5Str "$cPath")" || { B_ERR="Failed to obtain the md5 hash." ; B_E }
+md5="$(b_hash_str "$cPath")" || { B_ERR="Failed to obtain the md5 hash." ; B_E }
 echo "blib-dmcrypt-$md5"
 }
 
