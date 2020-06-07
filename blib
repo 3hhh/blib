@@ -202,7 +202,7 @@ if [ -n "$B_ERR" ] ; then
 	   ;;
 	 *)
 	   exit $B_RC
-	 esac
+	esac
 fi
 
 #restore exit code (the && construct is required to bypass the shopt -e mode from erroring out in e.g. bats)
