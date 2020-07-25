@@ -12,8 +12,8 @@ b_import ui
 b_import proc
 b_import types
 
-b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "dirname" \
-"basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar"
+b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-unpause" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" \
+"dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar"
 
 #private vars
 BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
@@ -627,6 +627,9 @@ local maxWait=""
 
 	if [ $toStart -eq 0 ] ; then
 		maxWait=${BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]}
+
+		#make sure the VM is unpaused
+		qvm-unpause "$vm" &> /dev/null
 	else
 		maxWait=5
 		addParams="-n"
@@ -669,7 +672,7 @@ return 0
 }
 
 #+b_dom0_ensureRunning [vm 1] ... [vm n]
-#+Start the given VMs if needed.
+#+Start or unpause the given VMs if needed.
 #+[vm i]: The VM to start.
 #+returns: Nothing. [B_E](#B_E) will be called for VMs that could not be started (maybe they don't exist?).
 #+@B_E
@@ -678,7 +681,7 @@ blib_dom0_checkRunningMultiple 0 "$@"
 }
 
 #+b_dom0_isRunning [vm 1] ... [vm n]
-#+Check whether the given VMs are running _and_ fully operational / not hanging / not booting.
+#+Check whether the given VMs are running _and_ fully operational / not hanging / not paused / not booting.
 #+In contrast `qvm-check --running [vm]` returns true for VMs which are currently booting and `qvm-ls` doesn't check whether the OS of a VM is hanging.
 #+[vm i]: The VM to check.
 #+returns: Nothing. [B_E](#B_E) will be called for VMs that are not running (or don't exist?).

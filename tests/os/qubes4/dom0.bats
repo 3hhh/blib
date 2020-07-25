@@ -216,6 +216,28 @@ function skipIfNoTestVMs {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 
+	run qvm-pause "$UTD_QUBES_TESTVM"
+	[ $status -eq 0 ]
+
+	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM"
+	echo "output: $output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"$UTD_QUBES_TESTVM"* ]]
+
+	runSL b_dom0_ensureRunning "$UTD_QUBES_TESTVM"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	run qvm-check --paused "$UTD_QUBES_TESTVM"
+	[ $status -ne 0 ]
+
+	run qvm-check --running "$UTD_QUBES_TESTVM"
+	[ $status -eq 0 ]
+
 	#make sure it is shut down
 	runSL qvm-shutdown --wait --timeout 10 "$UTD_QUBES_TESTVM"
 
