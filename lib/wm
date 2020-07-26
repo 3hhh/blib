@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+#+Collection of functions related to window managers.
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.1
+
+b_deps "wmctrl"
+
+#+### Functions ###
+
+#+b_wm_getActiveWindowProperties [variable name]
+#+Retrieve information about the currently active windows.
+#+[variable name]: Name of the associative array to use as output.
+#+returns: A string specifying an associative array in bash syntax. You can eval that string to obtain all relevant data. On errors [B_E](#B_E) is called.
+#+The information is returned as an associative array containing the following data:
+#+\[window ID\]\_\[id\] = hexadecimal window ID
+#+\[window ID\]\_\[desktop\] = desktop number
+#+\[window ID\]\_\[pid\] = PID of the window
+#+\[window ID\]\_\[x\] = x-offset
+#+\[window ID\]\_\[y\] = y-offset
+#+\[window ID\]\_\[width\] = window width
+#+\[window ID\]\_\[height\] = window height
+#+\[window ID\]\_\[class\] = window class name
+#+\[window ID\]\_\[client\] = client machine name
+#+\[window ID\]\_\[title\] = window title
+#+Missing data may result in an empty String for the respective property.
+#+@B_E
+function b_wm_getActiveWindowProperties {
+local outVar="$1"
+[ -z "$outVar" ] && B_ERR="Programming mistake: An output variable name must be specified." && B_E
+
+local input=
+input="$(wmctrl -lpxG)" || { B_ERR="Failed to run wmctrl. Maybe your window manager does not implement the EWMH standard?" ; B_E }
+
+local line=
+local re='^(0x[0-9a-f]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ].*)$'
+declare -A ret=()
+while IFS= read -r line ; do
+	[ -z "$line" ] && continue
+	if [[ "$line" =~ $re ]] ; then
+		local wid="${BASH_REMATCH[1]}"
+		ret["${wid}_id"]="$wid"
+		ret["${wid}_desktop"]="${BASH_REMATCH[2]}"
+		ret["${wid}_pid"]="${BASH_REMATCH[3]}"
+		ret["${wid}_x"]="${BASH_REMATCH[4]}"
+		ret["${wid}_y"]="${BASH_REMATCH[5]}"
+		ret["${wid}_width"]="${BASH_REMATCH[6]}"
+		ret["${wid}_height"]="${BASH_REMATCH[7]}"
+		ret["${wid}_class"]="${BASH_REMATCH[8]}"
+		ret["${wid}_client"]="${BASH_REMATCH[9]}"
+		[[ "${ret["${wid}_client"]}" == "N/A" ]] && ret["${wid}_client"]=""
+		ret["${wid}_title"]="${BASH_REMATCH[10]}"
+		[[ "${ret["${wid}_title"]}" == "N/A" ]] && ret["${wid}_title"]=""
+	else
+		B_ERR="Failed to parse the following line:"$'\n'"$line"
+		B_E
+	fi
+done <<< "$input"
+
+ret="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the wmctrl output." ; B_E }
+echo "${ret/declare -A ret/declare -A $outVar}"
+}
