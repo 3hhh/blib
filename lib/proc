@@ -2,7 +2,7 @@
 #
 #+Collection of process and thread related functions.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
+#+Copyright (C) 2020  David Hobach  LGPLv3
 #+0.2
 
 b_deps "tail" "timeout"
@@ -25,7 +25,8 @@ local pid="$1"
 #+returns: A zero exit code, if the caller is a parent of the given pid.
 function b_proc_childExists {
 local pid="$1"
-b_listContains "$(jobs -p)" "$pid"
+#NOTE: jobs -p turned out not to be absolutely reliable in practice (sometimes still has long dead jobs) so we double check with b_proc_pidExists
+b_listContains "$(jobs -p)" "$pid" && b_proc_pidExists "$pid"
 }
 
 #+b_proc_waitForPid [pid] [maximum time]
