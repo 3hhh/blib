@@ -87,3 +87,21 @@ function childTest {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 }
+
+@test "b_proc_resolveSignal" {
+	runSL b_proc_resolveSignal
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_proc_resolveSignal 10
+	[ $status -eq 0 ]
+	[[ "$output" == "10" ]]
+
+	runSL b_proc_resolveSignal "SIGTERM"
+	[ $status -eq 0 ]
+	[[ "$output" == "15" ]]
+
+	runSL b_proc_resolveSignal "USR1"
+	[ $status -eq 0 ]
+	[[ "$output" == "10" ]]
+}
