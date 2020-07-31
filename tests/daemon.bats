@@ -156,7 +156,6 @@ function basicDaemonTests {
 	[ -z "$output" ]
 
 	b_daemon_init "$quietPass" "" "$out" "$err"
-	[ $? -eq 0 ]
 	
 	echo "A"
 	postDaemonStopChecks "$did" "$quiet"
@@ -255,7 +254,6 @@ function daemon_main2 {
 
 @test "b_daemon_stop with kill" {
 	b_daemon_init "" "daemon_main2"
-	[ $? -eq 0 ]
 	
 	#ensure it is down
 	runSL b_daemon_status "$T_DAEMON"
@@ -277,4 +275,79 @@ function daemon_main2 {
 	runSL b_daemon_status "$T_DAEMON"
 	[ $status -ne 0 ]
 	[ -z "$output" ]
+}
+
+function testSigUsr {
+	echo "SIGUSR1" >> "$1"
+}
+
+function daemon_main3 {
+    local out="$1"
+    local outEsc=
+    printf -v outEsc '%q' "$out"
+
+    trap "testSigUsr $outEsc" SIGUSR1
+    echo "testSigUsr $outEsc" > "/tmp/traps.txt"
+
+	#don't sleep continuously to leave room for trap code executions
+	for ((i = 0 ; i < 100 ; i++)); do
+		sleep 0.1
+	done
+}
+
+@test "b_daemon_sendSignal" {
+	run mktemp -u
+	[ $status -eq 0 ]
+	tmp="$output"
+
+	b_daemon_init "" "daemon_main3"
+
+	runSL b_daemon_status "$T_DAEMON"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_daemon_sendSignal "$T_DAEMON"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_daemon_sendSignal "$T_DAEMON" "SIGUSR1"
+	[ $status -ne 0 ]
+	[[ "$output" != *"ERROR"* ]]
+
+	runSL b_daemon_start "$T_DAEMON" "$tmp"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_daemon_status "$T_DAEMON"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_daemon_sendSignal "$T_DAEMON" "SIGUSR1"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_daemon_sendSignal "$T_DAEMON" "SIGUSR1"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_daemon_stop "$T_DAEMON" "" 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL b_daemon_status "$T_DAEMON"
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	#check only here for the content as it may have been cached before & signal handling appears to be really slow...
+	b_import "fs"
+	runSL b_fs_waitForFile "$tmp" 30
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	run cat "$tmp"
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "SIGUSR1"$'\n'"SIGUSR1" ]]
+
+	#cleanup
+	rm -f "$tmp"
 }

@@ -139,7 +139,7 @@ return 0
 #+b_daemon_stop [id] [termination signal] [kill timeout]
 #+Stop the background process.
 #+[id]: Unique identifying String of the daemon to distinguish it from others.
-#+[termination signal]: A number specifying the signal to send to the daemon (default: 15 / SIGTERM). See `kill -l` for an overview.
+#+[termination signal]: A number or string specifying the signal to send to the daemon (default: 15 / SIGTERM). See `kill -l` for an overview.
 #+[kill timeout]: Time in seconds after which the background process will be killed, if it remains unresponsive to the termination signal (default: 0 = wait indefinitely).
 #+returns: Sets a zero exit code, if the daemon terminated by itself. An exit code of 2 indicates that the daemon had to be killed. An exit code of 3 means that it wasn't running. [B_E](#B_E) is called on unexpected errors.
 #+@B_E
@@ -147,6 +147,8 @@ function b_daemon_stop {
 local id="$1"
 local signal="${2:-15}"
 local timeout="${3:-0}"
+
+signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
 
 blib_daemon_info "Stopping ${id}..."
 
@@ -168,7 +170,7 @@ esac
 
 #kill daemon
 local ret=0
-kill -s "$signal" "$pid" &> /dev/null
+kill -s "$signal" "$pid" &> /dev/null || { blib_daemon_info "${id} wasn't running." ; return 3 ; }
 b_proc_waitForPid "$pid" "$timeout"
 if b_proc_pidExists "$pid" ; then
 	kill -9 "$pid" &> /dev/null
@@ -268,4 +270,37 @@ blib_mtx_getBlockIdFor "$mtx"
 ret=$?
 [ $ret -ne 0 ] && [ $ret -ne 1 ] && B_ERR="Unexpected pid retrieval failure (code: $ret)." && B_E
 return $ret
+}
+
+#+b_daemon_sendSignal [id] [signal]
+#+Send a signal to the daemon.
+#+For termination signals, please use [b_daemon_stop](#b_daemon_stop) instead.
+#+[id]: Unique identifying String of the daemon to distinguish it from others.
+#+[signal]: A number or string specifying the signal to send to the daemon. See `kill -l` for an overview.
+#+returns: Sets a zero exit code, if the daemon was running and a non-zero exit code otherwise. [B_E](#B_E) is only called on exceptional errors.
+#+@B_E
+function b_daemon_sendSignal {
+local id="$1"
+local signal="$2"
+
+signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+
+#get pid
+local pid=
+pid="$(B_RC=6 ; b_daemon_getPid "$id")"
+case $? in
+	0)
+	  ;;
+	6)
+	  B_ERR="Unexpected error: $pid"
+	  B_E
+	  ;;
+	*)
+	  return 3
+	  ;;
+esac
+
+#send signal
+kill -s "$signal" "$pid" &> /dev/null || { blib_daemon_info "${id} wasn't running." ; return 3 ; }
+return 0
 }
