@@ -2,8 +2,8 @@
 # 
 #+Bats tests for the types module.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.3
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.5
 
 #load common test code
 load test_common
@@ -11,56 +11,6 @@ load test_common
 function setup {
 	loadBlib
 	b_import "types"
-}
-
-@test "b_types_isInteger" {
-	runSL b_types_isInteger 1234
-	[ $status -eq 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger 0
-	[ $status -eq 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "a"
-	[ $status -ne 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "33"
-	[ $status -eq 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "145."
-	[ $status -ne 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "1.32"
-	[ $status -ne 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "1,32"
-	[ $status -ne 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "1a32"
-	[ $status -ne 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "-9b"
-	[ $status -ne 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger '0'
-	[ $status -eq 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "-3"
-	[ $status -eq 0 ]
-	[ -z "$output" ]
-
-	runSL b_types_isInteger "8989123213213"
-	[ $status -eq 0 ]
-	[ -z "$output" ]
 }
 
 @test "b_types_parseString" {
@@ -119,4 +69,154 @@ function setup {
 	#cleanup
 	rm -f "$tfileMixed1"
 	rm -f "$tfileMixed2"
+}
+
+#typeTest [function] [out] [expected status] [arg 1] ... [arg n]
+#Run the given function as type test.
+#[function]: Name of the function to run.
+#[out]: If set to 0, the output must contain an error message, if [expected status] is non-zero and no output otherwise. If set to 1, no output is expected.
+#[expected status]: Expected return status.
+#[args]: Arguments to pass to the function.
+#returns: Nothing.
+function typeTest {
+	local func="$1"
+	local out=$2
+	local eStatus=$3
+	shift 3
+
+	runSL "$func" "$@"
+	[ $status -eq $eStatus ]
+	if [ $out -ne 0 ] || [ $eStatus -eq 0 ] ; then
+		[ -z "$output" ]
+	else
+		[[ "$output" == *"ERROR"* ]]
+	fi
+
+	return 0
+}
+
+#runIntTests [function] [out]
+function runIntTests {
+	local func="$1"
+	local out="$2"
+
+	typeTest "$func" "$out" 0 1234
+	typeTest "$func" "$out" 0 0
+	typeTest "$func" "$out" 1 "a"
+	typeTest "$func" "$out" 0 33
+	typeTest "$func" "$out" 1 "145."
+	typeTest "$func" "$out" 1 "1.32"
+	typeTest "$func" "$out" 1 "1,32"
+	typeTest "$func" "$out" 1 "1a32"
+	typeTest "$func" "$out" 1 "-9b"
+	typeTest "$func" "$out" 0 '0'
+	typeTest "$func" "$out" 0 "-3"
+	typeTest "$func" "$out" 0 "8989123213213"
+	typeTest "$func" "$out" 1 "8989123213213e"
+}
+
+@test "b_types_isInteger" {
+	runIntTests "b_types_isInteger" 1
+}
+
+@test "b_types_assertInteger" {
+	runIntTests "b_types_assertInteger" 0
+
+	local msg="my error message"
+	runSL b_types_assertInteger "12!" "$msg"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"$msg"* ]]
+}
+
+#runArrayTests [function] [out]
+function runArrayTests {
+	local func="$1"
+	local out="$2"
+
+	typeTest "$func" "$out" 1 1234
+	typeTest "$func" "$out" 1 "a b c"
+	typeTest "$func" "$out" 1 ''
+	emptyarr=()
+	typeTest "$func" "$out" 0 "$(declare -p emptyarr)"
+	declare -ar arr=("foo" 2 3 "bla")
+	typeTest "$func" "$out" 0 "$(declare -p arr)"
+	local foo=""
+	typeTest "$func" "$out" 1 "$(declare -p foo)"
+	local foo=0
+	typeTest "$func" "$out" 1 "$(declare -p foo)"
+	declare -A map=()
+	typeTest "$func" "$out" 1 "$(declare -p map)"
+	declare -A map=([0]="foo" [1]="2" [2]="3")
+	typeTest "$func" "$out" 1 "$(declare -p map)"
+	typeTest "$func" "$out" 0 'declare     -ga     arr=("foo" 2 3 "bla")'
+	typeTest "$func" "$out" 0 'declare  -alg    arr=("foo" 2 3 "bla")'
+	typeTest "$func" "$out" 1 'declare  -xyz    arr=("foo" 2 3 "bla")'
+	typeTest "$func" "$out" 1 'declare  -Atg    arr=("foo" 2 3 "bla")'
+	typeTest "$func" "$out" 0 'declare arr=("foo" 2 3 "bla") '
+	typeTest "$func" "$out" 0 ' arr=("foo" 2 3 "bla")'
+	typeTest "$func" "$out" 0 'declare -a arr'
+	typeTest "$func" "$out" 0 '  declare -rag arr   '
+	typeTest "$func" "$out" 1 '  declare -raxyzg arr   '
+	typeTest "$func" "$out" 1 'declare -gA arr'
+}
+
+@test "b_types_looksLikeArray" {
+	runArrayTests "b_types_looksLikeArray" 1
+}
+
+@test "b_types_assertLooksLikeArray" {
+	runArrayTests "b_types_assertLooksLikeArray" 0
+
+	local msg="my error message"
+	runSL b_types_assertLooksLikeArray "12!" "$msg"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"$msg"* ]]
+}
+
+#runMapTests [function] [out]
+function runMapTests {
+	local func="$1"
+	local out="$2"
+
+	typeTest "$func" "$out" 1 1234
+	typeTest "$func" "$out" 1 "a b c"
+	typeTest "$func" "$out" 1 ''
+	emptyarr=()
+	typeTest "$func" "$out" 1 "$(declare -p emptyarr)"
+	declare -ar arr=("foo" 2 3 "bla")
+	typeTest "$func" "$out" 1 "$(declare -p arr)"
+	local foo=""
+	typeTest "$func" "$out" 1 "$(declare -p foo)"
+	local foo=0
+	typeTest "$func" "$out" 1 "$(declare -p foo)"
+	declare -A map=()
+	typeTest "$func" "$out" 0 "$(declare -p map)"
+	declare -A map=([0]="foo" [1]="2" [2]="3")
+	typeTest "$func" "$out" 0 "$(declare -p map)"
+	declare -rA map=([0]="foo" [1]="2" [2]="3")
+	typeTest "$func" "$out" 0 "$(declare -p map)"
+	typeTest "$func" "$out" 0 'declare     -gA     aRr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
+	typeTest "$func" "$out" 0 'declare  -Alg    a_rr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
+	typeTest "$func" "$out" 1 'declare  -xyz    a_rr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
+	typeTest "$func" "$out" 1 'declare  -atg    myArr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
+	typeTest "$func" "$out" 0 'declare -A another_arr=() '
+	typeTest "$func" "$out" 0 'declare -A arr'
+	typeTest "$func" "$out" 0 '  declare -rAg arr   '
+	typeTest "$func" "$out" 1 '  declare -rAxyzg arr   '
+	typeTest "$func" "$out" 1 'declare -ga arr'
+}
+
+@test "b_types_looksLikeMap" {
+	runMapTests "b_types_looksLikeMap" 1
+}
+
+@test "b_types_assertLooksLikeMap" {
+	runMapTests "b_types_assertLooksLikeMap" 0
+
+	local msg="my error message"
+	runSL b_types_assertLooksLikeMap "12!" "$msg"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
 }

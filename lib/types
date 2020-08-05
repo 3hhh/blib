@@ -2,8 +2,8 @@
 #
 #+Functions for data type checks and conversions.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.2
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.4
 
 b_deps "mktemp" "mkfifo" "rm" "wc" "strings" "tee" "head"
 
@@ -91,4 +91,97 @@ rm -rf "$tdir" &> /dev/null
 #+returns: Nothing, but sets a zero exit code if and only if the given string represents an integer.
 function b_types_isInteger {
 printf "%d" "$1" &> /dev/null
+}
+
+#+b_types_assertInteger [string] [error msg]
+#+Check whether the given String is an integer (positive or negative) and if not, error out.
+#+[string]: The string to check. If it may be binary data, please make sure to pass it through [b_types_parseString](#b_types_parseString) first.
+#+[error msg]: Error message to use, if the check fails (optional).
+#+returns: Nothing. If it's no integer, [B_E](#B_E) is called.
+#+@B_E
+function b_types_assertInteger {
+b_types_isInteger "$1" || { B_ERR="${2:-"No integer: $1"}" ; B_E }
+}
+
+#+b_types_looksLikeArray [string]
+#+Check whether the given String "looks like" a bash array or not.
+#+It may still contain malicious code or whatnot. So you **must not** rely on this function when processing untrusted input.
+#+[string]: The string to check. Use `"$(declare -p var)"` on variables to obtain it.
+#+returns: Nothing, but sets a zero exit code if the given string looks like it could be `eval`'ed to a bash array.  References (`declare -n`) will result in a non-zero exit code.
+function b_types_looksLikeArray {
+local str="$1"
+local declareWithOpts='declare[ ]+\-([aglrtux]+)'
+local aname='([a-zA-Z_][a-zA-Z0-9_]*)'
+local contentPart="$aname"'=\((.*)\)'
+local re='^[ ]*'"$declareWithOpts"'[ ]+'"$contentPart"'[ ]*$'
+if [[ "$str" =~ $re ]] ; then
+	[[ "${BASH_REMATCH[1]}" == *"a"* ]] || return 1
+	#NOTE: in order to make sure it is actually an array, we'd have to fully parse the content - which is hard
+	return 0
+fi
+
+#variant: empty array with declare
+local re='^[ ]*'"$declareWithOpts"'[ ]+'"$aname"'[ ]*$'
+if [[ "$str" =~ $re ]] ; then
+	[[ "${BASH_REMATCH[1]}" == *"a"* ]] || return 1
+	return 0
+fi
+
+#variant: declare, no options
+local re='^[ ]*declare[ ]+'"$contentPart"'[ ]*$'
+[[ "$str" =~ $re ]] && return 0
+
+#variant: no declare, no options
+local re='^[ ]*'"$contentPart"'[ ]*$'
+[[ "$str" =~ $re ]] && return 0
+
+return 1
+}
+
+#+b_types_assertLooksLikeArray [string] [error msg]
+#+Check whether the given String "looks like" a bash array and if not, error out.
+#+It may still contain malicious code or whatnot. So you **must not** rely on this function when processing untrusted input.
+#+[string]: The string to check. Use `"$(declare -p var)"` on variables to obtain it.
+#+[error msg]: Error message to use, if the check fails (optional).
+#+returns: Nothing. If doesn't look like a bash array, [B_E](#B_E) is called.
+#+@B_E
+function b_types_assertLooksLikeArray {
+b_types_looksLikeArray "$1" || { B_ERR="${2:-"Doesn't look like a bash array: $1"}" ; B_E }
+}
+
+#+b_types_looksLikeMap [string]
+#+Check whether the given String "looks like" a bash map / associative array or not.
+#+It may still contain malicious code or whatnot. So you **must not** rely on this function when processing untrusted input.
+#+[string]: The string to check. Use `"$(declare -p var)"` on variables to obtain it.
+#+returns: Nothing, but sets a zero exit code if the given string looks like it could be `eval`'ed to a bash associative array. References (`declare -n`) will result in a non-zero exit code.
+function b_types_looksLikeMap {
+local str="$1"
+local declareWithOpts='declare[ ]+\-([Aglrtux]+)'
+local aname='([a-zA-Z_][a-zA-Z0-9_]*)'
+local re='^[ ]*'"$declareWithOpts"'[ ]+'"$aname"'=\((.*)\)[ ]*$'
+if [[ "$str" =~ $re ]] ; then
+	[[ "${BASH_REMATCH[1]}" == *"A"* ]] || return 1
+	#NOTE: in order to make sure it is actually a map, we'd have to fully parse the content - which is hard
+	return 0
+fi
+
+#variant: empty array with declare
+local re='^[ ]*'"$declareWithOpts"'[ ]+'"$aname"'[ ]*$'
+if [[ "$str" =~ $re ]] ; then
+	[[ "${BASH_REMATCH[1]}" == *"A"* ]] || return 1
+	return 0
+fi
+
+return 1
+}
+
+#+b_types_assertLooksLikeMap [string] [error msg]
+#+Check whether the given String "looks like" a bash map / associative array and if not, error out.
+#+It may still contain malicious code or whatnot. So you **must not** rely on this function when processing untrusted input.
+#+[string]: The string to check. Use `"$(declare -p var)"` on variables to obtain it.
+#+[error msg]: Error message to use, if the check fails (optional).
+#+returns: Nothing. If doesn't look like a bash array, [B_E](#B_E) is called.
+#+@B_E
+function b_types_assertLooksLikeMap {
+b_types_looksLikeMap "$1" || { B_ERR="${2:-"Doesn't look like a bash map: $1"}" ; B_E }
 }
