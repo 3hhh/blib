@@ -151,6 +151,8 @@ function runArrayTests {
 	typeTest "$func" "$out" 1 "$(declare -p map)"
 	typeTest "$func" "$out" 0 'declare     -ga     arr=("foo" 2 3 "bla")'
 	typeTest "$func" "$out" 0 'declare  -alg    arr=("foo" 2 3 "bla")'
+	typeTest "$func" "$out" 0 "declare  -alg    arr='(foo 2 3 bla)'"
+	typeTest "$func" "$out" 0 'declare  -alg    arr="(foo 2 3 "bla")"'
 	typeTest "$func" "$out" 1 'declare  -xyz    arr=("foo" 2 3 "bla")'
 	typeTest "$func" "$out" 1 'declare  -Atg    arr=("foo" 2 3 "bla")'
 	typeTest "$func" "$out" 0 'declare arr=("foo" 2 3 "bla") '
@@ -199,6 +201,8 @@ function runMapTests {
 	typeTest "$func" "$out" 0 "$(declare -p map)"
 	typeTest "$func" "$out" 0 'declare     -gA     aRr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
 	typeTest "$func" "$out" 0 'declare  -Alg    a_rr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
+	typeTest "$func" "$out" 0 "declare  -Alg    a_rr='([0]=foo [1]=2 [2]=3 [holy]=bla)'"
+	typeTest "$func" "$out" 0 'declare  -Alg    a_rr="([0]=foo [1]=2 [2]=3 [holy]=bla)"'
 	typeTest "$func" "$out" 1 'declare  -xyz    a_rr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
 	typeTest "$func" "$out" 1 'declare  -atg    myArr=([0]="foo" [1]=2 [2]=3 ["holy"]="bla")'
 	typeTest "$func" "$out" 0 'declare -A another_arr=() '

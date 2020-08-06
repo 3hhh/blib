@@ -112,7 +112,7 @@ function b_types_looksLikeArray {
 local str="$1"
 local declareWithOpts='declare[ ]+\-([aglrtux]+)'
 local aname='([a-zA-Z_][a-zA-Z0-9_]*)'
-local contentPart="$aname"'=\((.*)\)'
+local contentPart="$aname=['\"]?\\((.*)\\)['\"]?"
 local re='^[ ]*'"$declareWithOpts"'[ ]+'"$contentPart"'[ ]*$'
 if [[ "$str" =~ $re ]] ; then
 	[[ "${BASH_REMATCH[1]}" == *"a"* ]] || return 1
@@ -158,7 +158,7 @@ function b_types_looksLikeMap {
 local str="$1"
 local declareWithOpts='declare[ ]+\-([Aglrtux]+)'
 local aname='([a-zA-Z_][a-zA-Z0-9_]*)'
-local re='^[ ]*'"$declareWithOpts"'[ ]+'"$aname"'=\((.*)\)[ ]*$'
+local re='^[ ]*'"$declareWithOpts"'[ ]+'"$aname=['\"]?\\((.*)\\)['\"]?[ ]*$"
 if [[ "$str" =~ $re ]] ; then
 	[[ "${BASH_REMATCH[1]}" == *"A"* ]] || return 1
 	#NOTE: in order to make sure it is actually a map, we'd have to fully parse the content - which is hard
