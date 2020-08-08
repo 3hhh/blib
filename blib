@@ -380,7 +380,15 @@ return $ret
 #+@StateChanging
 function b_setBE {
 local errOut=${1:-0}
-b_setErrorHandler "${BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]} $errOut"
+
+local re='^([^ ]+)[ ]+[0-9]+(.*)$'
+if [[ "${BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]}" =~ $re ]] ; then
+	b_setErrorHandler "${BASH_REMATCH[1]} ${errOut}${BASH_REMATCH[2]}"
+else
+	#special case: no arguments @error handler
+	b_setErrorHandler "${BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]} $errOut"
+fi
+return 0
 }
 
 #+b_setErrorHandler [handler]

@@ -493,6 +493,57 @@ function testAllErrorSituations {
 	B_RC=1
 }
 
+@test "b_setBE" {
+	runSL b_setBE 1
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	b_setBE 1
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 1" ]]
+
+	b_setBE 1
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 1" ]]
+
+	b_setBE 1
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 1" ]]
+
+	b_setBE
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 0" ]]
+
+	b_setBE 1
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 1" ]]
+
+	b_setErrorHandler "b_defaultErrorHandler 1 1 1"
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 1 1 1" ]]
+
+	b_setBE
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 0 1 1" ]]
+
+	b_setErrorHandler "b_defaultErrorHandler"
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler" ]]
+
+	b_setBE
+	runSL b_getErrorHandler
+	[ $status -eq 0 ]
+	[[ "$output" == "b_defaultErrorHandler 0" ]]
+}
+
 function runSLE {
 	B_E
 }
