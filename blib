@@ -329,12 +329,12 @@ return 0
 #+
 #+[error out]: Whether or not to call exit after the error message handling, if the error couldn't be handled (default: 0 = always error out / call exit). If set to 1, [B_E](#B_E) will allow e.g. functions to return to their callers.
 #+[send err]: Whether or not to send the error message to the user (default: 0 = send).
-#+[send stack trace]: Whether or not to send a stack trace to the user (default: 0 = send).
+#+[send stack trace]: Whether or not to send a stack trace to the user (default: identical to \[send err\]).
 #+returns: see the description above
 function b_defaultErrorHandler {
 local errorOut=${1:-0}
 local sendErr=${2:-0}
-local sendStack=${3:-0}
+local sendStack=${3:-$sendErr}
 
 local firstMsg=0
 if [ $sendErr -eq 0 ] ; then

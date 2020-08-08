@@ -564,6 +564,11 @@ function runSLE {
 	[ $status -eq 2 ]
 	[ -z "$output" ]
 
+	runSL "b_defaultErrorHandler" 0 1
+	echo "$output"
+	[ $status -eq 2 ]
+	[ -z "$output" ]
+
 	#cleanup
 	B_ERR=""
 }
