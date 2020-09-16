@@ -65,7 +65,7 @@ local timeout=${1:-5}
 local ind=$(( $RANDOM % ${#B_HTTP_CHECKURLS[@]} ))
 local url="${B_HTTP_CHECKURLS[$ind]}"
 local ret=
-curl -m $timeout "$url" &> /dev/null
+curl -A '' -m $timeout "$url" &> /dev/null
 ret=$?
 
 case $ret in
