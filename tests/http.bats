@@ -69,3 +69,19 @@ function setup {
 	[ -z "$output" ]
 	[ $status -eq 2 ]
 }
+
+@test "b_http_testProxy" {
+	#NOTE: we currently only test failing scenarios as we don't have a working proxy
+
+	runSL b_http_testProxy 'nonexisting.proxytld'
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_http_testProxy 'nonexisting.proxytld' 1 1
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL b_http_testProxy 'nonexisting.proxytld' 0 1
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+}

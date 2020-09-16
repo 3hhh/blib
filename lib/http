@@ -129,3 +129,28 @@ case $ret in
 	;;
 esac
 }
+
+#+b_http_testProxy [proxy string] [intransparent only] [timeout]
+#+Test whether the given proxy is working as advertised.
+#+[proxy string]: Connection string to test, e.g. `https://1.1.1.1:234`.
+#+[intransparent only]: If set to 0 (default), only accept intransparent proxies (i.e. those not revealing your IP).
+#+[timeout]: Time in seconds after which to consider the proxy non-responsive (default: 5).
+#+returns: Nothing, but sets a zero exit code, if and only if the proxy appears to work.
+function b_http_testProxy {
+local proxy="$1"
+local onlyIntransparent="${2:-0}"
+local timeout="${3:-5}"
+
+#NOTE: https://httpbin.org/get is a service that returns the HTTP headers it received in the response (a badass proxy might still modify that response)
+local out=
+out="$(curl -m "$timeout" -x "$proxy" -A '' "https://httpbin.org/get" 2> /dev/null)" || return 2
+
+#convert to lower case
+out="${out,,}"
+
+#check intransparent, if necessary
+[ $onlyIntransparent -eq 0 ] && [[ "$out" == *"x-forwarded-for"* ]] && return 3
+
+#set exit code
+[[ "$out" == *'"headers"'* ]] || return 1
+}
