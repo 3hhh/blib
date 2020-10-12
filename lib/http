@@ -5,6 +5,8 @@
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.2
 
+b_import "types"
+
 b_deps "curl"
 
 #+### Global Variables ###
@@ -141,9 +143,11 @@ local proxy="$1"
 local onlyIntransparent="${2:-0}"
 local timeout="${3:-5}"
 
-#NOTE: https://httpbin.org/get is a service that returns the HTTP headers it received in the response (a badass proxy might still modify that response)
+#NOTES:
+# - https://httpbin.org/get is a service that returns the HTTP headers it received in the response (a badass proxy might still modify that response)
+# - curl may return binary data which we need to filter
 local out=
-out="$(curl -m "$timeout" -x "$proxy" -A '' "https://httpbin.org/get" 2> /dev/null)" || return 2
+out="$(set -o pipefail ; curl -m "$timeout" -x "$proxy" -A '' "https://httpbin.org/get" 2> /dev/null | b_types_parseString)" || return 2
 
 #convert to lower case
 out="${out,,}"
