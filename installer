@@ -89,7 +89,7 @@ fi
 return 0
 }
 
-#installR [install dir] [run man update]
+#uninstallR [install dir] [run man update]
 function uninstallR {
 local installDir="$1"
 local runMan="${2:-0}"
