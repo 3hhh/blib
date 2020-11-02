@@ -270,6 +270,92 @@ function skipIfNoTestVMs {
 	[ -z "$output" ]
 }
 
+#testFwRuleApply [input rules] [expected rules] [vm]
+function testFwRuleApply {
+	local rules="$1"
+	local rulesExpected="$2"
+	local vm="${3:-${TEST_STATE["DOM0_TESTVM_1"]}}"
+
+	runSL b_dom0_applyFirewall "$vm" "$rules"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSC qvm-firewall --raw "$vm"
+	[ $status -eq 0 ]
+	[[ "$output" == "$rulesExpected" ]]
+}
+
+#testFwClear [vm]
+function testFwClear {
+	local vm="${1:-${TEST_STATE["DOM0_TESTVM_1"]}}"
+
+	runSL b_dom0_clearFirewall "$vm"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSC qvm-firewall --raw "$vm"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
+@test "b_dom0_applyFirewall & b_dom0_clearFirewall" {
+	skipIfNoTestVMs
+
+	#some error testing
+	runSL b_dom0_applyFirewall "nonexisting-vm" "my rules"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_dom0_clearFirewall "nonexisting-vm"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_dom0_applyFirewall "${TEST_STATE["DOM0_TESTVM_1"]}" "incorrect rule"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	#clearing twice shouldn't cause issues
+	testFwClear
+	testFwClear
+
+	local rules='
+
+action=accept specialtarget=dns
+action=drop proto=icmp
+  #some comment
+    
+action=accept proto=tcp dsthost=google.com dstports=443-443
+action=accept proto=tcp dsthost=wikipedia.org dstports=80-80
+#another comment
+action=drop'
+
+	local rulesExpected='action=accept specialtarget=dns
+action=drop proto=icmp
+action=accept proto=tcp dsthost=google.com dstports=443-443
+action=accept proto=tcp dsthost=wikipedia.org dstports=80-80
+action=drop'
+
+	testFwRuleApply "$rules" "$rulesExpected"
+	testFwRuleApply "$rules" "$rulesExpected"$'\n'"$rulesExpected"
+	testFwClear
+	testFwRuleApply "$rules" "$rulesExpected"
+
+	#break the firewall rules
+	runSL b_dom0_applyFirewall "${TEST_STATE["DOM0_TESTVM_1"]}" "incorrect rule"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"was cleared"* ]]
+
+	#check whether it failed closed (all drop)
+	runSC qvm-firewall --raw "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 function checkEventLoopConnection {
 	local name="$2"
 	[[ "$name" == "connection-established" ]] && return 22

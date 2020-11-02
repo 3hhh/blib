@@ -4,7 +4,7 @@
 #+
 #+**Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
-#+Copyright (C) 2019  David Hobach  LGPLv3
+#+Copyright (C) 2020  David Hobach  LGPLv3
 #+0.5
 
 b_import fs
@@ -13,7 +13,7 @@ b_import proc
 b_import types
 
 b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-unpause" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" \
-"dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar"
+"dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar" "qvm-firewall"
 
 #private vars
 BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
@@ -1309,4 +1309,71 @@ done <<< "$list"
 [ $i -ne ${#ret[@]} ] && B_ERR="The VM $vm returned an invalid number of list entries. Is this an attack?!" && B_E
 
 return 0
+}
+
+#+b_dom0_applyFirewall [vm] [rules]
+#+Apply the given rules to the VM firewall.
+#+**Important**: Since the rules are applied iteratively, there may be short timeframes during which a VM may have a more permissive firewall than in the end.
+#+[vm]: VM for which to apply the firewall rules.
+#+[rules]: Newline-separated list of firewall rules in _raw_ format (cf. `man qvm-firewall`). The rules are added in the order as specified.
+#+         (This corresponds to the `qvm-firewall` output.) Previously applied rules are left untouched.
+#+         Empty lines and lines starting with `#` (comments) are ignored.
+#+returns: Nothing. If a rule cannot be added for whatever reason, the entire firewall is cleared to a drop-all state for security reasons.
+#+@B_E
+function b_dom0_applyFirewall {
+local vm="$1"
+local rules="$2"
+
+local rule=
+local blankRegex='^[[:blank:]]*$'
+local commentRegex='^[[:blank:]]*#.*$'
+
+while IFS= read -r rule ; do
+	[[ "$rule" =~ $blankRegex ]] && continue
+	[[ "$rule" =~ $commentRegex ]] && continue
+
+	if ! qvm-firewall "$vm" --raw add $rule ; then
+		b_dom0_clearFirewall "$vm"
+		B_ERR="Failed to add the rule ${rule} to the firewall for the VM $vm. The entire firewall was cleared."
+		B_E
+	fi
+done <<< "$rules"
+
+return 0
+}
+
+#+b_dom0_clearFirewall [vm]
+#+Clears the given VM firewall entirely (no rules left). This will make the VM firewall drop all connections.
+#+Existing connections may continue to work as long as the VM and the connection remain up (this is a known Qubes OS quirk).
+#+[vm]: VM for which to clear all rules.
+#+returns: Nothing. Errors may result in leftover rules which should generally allow less.
+#+@B_E
+function b_dom0_clearFirewall {
+local vm="$1"
+
+local rules=
+rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing firewall rules for the VM $vm." ; B_E }
+
+#remove accept rules first for security reasons (attempt to never allow more than before)
+local rule=
+declare -a dropRules=()
+while IFS= read -r rule ; do
+	[ -z "$rule" ] && continue
+	[[ "$rule" != "action="* ]] && B_ERR="Unexpected $vm VM firewall rule: $rule" && B_E
+
+	if [[ "$rule" == "action=accept"* ]] ; then
+		qvm-firewall "$vm" --raw del $rule || { B_ERR="Failed to remove the following $vm VM firewall rule: $rule" ; B_E }
+	else
+		dropRules+=("$rule")
+	fi
+done <<< "$rules"
+
+#remove the drop rules
+for rule in "${dropRules[@]}" ; do
+	qvm-firewall "$vm" --raw del $rule || { B_ERR="Failed to remove the following $vm VM firewall rule: $rule" ; B_E }
+done
+
+#double check
+rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing rules for the VM $vm." ; B_E }
+[ -z "$rules" ] || { B_ERR="Failed to remove all $vm VM rules. Leftovers: $rules" ; B_E }
 }
