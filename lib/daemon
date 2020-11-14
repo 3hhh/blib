@@ -170,10 +170,10 @@ esac
 
 #kill daemon
 local ret=0
-kill -s "$signal" "$pid" &> /dev/null || { blib_daemon_info "${id} wasn't running." ; return 3 ; }
+kill -s "$signal" "$pid" &> /dev/null || { B_ERR="${id} could not be terminated. Insufficient access rights?" ; B_E }
 b_proc_waitForPid "$pid" "$timeout"
 if b_proc_pidExists "$pid" ; then
-	kill -9 "$pid" &> /dev/null
+	kill -9 "$pid" &> /dev/null || { B_ERR="${id} could not be killed. Insufficient access rights?" ; B_E }
 	blib_daemon_info "${id} had to be killed."
 	ret=2
 fi
@@ -287,7 +287,7 @@ signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the sig
 
 #get pid
 local pid=
-pid="$(B_RC=6 ; b_daemon_getPid "$id")"
+pid="$(B_RC=6 ; b_daemon_statusPid "$id")"
 case $? in
 	0)
 	  ;;
@@ -296,11 +296,12 @@ case $? in
 	  B_E
 	  ;;
 	*)
+	  blib_daemon_info "${id} wasn't running."
 	  return 3
 	  ;;
 esac
 
 #send signal
-kill -s "$signal" "$pid" &> /dev/null || { blib_daemon_info "${id} wasn't running." ; return 3 ; }
+kill -s "$signal" "$pid" &> /dev/null || { B_ERR="Failed to send the $signal signal to ${id}. Insufficient access rights?" ; B_E }
 return 0
 }
