@@ -31,7 +31,7 @@ local outVar="$1"
 [ -z "$outVar" ] && B_ERR="Programming mistake: An output variable name must be specified." && B_E
 
 local input=
-input="$(wmctrl -lpxG)" || { B_ERR="Failed to run wmctrl. Maybe your window manager does not implement the EWMH standard?" ; B_E }
+input="$(wmctrl -lpxG)" || { B_ERR="Failed to run wmctrl. Maybe the $(whoami) user has no access to the X server or your window manager does not implement the EWMH standard?" ; B_E }
 
 local line=
 local re='^(0x[0-9a-f]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ].*)$'
