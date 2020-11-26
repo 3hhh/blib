@@ -59,6 +59,7 @@ printf '%b' "${1//%/\\x}"
 #+b_http_getOnlineStatus [timeout]
 #+Find out whether we are online or not by attempting an http connection.
 #+One of [B_HTTP_CHECKURLS](#B_HTTP_CHECKURLS) is possibly visited during the process.
+#+Use [b_net_getDNSStatus](#b_net_getDNSStatus) for DNS-only checks.
 #+[timeout]: Timeout in seconds for hanging checks (default: 5).
 #+returns: 0, if we're online, 1 if only DNS works, 2 if neither DNS nor http(s) worked, 3 if the check timed out; [B_E](#B_E) will be called if the status cannot be determined.
 #+@B_E

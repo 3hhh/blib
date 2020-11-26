@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+#+Collection of network related functions.
+#+
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.1
+
+b_deps "dig"
+
+#+### Global Variables ###
+
+declare -ga B_NET_CHECKHOSTS
+#+B_NET_CHECKHOSTS
+#+Each call to [b_net_getDNSStatus](#b_net_getDNSStatus) causes one of the host records in this array to be requested.
+#+It is recommended to pick a relatively large number of URLs with SSL support to remain relatively anonymous, if [b_net_getDNSStatus](#b_net_getDNSStatus) is called multiple times.
+#+Defaults to the European/US Alexa Top 10 (which hopefully blends in to the masses).
+B_NET_CHECKHOSTS=(
+		"www.google.com"
+		"www.youtube.com"
+		"www.facebook.com"
+		"www.wikipedia.org"
+		"www.yahoo.com"
+		"www.amazon.com"
+		"twitter.com"
+		"www.instagram.com"
+		"www.reddit.com"
+		"www.blogger.com"
+		)
+
+#+### Functions ###
+
+#+b_net_getDNSStatus [timeout] [server]
+#+Find out whether DNS appears to work or not by testing it.
+#+One of [B_NET_CHECKHOSTS](#B_NET_CHECKHOSTS) is possibly requested during the process.
+#+Use [b_http_getOnlineStatus](#b_http_getOnlineStatus) for http checks.
+#+[timeout]: Timeout in seconds for hanging checks (default: 5).
+#+[server]: DNS server to use (default: the OS default).
+#+returns: 0 if DNS works as expected, 1 if DNS works but returns NXDOMAIN and 2 on timeout; [B_E](#B_E) will be called if the status cannot be determined.
+#+@B_E
+function b_net_getDNSStatus {
+local timeout=${1:-5}
+local server="$2"
+local ind=$(( $RANDOM % ${#B_NET_CHECKHOSTS[@]} ))
+local host="${B_NET_CHECKHOSTS[$ind]}"
+local ret=
+
+local serverCmd=""
+local out=
+[ -n "$server" ] && serverCmd="@$server"
+out="$(dig $serverCmd +noall +answer +tries=1 +timeout=$timeout "$host")"
+ret=$?
+
+case $ret in
+	0)
+	[ -n "$out" ] && return 0 || return 1
+	;;
+
+	9)
+	#timeout
+	return 2
+	;;
+
+	*)
+	B_ERR="Unexpected DNS lookup error. dig exit code: $ret"
+	B_E
+	;;
+esac
+}
