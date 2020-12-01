@@ -27,6 +27,29 @@ B_NET_CHECKHOSTS=(
 		"www.blogger.com"
 		)
 
+#+B_NET_DNSSERVERS
+#+Each call to [b_net_getDNSStatus](#b_net_getDNSStatus) with a `random` [server] causes one of the IPs in this array to be used as DNS server.
+#+Defaults to common large-scale free DNS providers (that probably save your requests).
+#+Sources:
+#+ - https://www.techradar.com/news/best-dns-server
+#+ - https://dnsmap.io/articles/most-popular-dns-servers
+B_NET_DNSSERVERS=(
+		"208.67.222.222" #OpenDNS primary
+		"208.67.220.220" #OpenDNS secondary
+		"1.1.1.1" #Cloudflare primary
+		"1.0.0.1" #Cloudflare secondary
+		"8.8.8.8" #google primary
+		"8.8.4.4" #google secondary
+		"8.26.56.26"  #Comodo primary
+		"8.20.247.20" #Comodo secondary
+		"9.9.9.9"         #Quad9 primary
+		"149.112.112.112" #Quad9 secondary
+		"64.6.64.6" #Verisign primary
+		"64.6.65.6" #Verisign secondary
+		"209.244.0.3" #Level3 primary
+		"209.244.0.4" #Level3 secondary
+)
+
 #+### Functions ###
 
 #+b_net_getDNSStatus [timeout] [server]
@@ -34,7 +57,7 @@ B_NET_CHECKHOSTS=(
 #+One of [B_NET_CHECKHOSTS](#B_NET_CHECKHOSTS) is possibly requested during the process.
 #+Use [b_http_getOnlineStatus](#b_http_getOnlineStatus) for http checks.
 #+[timeout]: Timeout in seconds for hanging checks (default: 5).
-#+[server]: DNS server to use (default: the OS default).
+#+[server]: DNS server to use (default: the OS default). Passing `random` will pick a random DNS server.
 #+returns: 0 if DNS works as expected, 1 if DNS works but returns NXDOMAIN and 2 on timeout; [B_E](#B_E) will be called if the status cannot be determined.
 #+@B_E
 function b_net_getDNSStatus {
@@ -43,6 +66,11 @@ local server="$2"
 local ind=$(( $RANDOM % ${#B_NET_CHECKHOSTS[@]} ))
 local host="${B_NET_CHECKHOSTS[$ind]}"
 local ret=
+
+if [[ "$server" == "random" ]] ; then
+	ind=$(( $RANDOM % ${#B_NET_DNSSERVERS[@]} ))
+	server="${B_NET_DNSSERVERS[$ind]}"
+fi
 
 local serverCmd=""
 local out=

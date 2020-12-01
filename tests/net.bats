@@ -24,6 +24,14 @@ function setup {
 		[ $status -eq 0 ]
 	fi
 
+	runSL b_net_getDNSStatus "" "random"
+	[ -z "$output" ]
+	if [[ "$UTD_ONLINE" == "no" ]] ; then
+		[ $status -eq 2 ]
+	else
+		[ $status -eq 0 ]
+	fi
+
 	B_NET_CHECKHOSTS=( "nonexisting.nonexisting" )
 
 	runSL b_net_getDNSStatus 2
