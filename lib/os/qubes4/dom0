@@ -12,7 +12,7 @@ b_import ui
 b_import proc
 b_import types
 
-b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-unpause" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" \
+b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" \
 "dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar" "qvm-firewall"
 
 #private vars
@@ -627,9 +627,6 @@ local maxWait=""
 
 	if [ $toStart -eq 0 ] ; then
 		maxWait=${BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]}
-
-		#make sure the VM is unpaused
-		qvm-unpause "$vm" &> /dev/null
 	else
 		maxWait=5
 		addParams="-n"
