@@ -537,7 +537,7 @@ if [ $last -eq 0 ] ; then
 		#NOTE: we want to perform this operation _atomically_ in order to not lose messages coming from threads running concurrently --> we use mv as it uses the rename syscall which is atomic on most unix systems
 		local cfileTmp=
 		cfileTmp="$(mktemp -u)" || { b_defaultMessageHandler 1 "Failed to call mktemp -u." ; return 0 ; }
-		mv "$cfile" "$cfileTmp" &> /dev/null || { b_defaultMessageHandler 1 "Failed to move $cfile to $cfileTmp." ; return 0 ; }
+		mv -f "$cfile" "$cfileTmp" &> /dev/null || { b_defaultMessageHandler 1 "Failed to move $cfile to $cfileTmp." ; return 0 ; }
 		local cmsg=
 		cmsg="$(<"$cfileTmp")" || { b_defaultMessageHandler 1 "Failed to read $cfileTmp." ; return 0 ; }
 		rm -f "$cfileTmp" &> /dev/null || { b_defaultMessageHandler 1 "Failed to remove $cfileTmp." ; return 0 ; }

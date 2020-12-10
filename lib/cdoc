@@ -290,7 +290,7 @@ if [ -n "$outFormat" ] ; then
 	rm -f "$rawOut"
 else
 	#no conversion required --> move raw file to output
-	mv "$rawOut" "$outFile" || { B_ERR="Failed to move the raw output in $rawOut to $outFile." ; B_E }
+	mv -f "$rawOut" "$outFile" || { B_ERR="Failed to move the raw output in $rawOut to $outFile." ; B_E }
 fi
 
 return 0

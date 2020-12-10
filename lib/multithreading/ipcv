@@ -83,7 +83,7 @@ for var in "$@" ; do
 	echo "${out/declare/declare -g}" > "$tmp" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to write the variable ${var}." ; B_E }
 
 	#NOTE: the below mv should be atomic on almost all Linux distros
-	mv "$tmp" "$nsDir/$var" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to move a temporary memory object for the variable $var." ; B_E }
+	mv -f "$tmp" "$nsDir/$var" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to move a temporary memory object for the variable $var." ; B_E }
 done
 
 return 0

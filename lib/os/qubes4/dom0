@@ -488,7 +488,7 @@ local tmp=
 #--> that's why we do the mktemp stuff
 tmp="$(mktemp -p "$dir" -d)" || exit 1
 tar -C "$tmp" -x -f - || { rm -rf "$tmp" ; exit 2 ; }
-mv "$tmp"/* "$dir/$name" || { rm -rf "$tmp" ; exit 3 ; }
+mv -f "$tmp"/* "$dir/$name" || { rm -rf "$tmp" ; exit 3 ; }
 rm -rf "$tmp"
 return 0
 }
