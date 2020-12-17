@@ -13,8 +13,8 @@
 #+   _Recommendation_: Use long options for those options which require parameters and single letter options for everything else.
 #+ * Everything after a space-separated double dash (`--`) is not considered an option, but a regular argument.
 #+
-#+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.8
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.9
 
 b_import "types"
 
@@ -386,4 +386,58 @@ fi
 #+returns: Number of options (incl. repeated options).
 function b_args_getOptionCount {
 echo "${#B_ARGS_OPTS[@]}"
+}
+
+#+b_args_getAll [exclude regex 1] ... [exclude regex n]
+#+Retrieve all arguments (excl. options).
+#+[exclude regex i]: Arguments matching any of the given regular expressions are excluded from the return value.
+#+returns: All arguments as a single escaped string that can be used to pass them to functions or other scripts (without quotes).
+function b_args_getAll {
+local arg=
+local regex=
+local ret=""
+
+for arg in "${B_ARGS[@]}" ; do
+	local filter=1
+	for regex in "$@" ; do
+		[[ "$arg" =~ $regex ]] && filter=0 && break
+	done
+	[ $filter -eq 0 ] && continue
+
+	printf -v ret '%s %q' "$ret" "$arg"
+done
+echo "${ret:1}"
+}
+
+#+b_args_getAllOptions [exclude regex 1] ... [exclude regex n]
+#+Retrieve all options.
+#+[exclude regex i]: Options matching any of the given regular expressions are excluded from the return value.
+#+returns: All options as a single escaped string that can be used to pass them to functions or other scripts (without quotes).
+function b_args_getAllOptions {
+local opt regex i vals
+local ret=""
+
+local optRe='^(.*)_[0-9]+$'
+for opt in "${!B_ARGS_OPTS[@]}" ; do
+	vals="${B_ARGS_OPTS["$opt"]}"
+	[[ "$opt" =~ $optRe ]] && opt="${BASH_REMATCH[1]}" || { B_ERR="Unexpected option key: $opt - Programming mistake?!" ; B_E }
+
+	#filter
+	local filter=1
+	for regex in "$@" ; do
+		[[ "$opt" =~ $regex ]] && filter=0 && break
+	done
+	[ $filter -eq 0 ] && continue
+
+	printf -v ret '%s %q' "$ret" "$opt"
+
+	#parse option values
+	local val=""
+	for (( i=0; i < ${BLIB_ARGS_OPTCNT["$opt"]:-0}; i++ )); do
+		local val="${vals%${BLIB_STORE["BLIB_ARGS_OPSEP"]}*}"
+		printf -v ret '%s %q' "$ret" "$val"
+		vals="${vals#*${BLIB_STORE["BLIB_ARGS_OPSEP"]}}"
+	done
+done
+echo "${ret:1}"
 }

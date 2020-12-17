@@ -2,8 +2,8 @@
 # 
 #+Bats tests for the args module.
 #+
-#+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.4
+#+Copyright (C) 2020  David Hobach  LGPLv3
+#+0.5
 
 #load common test code
 load test_common
@@ -218,7 +218,7 @@ function runSuccParse {
 	runSuccParse "param 1" "" "-b" " spacy par  " --foo --foopar -d "asdPar 1 " " asdPar2" "some text" final "--holymoly"
 }
 
-@test "b_args_get[Option], b_args_get[Option]Int & b_args_get[Option]Count" {
+@test "b_args_get[Option], b_args_get[Option]Int, b_argsGetAll[Options] & b_args_get[Option]Count" {
 	b_args_init "" "-a" 2 "-b" 0 "--foo" 1
 	runSuccParseNoChecks "param 1" "-b" " spacy par  " --foo "foopar" --foo "another" --foo "" -a "asdPar 1 " "2" "" 456 --another final --another
 
@@ -284,6 +284,15 @@ function runSuccParse {
 	runSL b_args_getInt 5 "$fb"
 	[ $status -ne 0 ]
 	[[ "$output" == "$fb" ]]
+
+	#b_args_getAll
+	runSL b_args_getAll
+	[ $status -eq 0 ]
+	[[ "$output" == "param\ 1 \ spacy\ par\ \  '' 456 final" ]]
+
+	runSL b_args_getAll '^456$' 'nonmatchingregex' '^.*spacy.*$'
+	[ $status -eq 0 ]
+	[[ "$output" == "param\ 1 '' final" ]]
 
 	#b_args_getOption[Int]
 	runSL b_args_getOption "-b" "$fb"
@@ -367,4 +376,31 @@ function runSuccParse {
 	runSL b_args_getOption "-a" "$fb" 0 2
 	[ $status -ne 0 ]
 	[[ "$output" == "$fb" ]]
+
+	#b_args_getAllOptions
+	runSL b_args_getAllOptions
+	[ $status -eq 0 ]
+	echo "$output"
+	#NOTE: the order is not necessarily retained
+	[[ "$output" == *"-b"* ]]
+	[[ "$output" == *"--foo foopar"* ]]
+	[[ "$output" == *"--foo another"* ]]
+	[[ "$output" == *"--foo ''"* ]]
+	[[ "$output" == *"-a asdPar\ 1\  2"* ]]
+	[[ "$output" == *" --another"* ]]
+	[[ "$output" != *"--another ''"* ]]
+	[[ "$output" != *"ERROR"* ]]
+	[[ "$output" != *"error"* ]]
+
+	runSL b_args_getAllOptions '^456$' '--another' '^\-[ab]$'
+	[ $status -eq 0 ]
+	echo "$output"
+	[[ "$output" == "--foo foopar --foo another --foo ''" ]] ||
+	[[ "$output" == "--foo foopar --foo '' --foo another" ]] ||
+	[[ "$output" == "--foo '' --foo foopar --foo another" ]] ||
+	[[ "$output" == "--foo '' --foo another --foo foopar " ]] ||
+	[[ "$output" == "--foo another --foo '' --foo foopar" ]] ||
+	[[ "$output" == "--foo another --foo foopar --foo '' " ]]
+	[[ "$output" != *"ERROR"* ]]
+	[[ "$output" != *"error"* ]]
 }
