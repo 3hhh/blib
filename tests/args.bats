@@ -398,9 +398,9 @@ function runSuccParse {
 	[[ "$output" == "--foo foopar --foo another --foo ''" ]] ||
 	[[ "$output" == "--foo foopar --foo '' --foo another" ]] ||
 	[[ "$output" == "--foo '' --foo foopar --foo another" ]] ||
-	[[ "$output" == "--foo '' --foo another --foo foopar " ]] ||
+	[[ "$output" == "--foo '' --foo another --foo foopar" ]] ||
 	[[ "$output" == "--foo another --foo '' --foo foopar" ]] ||
-	[[ "$output" == "--foo another --foo foopar --foo '' " ]]
+	[[ "$output" == "--foo another --foo foopar --foo ''" ]]
 	[[ "$output" != *"ERROR"* ]]
 	[[ "$output" != *"error"* ]]
 }
