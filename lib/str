@@ -2,8 +2,8 @@
 #
 #+Collection of string related functions.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.1
+#+Copyright (C) 2021  David Hobach  LGPLv3
+#+0.2
 
 #+### Functions ###
 
@@ -25,11 +25,26 @@ return 0
 }
 
 #+b_str_trim [string]
-#+remove any whitespace from around a string
+#+Remove any whitespace from around a string.
 #+[string]: string to trim
 #+returns: \[string\] beginning and ending without whitespace; the exit code is always zero
 function b_str_trim {
 local str="$1"
 local re='^[[:space:]]*(.*[^[:space:]]+)[[:space:]]*$'
 [[ "$str" =~ $re ]] && echo "${BASH_REMATCH[1]}" || echo ""
+}
+
+#+b_str_prefixLines [string] [prefix]
+#+Prefix all lines of the given string with a given prefix.
+#+[string]: Each line of this string will be prefixed.
+#+[prefix]: The string to put in front of each line.
+#+returns: All lines of the input string, each of them prefixed with the given prefix.
+function b_str_prefixLines {
+local str="$1"
+local prefix="$2"
+
+local line=
+while IFS= read -r line ; do
+	echo "${prefix}$line"
+done <<< "$str"
 }

@@ -68,3 +68,25 @@ function setup {
 	[ $status -eq 0 ]
 	[[ "$output" == "foobar   moep" ]]
 }
+
+@test "b_str_prefixLines" {
+	runSL b_str_prefixLines "hello world!"
+	[ $status -eq 0 ]
+	[[ "$output" == "hello world!" ]]
+
+	runSL b_str_prefixLines "hello"$'\n'"world!"
+	[ $status -eq 0 ]
+	[[ "$output" == "hello"$'\n'"world!" ]]
+
+	runSL b_str_prefixLines "hello"$'\n'"world!" "foo"
+	[ $status -eq 0 ]
+	[[ "$output" == "foohello"$'\n'"fooworld!" ]]
+
+	runSL b_str_prefixLines "hello" "foo"
+	[ $status -eq 0 ]
+	[[ "$output" == "foohello" ]]
+
+	runSL b_str_prefixLines "" "foo"
+	[ $status -eq 0 ]
+	[[ "$output" == "foo" ]]
+}
