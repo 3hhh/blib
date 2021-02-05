@@ -868,14 +868,19 @@ function testSuccAttachFileInVM {
 	exit 0
 }
 
-#testSuccAttachFile [dom0 file] [target VM] [rw flag] [detach]
-function testSuccAttachFile {
+#testSuccAttach [dom0 file|dev] [target VM] [rw flag] [detach] [is device]
+function testSuccAttach {
 	local dom0File="$1"
 	local vm="$2"
 	local rwFlag="${3:-1}"
 	local detach="${4:-1}"
+	local isDev="${5:-1}"
 
-	runSL b_dom0_attachFile "$dom0File" "$vm" "$rwFlag"
+	if [ $isDev -ne 0 ] ; then
+		runSL b_dom0_attachFile "$dom0File" "$vm" "$rwFlag"
+	else
+		runSL b_dom0_attachDevice "$dom0File" "$vm" "$rwFlag"
+	fi
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == "/dev/"* ]]
@@ -888,7 +893,7 @@ function testSuccAttachFile {
 	local mnt="$output"
 
 	#all as expected in the VM?
-	runSL b_dom0_execFuncIn "$vm" "" testSuccAttachFileInVM - - "$mnt" "$rwFlag" "$detach"
+	runSL b_dom0_execFuncIn "$vm" "" testSuccAttachFileInVM - - "$mnt" "$rwFlag" 0
 	echo "$output"
 	[ $status -eq 0 ]
 
@@ -1034,6 +1039,45 @@ function testSuccAttachFile {
 	[[ "$output" != *"$loopFileVM"* ]]
 }
 
+@test "b_dom0_attachDevice" {
+	skipIfNoTestVMs
+
+	local loopFile="$(getDom0Fixture "ext4loop")"
+	local tmpLoop="$(mktemp)"
+	cat "$loopFile" > "$tmpLoop"
+	local loopDev="$(sudo losetup -f --show "$tmpLoop")"
+	echo "loopDev = $loopDev"
+	[ -n "$loopDev" ]
+
+	#failing tests
+	runSL b_dom0_attachDevice "/dev/nonexisting" "${TEST_STATE["DOM0_TESTVM_2"]}"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_dom0_attachDevice "$loopDev" "nonexisting-vm"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	#successful tests
+	testSuccAttach "$loopDev" "${TEST_STATE["DOM0_TESTVM_2"]}" 0 0 0
+	testSuccAttach "$loopDev" "${TEST_STATE["DOM0_TESTVM_2"]}" 1 1 0
+
+	#a second attach should error out (device is already attached)
+	runSL b_dom0_attachDevice "$loopDev" "${TEST_STATE["DOM0_TESTVM_2"]}" 0
+	[ $status -ne 0 ]
+	[ -n "$output" ]
+
+	#cleanup
+	run qvm-block d "${TEST_STATE["DOM0_TESTVM_2"]}" "dom0:${loopDev##*/}"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSC sudo losetup -d "$loopDev"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	rm -f "$tmpLoop"
+}
+
 @test "b_dom0_attachFile" {
 	skipIfNoTestVMs
 	local loopFile="$(getDom0Fixture "ext4loop")"
@@ -1050,8 +1094,8 @@ function testSuccAttachFile {
 	[ -n "$output" ]
 
 	#successful tests
-	testSuccAttachFile "$tmpLoop" "${TEST_STATE["DOM0_TESTVM_1"]}" 0 0
-	testSuccAttachFile "$tmpLoop" "${TEST_STATE["DOM0_TESTVM_1"]}" 1 1
+	testSuccAttach "$tmpLoop" "${TEST_STATE["DOM0_TESTVM_1"]}" 0 0
+	testSuccAttach "$tmpLoop" "${TEST_STATE["DOM0_TESTVM_1"]}" 1 1
 
 	#a second attach should error out (file is already attached)
 	runSL b_dom0_attachFile "$tmpLoop" "${TEST_STATE["DOM0_TESTVM_1"]}" 0
@@ -1508,6 +1552,14 @@ function testDiskAttach {
 	#make sure it's detached
 	runSL qvm-shutdown --wait --timeout 10 "$targetVM"
 	[ $status -eq 0 ]
+}
+
+@test "b_dom0_getDefaultPoolDriver" {
+	runSL "b_dom0_getDefaultPoolDriver"
+	[ $status -eq 0 ]
+	local re='^(file|lvm_thin|file-reflink|callback)$'
+	echo "$output"
+	[[ "$output" =~ $re ]]
 }
 
 @test "b_dom0_attachVMDisk" {

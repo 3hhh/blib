@@ -12,7 +12,7 @@ b_import ui
 b_import proc
 b_import types
 
-b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" \
+b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "readlink" \
 "dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar" "qvm-firewall"
 
 #private vars
@@ -1008,13 +1008,49 @@ b_resetErrorHandler
 return 0
 }
 
+#+b_dom0_attachDevice [dom0 device] [target VM] [rw flag] [force]
+#+Attach the given device from dom0 (!) as block device to the target VM.
+#+[dom0 device]: Full path to the device node (incl. /dev/) *in dom0*.
+#+[target VM]: VM to attach the device to. Must be started.
+#+[rw flag]: If set to 0, attaches the dom0 device in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+[force]: If set to 0, attempt to force Qubes OS to recognize the device (default: 1). This is required for e.g. VM images. Please call [b_dom0_detachDevice](#b_dom0_detachDevice) with the clean flag for the detach operation, if set to 0.
+#+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
+#+@B_E
+function b_dom0_attachDevice {
+local dom0Dev="$1"
+local targetVM="$2"
+local rwFlag="${3:-1}"
+local force="${4:-1}"
+
+local dev="${dom0Dev##*/}"
+[ -z "$dev" ] && B_ERR="Failed to extract the device name from $dom0Dev." && B_E
+
+local addOptions=""
+[ $rwFlag -ne 0 ] && addOptions="$addOptions --ro"
+
+if [ $force -eq 0 ] ; then
+	#cf. https://www.qubes-os.org/doc/mount-lvm-image/ & https://github.com/QubesOS/qubes-issues/issues/4687#issuecomment-451626625
+	#it seems that writing a unique string to /desc is OK
+	qubesdb-write "/qubes-block-devices/$dev/desc" "$dom0Dev" || { B_ERR="Failed to write to the Qubes DB." ; B_E }
+fi
+
+#run qvm-block
+qvm-block a $addOptions "$targetVM" "dom0:$dev" || { [ $force -eq 0 ] && qubesdb-rm "/qubes-block-devices/$dev/" ; B_ERR="Failed to attach the device $dev to the VM $targetVM." ; B_E }
+
+#retrieve info
+local frontend=""
+frontend="$(b_dom0_getQvmBlockInfo "" "frontend-dev" "backend" "dom0" "device id" "$dev")" || { qvm-block d "$targetVM" "dom0:$dev" ; [ $force -eq 0 ] && qubesdb-rm "/qubes-block-devices/$dev/" ; B_ERR="Failed to attach." ; B_E }
+echo "/dev/$frontend"
+return 0
+}
+
 #+b_dom0_attachFile [dom0 file] [target VM] [rw flag] [force]
 #+Attach the given file from dom0 (!) as block device to the target VM.
 #+The function may attempt to acquire root privileges (and thus display a password prompt).
 #+[dom0 file]: Full path to the file *in dom0* to attach.
 #+[target VM]: VM to attach the file to. Must be started.
 #+[rw flag]: If set to 0, attaches the dom0 file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
-#+[force]: If set to 0, attempt to force Qubes OS to recognize the device (default: 1). This is required for e.g. VM images.
+#+[force]: If set to 0, attempt to force Qubes OS to recognize the device (default: 1). This is required for e.g. VM images. Please call [b_dom0_detachDevice](#b_dom0_detachDevice) with the clean flag for the detach operation, if set to 0.
 #+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set.
 #+@B_E
 function b_dom0_attachFile {
@@ -1022,64 +1058,91 @@ local dom0File="$1"
 local targetVM="$2"
 local rwFlag="${3:-1}"
 local force="${4:-1}"
-local addOptions=""
 local loDevice=""
-local loDeviceName=""
-[ $rwFlag -ne 0 ] && addOptions="$addOptions --ro"
 
 #unfortunately qvm-block l has issues for files, so we create a loop device first and use that one
 #also see: R3.0: qvm-block doesn't work well on files (https://groups.google.com/forum/#!msg/qubes-users/IotETu-gsm4/FO2GOu5pBwAJ)
 #for 4.0rc1 I'm not even sure whether it supports files...
 loDevice="$(b_execFuncAs "root" "b_fs_createLoopDeviceIfNecessary" "fs" - - "$dom0File")" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to create a loop device from $dom0File" ; B_E }
-loDeviceName="${loDevice##*/}"
-[ -z "$loDeviceName" ] && { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to extract the device name from $loDevice." ; B_E }
 
-if [ $force -eq 0 ] ; then
-	#cf. https://www.qubes-os.org/doc/mount-lvm-image/ & https://github.com/QubesOS/qubes-issues/issues/4687#issuecomment-451626625
-	qubesdb-write "/qubes-block-devices/$loDeviceName/desc" "$dom0File" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to write to the Qubes DB." ; B_E }
-fi
-
-#run qvm-block
-qvm-block a $addOptions "$targetVM" "dom0:${loDeviceName}" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to attach the loop device $loDeviceName to the VM $targetVM." ; B_E }
+#attach & print return value
+local ret=
+b_setBE 1
+b_dom0_attachDevice "$loDevice" "$targetVM" "$rwFlag" "$force"
+ret=$?
+b_resetErrorHandler 1
+[ $ret -eq 0 ] || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to attach the device $loDevice to the VM $targetVM." ; B_E }
 
 #set the autoclear flag so that the kernel will remove the loop once Qubes stops using it (works since kernel 3.7 / lazy detaching)
 blib_dom0_closeLoop "$loDevice"
 
-#retrieve info
-local frontend=""
-frontend="$(b_dom0_getQvmBlockInfo "" "frontend-dev" "backend" "dom0" "device id" "$loDeviceName")" || { B_ERR="Failed to attach." ; B_E }
-echo "/dev/$frontend"
 return 0
 }
 
-#+b_dom0_attachVMDisk [source VM] [target VM] [rw flag]
+#+b_dom0_attachVMDisk [source VM] [target VM] [rw flag] [pool driver] [disk path]
 #+Attach the entire private disk image (private.img) of the source VM to the target VM.
 #+**Warning**: This is contradictory to all Qubes principles and should only be done if you know exactly what you're doing. Qubes OS even has some countermeasures to prevent accidental use of this feature which are bypassed here.
 #+[source VM]: Name of the VM whose private disk to attach to the target VM. *All data* of that VM will be shared with the target VM. Will be shut down as part of this function and must remain shut down as long as the disk is attached.
 #+[target VM]: VM where to attach the disk as block device to. Must be started.
 #+[rw flag]: If set to 0, attaches the disk file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
+#+[pool driver]: Driver of the pool that the disk was created in: One of file, file-reflink or lvm_thin (default: driver of your system's default pool).
+#+[disk path]: Full path to the disk. Default: Path to the private volume of the \[source VM\] in the default pool of the respective \[pool type\]. May override the \[source VM\] parameter.
 #+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set. Please call [b_dom0_detachDevice](#b_dom0_detachDevice) with the clean flag for the detach operation.
 #+@B_E
 function b_dom0_attachVMDisk {
 local sourceVM="$1"
 local targetVM="$2"
 local rwFlag="${3:-1}"
+local poolDriver="$4"
+local diskPath="$5"
 
-#make sure we're on a file pool
-#maybe TODO: also support LVM & LVM thin storage pools
-local out=
-local re='.*varlibqubes[ ]+file.*'
-out="$(qvm-pool)" || { B_ERR="Failed to run qvm-pool." ; B_E }
-[[ "$out" =~ $re ]] || { B_ERR="b_dom0_attachVMDisk currently only supports file storage pools. See https://www.qubes-os.org/doc/mount-lvm-image/ and https://github.com/QubesOS/qubes-issues/issues/4687 for LVM storage pools." ; B_E }
+if [ -z "$poolDriver" ] ; then
+	poolDriver="$(b_dom0_getDefaultPoolDriver)" || { B_ERR="Failed to retrieve the default pool driver." ; B_E }
+fi
 
-local sourceVMPrivate="/var/lib/qubes/appvms/$sourceVM/private.img"
-[ ! -f "$sourceVMPrivate" ] && B_ERR="Couldn't find $sourceVMPrivate. Maybe it's a disposable VM?" && B_E
+if [ -z "$diskPath" ] ; then
+	if [[ "$poolDriver" == "file" ]] || [[ "$poolDriver" == "file-reflink" ]] ; then
+		#NOTE: file-reflink also appears to have a private-dirty.img that only exists if the VM is still running or was incorrectly shut down
+		diskPath="/var/lib/qubes/appvms/$sourceVM/private.img"
+	elif [[ "$poolDriver" == "lvm_thin" ]] ; then
+		diskPath="/dev/qubes_dom0/vm-$sourceVM-private"
+	else
+		B_ERR="Unsupported pool driver: $poolDriver"
+		B_E
+	fi
+fi
+
+[ ! -e "$diskPath" ] && B_ERR="Couldn't find the VM disk path $diskPath." && B_E
 
 #make sure the source VM is shut down (strange things may happen otherwise)
 #NOTE: Qubes 4 returns an exit code of 0 for already shut down VMs
 qvm-shutdown --wait --timeout 10 "$sourceVM" &> /dev/null || { B_ERR="Failed to shut down the VM $sourceVM." ; B_E }
 
-b_dom0_attachFile "$sourceVMPrivate" "$targetVM" "$rwFlag" 0
+#all the details on how to do it for the various pool types: https://github.com/QubesOS/qubes-issues/issues/4687
+if [[ "$poolDriver" == "file" ]] || [[ "$poolDriver" == "file-reflink" ]] ; then
+	b_dom0_attachFile "$diskPath" "$targetVM" "$rwFlag" 0
+elif [[ "$poolDriver" == "lvm_thin" ]] ; then
+	#also cf. https://www.qubes-os.org/doc/mount-lvm-image/
+	local dev=
+	dev="$(readlink -e "$diskPath")" || { B_ERR="Failed to identify the LVM device from $diskPath." ; B_E }
+	b_dom0_attachDevice "$dev" "$targetVM" "$rwFlag" 0
+else
+	B_ERR="Unsupported pool driver: $poolDriver"
+	B_E
+fi
+}
+
+#+b_dom0_getDefaultPoolDriver
+#+Retrieve the driver name of the system's default pool.
+#+returns: Driver name of the system's default pool.
+#+@B_E
+function b_dom0_getDefaultPoolDriver {
+local pool poolInfo
+pool="$(qubes-prefs "default_pool")" || { B_ERR="Failed to retrieve the default pool." ; B_E }
+poolInfo="$(qvm-pool -i "$pool")" || { B_ERR="Failed to retrieve the data for the pool $pool." ; B_E }
+
+local re='driver[[:space:]]+([^[:space:]]+)'
+[[ "$poolInfo" =~ $re ]] && echo "${BASH_REMATCH[1]}" || { B_ERR="Failed to extract the driver from the following pool info: $poolInfo" ; B_E }
 }
 
 #+b_dom0_crossAttachDevice [source VM] [source device] [target VM] [rw flag]
@@ -1158,7 +1221,7 @@ qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
 #clean from Qubes DB, if necessary
 if [ $clean -eq 0 ] ; then
 	#we simply attempt to remove it (the exit code always appears to be 0 whether it's there or not)
-	qubesdb-rm "/qubes-block-devices/$devName/desc" || { B_ERR="Failed to clean the Qubes DB from $devName." ; B_E }
+	qubesdb-rm "/qubes-block-devices/$devName/" || { B_ERR="Failed to clean the Qubes DB from $devName." ; B_E }
 fi
 
 return 0
