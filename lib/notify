@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+#+Collection of notification related functions.
+#+
+#+Copyright (C) 2021  David Hobach  LGPLv3
+#+0.2
+
+b_deps "notify-send" "getent" "whereis"
+
+#+### Functions ###
+
+#blib_notify_send [env] [prefix] [arg 1] ... [arg n]
+function blib_notify_send {
+local env="$1"
+local prefix="$2"
+shift 2
+
+[[ "$env" == ";"* ]] && env="${env:1}"
+( eval "$env" && $prefix notify-send "$@" ) || { B_ERR="Failed to execute notify-send." ; B_E }
+return 0
+}
+
+#+b_notify_send [arg 1] ... [arg n]
+#+Send out a notification to the user via `notify-send`.
+#+If run as root, may send the notification to _all_ active users.
+#+Calling `notify-send` directly can be problematic depending on the user, dbus session, environment variables, ... This function aims to circumvent these potential issues.
+#+[arg i]: All arguments are directly passed to `notify-send`.
+#+returns: Nothing. Errors during notification sending will trigger [B_E](#B_E).
+#+@B_E
+function b_notify_send {
+local env=""
+local prefix=""
+local uid uname path
+
+[ -z "$DISPLAY" ] && env="$env;DISPLAY=:0"
+
+local re='^unix:path=(.*)$'
+if [ $EUID -eq 0 ] || [[ ! "$DBUS_SESSION_BUS_ADDRESS" =~ $re ]] || [ ! -e "${BASH_REMATCH[1]}" ] ; then
+	if [ $EUID -eq 0 ] ; then
+		#root --> send to all active users
+		re='^/run/user/([0-9]+)/bus$'
+
+		for path in /run/user/*/bus ; do
+			[[ "$path" == "/run/user/*/bus" ]] && B_ERR="No active dbus addresses found." && B_E
+			[[ "$path" =~ $re ]] && uid="${BASH_REMATCH[1]}" || { B_ERR="Could not extract the user ID from $path." ; B_E }
+			uname="$(getent "passwd" "$uid")" || { B_ERR="Failed to execute getent on uid $uid." ; B_E }
+			uname="${uname%%:*}"
+			local runuser=
+			runuser="$(whereis -b "runuser")" || { B_ERR="Failed to locate runuser." ; B_E } #quite often it's not in PATH
+			runuser="${runuser#runuser: }"
+			printf -v prefix '%s -u %q --' "$runuser" "$uname"
+
+			blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" "$prefix" "$@"
+		done
+	else
+		blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$EUID/bus" "$prefix" "$@"
+	fi
+
+	return 0
+fi
+
+blib_notify_send "$env" "$prefix" "$@"
+}
