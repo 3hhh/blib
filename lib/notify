@@ -3,7 +3,7 @@
 #+Collection of notification related functions.
 #+
 #+Copyright (C) 2021  David Hobach  LGPLv3
-#+0.2
+#+0.3
 
 b_deps "notify-send" "getent" "whereis"
 
@@ -60,4 +60,17 @@ if [ $EUID -eq 0 ] || [[ ! "$DBUS_SESSION_BUS_ADDRESS" =~ $re ]] || [ ! -e "${BA
 fi
 
 blib_notify_send "$env" "$prefix" "$@"
+}
+
+#+b_notify_sendNoError [arg 1] ... [arg n]
+#+Convenience variant of [b_notify_send](#b_notify_send) that does not exit and only prints errors with [b_defaultErrorHandler](#b_defaultErrorHandler). This function should e.g. be used in custom error handlers to avoid recursion.
+#+returns: Sets a non-zero exit code on errors.
+function b_notify_sendNoError {
+local ret=
+
+b_setErrorHandler "b_defaultErrorHandler 1"
+b_notify_send "$@"
+ret=$?
+b_resetErrorHandler
+return $ret
 }
