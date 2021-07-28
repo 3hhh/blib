@@ -66,11 +66,10 @@ blib_notify_send "$env" "$prefix" "$@"
 #+Convenience variant of [b_notify_send](#b_notify_send) that does not exit and only prints errors with [b_defaultErrorHandler](#b_defaultErrorHandler). This function should e.g. be used in custom error handlers to avoid recursion.
 #+returns: Sets a non-zero exit code on errors.
 function b_notify_sendNoError {
-local ret=
-
-b_setErrorHandler "b_defaultErrorHandler 1"
-b_notify_send "$@"
-ret=$?
-b_resetErrorHandler
-return $ret
+(
+	b_setMessageHandler "b_defaultMessageHandler"
+	b_setErrorHandler "b_defaultErrorHandler 1"
+	b_notify_send "$@"
+)
+return $?
 }
