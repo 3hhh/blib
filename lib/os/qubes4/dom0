@@ -4,7 +4,7 @@
 #+
 #+**Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
+#+Copyright (C) 2021  David Hobach  LGPLv3
 #+0.5
 
 b_import fs
@@ -331,12 +331,13 @@ local dev="$2"
 b_silence "b_dom0_execFuncIn" "$vm" "" "b_fs_getMountpoints" "fs" - - "$dev"
 }
 
-#+b_dom0_mountIfNecessary [vm] [device] [mount point] [enforce]
+#+b_dom0_mountIfNecessary [vm] [device] [mount point] [enforce] [mount options]
 #+Mount the given device in the target VM if it isn't already mounted there. Actually a wrapper for [b_fs_mountIfNecessary](#b_fs_mountIfNecessary).
 #+[vm]: VM where to execute.
 #+[device]: Full path to the device (incl. /dev/) to mount.
 #+[mount point]: Full path where to mount the device. If no mount point is specified, a /tmp/ mount point is chosen. Non-existing directories are created. Is ignored if another mount point already exists.
 #+[enforce]: If set to 0, enforce the given mount point to be used in addition to potentially existing ones (default: 1).
+#+[mount options]: Options to pass to `mount`, if it needs to be executed (default: none).
 #+returns: The chosen mount point or a newline-separated list of existing mount points on success; sets a non-zero exit code on failure. As these strings are returned from the VM, extra care must be taken when parsing them.
 #+@B_E
 function b_dom0_mountIfNecessary {
@@ -344,9 +345,10 @@ local vm="$1"
 local dev="$2"
 local mp="$3"
 local enforce="$4"
+local mopts="$5"
 local out=""
 
-out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "fs" - - "$dev" "$mp" "$enforce" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E }
+out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "fs" - - "$dev" "$mp" "$enforce" "$mopts" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E }
 
 #make sure the untrusted VM output is not binary (otherwise bash will run into big trouble)
 out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
@@ -778,12 +780,13 @@ printf -v mapperNameEsc '%q' "$mapperName"
 printf -v devEsc '%q' "$dev"
 
 #set cryptsetup options
-[ $rwFlag -ne 0 ] && copt="$copt -r"
+local mopt=""
+[ $rwFlag -ne 0 ] && copt="$copt -r" && mopt="-o noload"
 [ -n "$keyFile" ] && copt="$copt --key-file $keyFileEsc"
 
 #run
 if [ -n "$mp" ] ; then
-	local cmd="cryptsetup open $copt $devEsc $mapperNameEsc || exit 1 ; mkdir -p $mpEsc && mount /dev/mapper/$mapperNameEsc $mpEsc"
+	local cmd="cryptsetup open $copt $devEsc $mapperNameEsc || exit 1 ; mkdir -p $mpEsc && mount $mopt /dev/mapper/$mapperNameEsc $mpEsc"
 else
 	local cmd="cryptsetup open $copt $devEsc $mapperNameEsc"
 fi
