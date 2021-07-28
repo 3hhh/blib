@@ -73,17 +73,20 @@ local dev="$1"
 findmnt -n -o TARGET -S "$dev"
 }
 
-#+b_fs_mountIfNecessary [device] [mount point] [enforce]
+#+b_fs_mountIfNecessary [device] [mount point] [enforce] [mount options]
 #+Mount the given device if it isn't already mounted.
 #+[device]: Full path to the device (incl. /dev/) to mount.
 #+[mount point]: Full path where to mount the device. If no mount point is specified, a /tmp/ mount point is chosen. Non-existing directories are created. Is ignored if another mount point already exists.
-#+[enforce]: If set to 0, enforce the given mount point to be used in addition to potentially existing ones (default: 1).
+#+[enforce]: If set to 0, enforce the given mount point to be used in addition to potentially existing ones (default: 1). Mount options are ignored.
+#+[mount options]: Options to pass to `mount`, if it needs to be executed (default: none).
 #+returns: The chosen mount point or a newline-separated list of existing mount points on success; sets a non-zero exit code on failure.
 #+@B_E
 function b_fs_mountIfNecessary {
 local dev="$1"
 local mp="$2"
 local enforce="${3:-1}"
+local mopts="$4"
+[ -n "$mopts" ] && [[ "$mopts" != "-o "* ]] && mopts="-o $mopts"
 
 local ret=
 ret="$(b_fs_getMountpoints "$dev")"
@@ -115,7 +118,7 @@ if [ -z "$mp" ] ; then
 	mp="$(mktemp -d)" || { B_ERR="Failed to create a temporary directory." ; B_E }
 fi
 
-mount "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the device $dev to $mp." ; B_E }
+mount $mopts "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the device $dev to $mp." ; B_E }
 }
 
 #+b_fs_createLoopDeviceIfNecessary [file]
