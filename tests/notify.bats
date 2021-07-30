@@ -44,6 +44,8 @@ function testNoErrorErrorHandler {
 }
 
 @test "b_notify_send" {
+	skipIfNoDbus
+
 	testNotifyBasics "b_notify_send"
 
 	runSL testAbort b_notify_send --invalid "This should not be seen."
@@ -54,6 +56,8 @@ function testNoErrorErrorHandler {
 }
 
 @test "b_notify_sendNoError" {
+	skipIfNoDbus
+
 	testNotifyBasics "b_notify_sendNoError"
 
 	runSL testAbort b_notify_sendNoError --invalid "This should not be seen."
@@ -66,4 +70,31 @@ function testNoErrorErrorHandler {
 	runSL testNoErrorErrorHandler
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
+}
+
+function skipIfNoDbus {
+	hasDbus || skip "No dbus instance found. Skipping..."
+}
+
+function hasDbus {
+	[ -e "/run/user/$EUID/bus" ] && return 0
+
+	if [ $EUID -eq 0 ] ; then
+	local path=
+		for path in /run/user/*/bus ; do
+			[[ "$path" != "/run/user/*/bus" ]] && return 0
+		done
+	fi
+
+	return 1
+}
+
+@test "b_notify_waitForUserDbus" {
+	hasDbus
+	eStatus=$?
+	local re='^/run/user/[0-9]+/bus$'
+
+	runSL b_notify_waitForUserDbus "" 0
+	[ $status -eq $eStatus ]
+	[ $eStatus -eq 0 ] && [[ "$output" =~ $re ]] || [ -z "$output" ]
 }

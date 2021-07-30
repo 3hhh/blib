@@ -3,21 +3,51 @@
 #+Collection of notification related functions.
 #+
 #+Copyright (C) 2021  David Hobach  LGPLv3
-#+0.3
+#+0.5
 
-b_deps "notify-send" "getent" "whereis"
+b_import "fs"
+
+b_deps "notify-send" "getent" "su"
 
 #+### Functions ###
 
-#blib_notify_send [env] [prefix] [arg 1] ... [arg n]
+#blib_notify_send [env] [arg 1] ... [arg n]
+#@B_E
 function blib_notify_send {
 local env="$1"
-local prefix="$2"
 shift 2
 
 [[ "$env" == ";"* ]] && env="${env:1}"
-( eval "$env" && $prefix notify-send "$@" ) || { B_ERR="Failed to execute notify-send." ; B_E }
+( eval "$env" && notify-send "$@" ) || { B_ERR="Failed to execute notify-send." ; B_E }
 return 0
+}
+
+#+b_notify_waitForUserDbus [user] [maximum time]
+#+Wait for _some_ dbus user session to come up at `/run/user/[uid]/bus`. As dbus is required for notifications to work, waiting may be required for early notifications.
+#+[maximum time]: Maximum time in s to wait for the file to appear (default: forever).
+#+[user]: Name of the user whose instance to wait for (default: first user with a readable home directory).
+#+returns: Sets a zero exit code and returns the identified dbus instance, if a dbus instance came up and a non-zero exit code on timeout. [B_E](#B_E) is used for exceptional errors.
+#+@B_E
+function b_notify_waitForUserDbus {
+local user="$1"
+local maxTime="${2:--1}"
+
+if [ -z "$user" ] ; then
+	local path=
+	for path in /home/* ; do
+		[[ "$path" == "/home/*" ]] && B_ERR="No home directories found on this system." && B_E
+		[ -r "$path" ] && user="${path#/home/}" && break
+	done
+	[ -z "$user" ] && B_ERR="Could not find a readable home directory." && B_E
+fi
+
+local uid=
+local re='^[^:]+:[^:]+:([^:]+):.*$'
+uid="$(getent "passwd" "$user")" || { B_ERR="Failed to execute getent on user $user. Maybe it doesn't exist?" ; B_E }
+[[ "$uid" =~ $re ]] && uid="${BASH_REMATCH[1]}" || { B_ERR="Unexpected getent return value: $uid" ; B_E }
+
+local addr="/run/user/$uid/bus"
+b_fs_waitForFile "$addr" "$maxTime" && echo "$addr" || return $?
 }
 
 #+b_notify_send [arg 1] ... [arg n]
@@ -29,8 +59,7 @@ return 0
 #+@B_E
 function b_notify_send {
 local env=""
-local prefix=""
-local uid uname path
+local user path par
 
 [ -z "$DISPLAY" ] && env="$env;DISPLAY=:0"
 
@@ -38,28 +67,28 @@ local re='^unix:path=(.*)$'
 if [ $EUID -eq 0 ] || [[ ! "$DBUS_SESSION_BUS_ADDRESS" =~ $re ]] || [ ! -e "${BASH_REMATCH[1]}" ] ; then
 	if [ $EUID -eq 0 ] ; then
 		#root --> send to all active users
-		re='^/run/user/([0-9]+)/bus$'
 
-		for path in /run/user/*/bus ; do
-			[[ "$path" == "/run/user/*/bus" ]] && B_ERR="No active dbus addresses found." && B_E
-			[[ "$path" =~ $re ]] && uid="${BASH_REMATCH[1]}" || { B_ERR="Could not extract the user ID from $path." ; B_E }
-			uname="$(getent "passwd" "$uid")" || { B_ERR="Failed to execute getent on uid $uid." ; B_E }
-			uname="${uname%%:*}"
-			local runuser=
-			runuser="$(whereis -b "runuser")" || { B_ERR="Failed to locate runuser." ; B_E } #quite often it's not in PATH
-			runuser="${runuser#runuser: }"
-			printf -v prefix '%s -u %q --' "$runuser" "$uname"
+		local cmd="notify-send"
+		for par in "$@" ; do
+			printf -v cmd "%s %q" "$cmd" "$par"
+		done
 
-			blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus" "$prefix" "$@"
+		for path in /home/* ; do
+			[[ "$path" == "/home/*" ]] && return 0
+			user="${path#/home/}"
+			#NOTE:
+			# - su appears more reliable than e.g. runuser as it does all the env stuff for us and may even setup a dbus instance if it's not running
+			# - we pass /dev/null to stdin though as su may be interactive
+			su - -c "$cmd" "$user" < /dev/null || { B_ERR="Failed to execute notify-send for the user $user." ; B_E }
 		done
 	else
-		blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$EUID/bus" "$prefix" "$@"
+		blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$EUID/bus" "$@" || { B_ERR="Failed to execute notify-send for the user ID $EUID." ; B_E }
 	fi
 
 	return 0
 fi
 
-blib_notify_send "$env" "$prefix" "$@"
+blib_notify_send "$env" "$prefix" "$@" || { B_ERR="Failed to execute notify-send." ; B_E }
 }
 
 #+b_notify_sendNoError [arg 1] ... [arg n]
