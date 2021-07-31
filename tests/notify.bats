@@ -97,4 +97,15 @@ function hasDbus {
 	runSL b_notify_waitForUserDbus "" 0
 	[ $status -eq $eStatus ]
 	[ $eStatus -eq 0 ] && [[ "$output" =~ $re ]] || [ -z "$output" ]
+
+	if [ $eStatus -eq 0 ] ; then
+		#this should not hang
+		runSL b_notify_waitForUserDbus ""
+		[ $status -eq 0 ]
+		[[ "$output" =~ $re ]]
+	fi
+
+	runSL b_notify_waitForUserDbus "nonexisting"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
 }
