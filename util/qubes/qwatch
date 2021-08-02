@@ -25,43 +25,43 @@ import qubesadmin.events
 import qubesadmin.tools
 
 #marker for the end of a record and its replacement in case it occurs inside the record
-end_marker='          \n'
-end_marker_repl='         \n'
+END_MARKER = '          \n'
+END_MARKER_REPL = '         \n'
 
 #interval: heartbeat interval in s (float)
 def print_heartbeat(interval, loop):
     print(int(time.time() * 1000))
     print('heartbeat')
-    print(end_marker,end='',flush=True)
+    print(END_MARKER, end='', flush=True)
     loop.call_later(interval, print_heartbeat, interval, loop)
 
 def printing_handler(subject, event_name, **kwargs):
     #we make sure subject & event name don't have newlines, kwargs doesn't contain the end of record marker
     print(int(time.time() * 1000))
-    print(str(subject).replace('\n','\\n'))
-    print(str(event_name).replace('\n','\\n'))
-    print(str(kwargs).replace(end_marker,end_marker_repl))
+    print(str(subject).replace('\n', '\\n'))
+    print(str(event_name).replace('\n', '\\n'))
+    print(str(kwargs).replace(END_MARKER, END_MARKER_REPL))
     #dedicated "end of record" marker for parsers:
-    print(end_marker,end='',flush=True)
+    print(END_MARKER, end='', flush=True)
 
-def main(args=None, app=None):
-    parser=qubesadmin.tools.QubesArgumentParser()
+def main():
+    parser = qubesadmin.tools.QubesArgumentParser()
     parser.add_argument('interval', nargs='?', default=-1, type=int, help='Heartbeat interval in ms: Can be used to make sure that an event is sent every few ms (default: no heartbeat).')
-    args = parser.parse_args(args)
+    args = parser.parse_args()
     try:
-        loop=asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
         events = qubesadmin.events.EventsDispatcher(args.app)
-        events.add_handler('*',printing_handler)
+        events.add_handler('*', printing_handler)
         events_listener = asyncio.ensure_future(events.listen_for_events())
-        loop.add_signal_handler(signal.SIGINT,events_listener.cancel)
-        loop.add_signal_handler(signal.SIGTERM,events_listener.cancel)
-        loop.add_signal_handler(signal.SIGPIPE,events_listener.cancel)
+        loop.add_signal_handler(signal.SIGINT, events_listener.cancel)
+        loop.add_signal_handler(signal.SIGTERM, events_listener.cancel)
+        loop.add_signal_handler(signal.SIGPIPE, events_listener.cancel)
         if args.interval > 0:
-            interval_seconds=args.interval / 1000
+            interval_seconds = args.interval / 1000
             loop.call_later(interval_seconds, print_heartbeat, interval_seconds, loop)
         loop.run_until_complete(events_listener)
     except Exception as e:
-        print(e,file=sys.stderr)
+        print(e, file=sys.stderr)
     finally:
         loop.close()
 
