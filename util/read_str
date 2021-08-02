@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+# -*- encoding: utf8 -*-
+#
+# Read strings from stdin and error out on binary data.
+# Useful to sanitize untrusted potential binary data for bash.
+#
+#
+# Copyright (C) 2021  David Hobach  LGPLv3
+# 0.2
+#
+#
+
+import io
+import sys
+import argparse
+import locale
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Attempt to decode string data from stdin.")
+    parser.add_argument("--encoding", help="String encoding to use (default: locale encoding).")
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+    encoding = args.encoding
+    if not encoding:
+        _, encoding = locale.getlocale()
+
+    try:
+        istream = io.TextIOWrapper(sys.stdin.buffer, encoding=encoding)
+    except LookupError as e:
+        print(e, file=sys.stderr)
+        return 6
+
+    for line in istream:
+        print(line, flush=True, end="")
+
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

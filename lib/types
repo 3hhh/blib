@@ -2,24 +2,22 @@
 #
 #+Functions for data type checks and conversions.
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.4
+#+Copyright (C) 2021  David Hobach  LGPLv3
+#+0.5
 
-b_deps "mktemp" "mkfifo" "rm" "wc" "strings" "tee" "head"
+b_deps "mktemp" "mkfifo" "rm" "wc" "python3" "tee" "head"
 
 #+### Global Variables ###
 
 #+B_TYPES_ENCODINGS
-#+Global map for human readable string encodings which can be used for [b_types_parseString](#b_typesParseString).
-#+Currently supported values: 7-bit|8-bit|16-bit-bigendian|16-bit-littleendian|32-bit-bigendian|32-bit-littleendian
-#+See the strings manpage for further explanations.
+#+Deprecated global map for human readable string encodings which can be used for [b_types_parseString](#b_typesParseString).
 declare -gA B_TYPES_ENCODINGS=(
-	["7-bit"]="s"
-	["8-bit"]="S"
-	["16-bit-bigendian"]="b"
-	["16-bit-littleendian"]="l"
-	["32-bit-bigendian"]="B"
-	["32-bit-littleendian"]="L"
+	["7-bit"]="ascii"
+	["8-bit"]="latin1"
+	["16-bit-bigendian"]="unsupported"
+	["16-bit-littleendian"]="unsupported"
+	["32-bit-bigendian"]="unsupported"
+	["32-bit-littleendian"]="unsupported"
 	)
 
 #+### Functions ###
@@ -43,46 +41,25 @@ declare -gA B_TYPES_ENCODINGS=(
 #+ [ $? -eq 0 ] && echo "Found the following string: $str"
 #+```
 #+
-#+[encoding]: The encoding of the string lying in stdin. Use [B_TYPES_ENCODINGS](#B_TYPES_ENCODINGS) for this parameter. Defaults to ${B_TYPES_ENCODINGS["7-bit"]}, which makes sense in 99% of all cases as scripts should use ASCII only anyway (when no user-interaction is involved) in order to remain portable. Keep in mind that bash also needs to support the target encoding in order to support further processing.
+#+[encoding]: The encoding of the string lying in stdin. Defaults to `ascii`, which makes sense in 99% of all cases as scripts should use ASCII only anyway (when no user-interaction is involved) in order to remain portable. Keep in mind that bash also needs to support the target encoding in order to support further processing. Currently available encodings: <https://docs.python.org/3.7/library/codecs.html#standard-encodings>
 #+returns: The data as String, if the input data was found to be a String. If no String was found to be lying in stdin, the output is an undefined string and a non-zero exit code is set. [B_E](#B_E) is only called on exceptional errors.
 #+@B_E
 function b_types_parseString {
-local encoding="${1:-${B_TYPES_ENCODINGS["7-bit"]}}"
+local encoding="${1:-"ascii"}"
 
-#create temporary pipes
-local tdir=""
-local ret=5
-tdir="$(mktemp -d)" || { B_ERR="Failed to create a temporary directory." ; B_E }
-local preStrPipe="$tdir/prestr"
-local postStrPipe="$tdir/poststr"
-local resultsPipe="$tdir/results"
-mkfifo "$preStrPipe" || { B_ERR="Failed to create a pipe." ; B_E }
-mkfifo "$postStrPipe" || { B_ERR="Failed to create a pipe." ; B_E }
-mkfifo "$resultsPipe" || { B_ERR="Failed to create a pipe." ; B_E }
+if [ -z "$encoding" ] || [[ "$encoding" == "unsupported" ]] ; then
+	B_ERR="This encoding is no longer supported. Please migrate to the new syntax."
+	B_E
+fi
 
-#start counting on results pipe
-#NOTE: strings adds a newline as separator between strings --> we'll have to remove the last line
-( set +o pipefail; head -n-1 | tee >(wc -c > "$postStrPipe") ) < "$resultsPipe" &
-local pid=$!
+local readStr="${BLIB_STORE["BLIB_UTIL_DIR"]}/read_str"
 
-#use strings to remove any binary data
-tee >(wc -c > "$preStrPipe") >(strings -n1 -a -w -e "$encoding" > "$resultsPipe") &> /dev/null
-[ $? -ne 0 ] && B_ERR="Failed to parse the String." && B_E
-
-#read pre & post byte counts
-#NOTE: we open the pipes in r/w as otherwise the -t option has no effect (hangs forever)
-local preByteCnt=-1
-local postByteCnt=-2
-read -t "0.2" -r preByteCnt <> "$preStrPipe" || { B_ERR="Failed to read from a pipe - timeout." ; B_E }
-read -t "0.2" -r postByteCnt <> "$postStrPipe" || { B_ERR="Failed to read from a pipe - timeout." ; B_E }
-wait $pid
-[ $? -ne 0 ] && B_ERR="Failed to parse the String: Count process failure." && B_E
-
-#cleanup
-rm -rf "$tdir" &> /dev/null
-
-#set return value
-[ $preByteCnt -gt 0 ] && [ $preByteCnt -eq $postByteCnt ]
+local ret=
+#NOTE: We use the more type safe python for this job. Even `strings` had vulnerabilities in the past and is less precise wrt encodings anyway.
+python3 "$readStr" --encoding "$encoding" 2> /dev/null
+ret=$?
+[ $ret -eq 6 ] && B_ERR="Unknown encoding: $encoding" && B_E
+return $ret
 }
 
 #+b_types_isInteger [string]
