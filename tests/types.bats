@@ -60,6 +60,16 @@ function setup {
 	[[ "$output" == "$origStr1" ]]
 	} <<< "$origStr1"
 
+	{ runSL b_types_parseString "" 1
+	[ $status -eq 0 ]
+	[[ "$output" == "h"$'\n'"y"$'\n'$'\n'" " ]]
+	} <<< "$origStr1"
+
+	{ runSL b_types_parseString "" 2
+	[ $status -eq 0 ]
+	[[ "$output" == "he"$'\n'"yo"$'\n'$'\n'"  " ]]
+	} <<< "$origStr1"
+
 	#special case: nothing at all
 	{ runSL b_types_parseString
 	[ $status -eq 0 ]

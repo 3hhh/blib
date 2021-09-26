@@ -6,7 +6,7 @@
 #
 #
 # Copyright (C) 2021  David Hobach  LGPLv3
-# 0.2
+# 0.3
 #
 #
 
@@ -15,9 +15,35 @@ import sys
 import argparse
 import locale
 
+
+class LimitingTextIOWrapper(io.TextIOWrapper):
+    ''' A TextIOWrapper with a limit on chars to read per line. '''
+
+    def __init__(self, *args, limit=-1, limit_marker="\n\n", **kwargs):
+        self._limit = limit
+        self._accept = True
+        self.limit_marker = limit_marker
+        super().__init__(*args, **kwargs)
+
+    def readline(self, size=-1):
+        read = super().readline(self._limit)
+        if not read: #EOF
+            return read
+
+        if self._accept:
+            self._accept = (read[-1] == "\n")
+            if self._accept:
+                return read
+            return read + "\n" #make sure each line ends with a newline char
+        self._accept = (read[-1] == "\n")
+        return self.limit_marker
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Attempt to decode string data from stdin.")
     parser.add_argument("--encoding", help="String encoding to use (default: locale encoding).")
+    parser.add_argument("-l", help="Maximum number of bytes to read per line (default: -1/infinite). \
+                        Ignore additional bytes. Useful to avoid memory DoS for untrusted input.",
+                        default=-1, type=int)
     return parser.parse_args()
 
 def main():
@@ -27,12 +53,14 @@ def main():
         _, encoding = locale.getlocale()
 
     try:
-        istream = io.TextIOWrapper(sys.stdin.buffer, encoding=encoding)
+        istream = LimitingTextIOWrapper(sys.stdin.buffer, encoding=encoding, limit=args.l)
     except LookupError as e:
         print(e, file=sys.stderr)
         return 6
 
     for line in istream:
+        if line == istream.limit_marker:
+            continue
         print(line, flush=True, end="")
 
     return 0

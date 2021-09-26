@@ -22,7 +22,7 @@ declare -gA B_TYPES_ENCODINGS=(
 
 #+### Functions ###
 
-#+b_types_parseString [encoding]
+#+b_types_parseString [encoding] [max bytes]
 #+Checks whether whatever is lying in stdin is a string (and not binary) and if so, prints it to stdout.
 #+
 #+**Important**:
@@ -42,10 +42,12 @@ declare -gA B_TYPES_ENCODINGS=(
 #+```
 #+
 #+[encoding]: The encoding of the string lying in stdin. Defaults to `ascii`, which makes sense in 99% of all cases as scripts should use ASCII only anyway (when no user-interaction is involved) in order to remain portable. Keep in mind that bash also needs to support the target encoding in order to support further processing. Currently available encodings: <https://docs.python.org/3.7/library/codecs.html#standard-encodings>
+#+[max bytes]: Maximum number of bytes to read per line (default: -1/infinite). Ignore additional bytes. Useful to avoid memory DoS for untrusted input.
 #+returns: The data as String, if the input data was found to be a String. If no String was found to be lying in stdin, the output is an undefined string and a non-zero exit code is set. [B_E](#B_E) is only called on exceptional errors.
 #+@B_E
 function b_types_parseString {
 local encoding="${1:-"ascii"}"
+local maxBytes="${2:-"-1"}"
 
 if [ -z "$encoding" ] || [[ "$encoding" == "unsupported" ]] ; then
 	B_ERR="This encoding is no longer supported. Please migrate to the new syntax."
@@ -56,7 +58,7 @@ local readStr="${BLIB_STORE["BLIB_UTIL_DIR"]}/read_str"
 
 local ret=
 #NOTE: We use the more type safe python for this job. Even `strings` had vulnerabilities in the past and is less precise wrt encodings anyway.
-python3 "$readStr" --encoding "$encoding" 2> /dev/null
+python3 "$readStr" --encoding "$encoding" -l "$maxBytes" 2> /dev/null
 ret=$?
 [ $ret -eq 6 ] && B_ERR="Unknown encoding: $encoding" && B_E
 return $ret
