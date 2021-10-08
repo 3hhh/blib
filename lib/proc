@@ -5,7 +5,7 @@
 #+Copyright (C) 2020  David Hobach  LGPLv3
 #+0.2
 
-b_deps "tail" "timeout" "kill"
+b_deps "tail" "timeout" "kill" "killall"
 
 #+### Functions ###
 
@@ -31,7 +31,7 @@ b_listContains "$(jobs -p)" "$pid" && b_proc_pidExists "$pid"
 
 #+b_proc_waitForPid [pid] [maximum time]
 #+Wait for the given process to exit. If it doesn't exist, exit immediately.
-#+[pid]: Process ID of the process to wait for. Doesn't need to be a child.
+#+[pid]: Process ID of the process to wait for.
 #+[maximum time]: Maximum time in seconds to wait for the process to exit (default: 0 = indefinitely).
 #+returns: Nothing, always sets a zero exit code. Use [b_proc_pidExists](#b_proc_pidExists) if you need to know whether the process finished.
 function b_proc_waitForPid {
@@ -60,4 +60,67 @@ if [[ ! $signal =~ $re ]] ; then
 	signal="$(kill -l "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
 fi
 echo "$signal"
+}
+
+#+b_proc_killAndWait [pid] [signal] [timeout]
+#+Send a kill/exit signal to a process and wait for it to terminate.
+#+[pid]: Process ID of the process to wait to terminate.
+#+[signal]: Signal name (string) or numeric identifier to send (default: SIGTERM).
+#+[timeout]: Time in seconds after which to send a SIGKILL if the process doesn't terminate (default: 0 = wait forever).
+#+returns: A zero exit code, if the process terminated without timeout or could not be found.
+#+@B_E
+function b_proc_killAndWait {
+local pid="$1"
+local signal="$2"
+local timeout="${3:-0}"
+
+if [ -n "$signal" ] ; then
+	signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+	local cmd="kill -s $signal $pid"
+else
+	local cmd="kill $pid"
+fi
+
+$cmd &> /dev/null
+b_proc_waitForPid "$pid" "$timeout"
+
+if b_proc_pidExists "$pid" ; then
+	kill -9 "$pid"
+	b_proc_waitForPid "$pid"
+	return 1
+fi
+
+return 0
+}
+
+#+b_proc_killByRegexAndWait [regex] [signal] [timeout]
+#+Kill/Terminate all matching processes.
+#+[regex]: Regular expression matched against running process names. Matching processes will be terminated.
+#+[signal]: Signal name (string) or numeric identifier to send (default: SIGTERM).
+#+[timeout]: Time in seconds after which to send a SIGKILL if the processes don't terminate (default: 0 = wait forever).
+#+returns: A zero exit code, if the process terminated without timeout or could not be found.
+#+@B_E
+function b_proc_killByRegexAndWait {
+local regex="$1"
+local signal="${2:-"SIGTERM"}"
+local timeout="${3:-0}"
+
+signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+
+local cmd=
+printf -v cmd 'killall -s %q -wr %q' "$signal" "$regex"
+[ $timeout -gt 0 ] && cmd="timeout $timeout $cmd"
+
+local ret=
+local out=
+out="$(eval "$cmd" 2>&1)"
+ret=$?
+
+#killall -9 on timeout
+[ $timeout -gt 0 ] && [ $ret -eq 124 ] && killall -9 -wr "$regex"
+
+#special case: killall returns a non-zero exit code, if a process wasn't found --> we don't
+[ $ret -ne 0 ] && [[ "$out" == *"no process found"* ]] && ret=0
+
+return $ret
 }

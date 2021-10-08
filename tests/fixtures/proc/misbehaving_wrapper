@@ -1,0 +1,4 @@
+#!/bin/bash
+#This is a workaround to get a non-bash process name (requires a symlink from misbehaving --> misbehaving_process). The process name will be "misbehaving".
+SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+exec "$SCRIPT_DIR/misbehaving" "$@"

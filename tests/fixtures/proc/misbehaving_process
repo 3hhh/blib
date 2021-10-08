@@ -1,0 +1,6 @@
+#!/bin/bash
+#for blib proc module testing
+#execute via the wrapper to get a non-bash process name
+
+[ ${1:-1} -eq 0 ] && trap '' SIGTERM
+sleep 4
