@@ -25,6 +25,14 @@ T_GLOB=0
 
 @test "B_SCRIPT" {
 	[ -n "$B_SCRIPT" ]
+
+	runSC eval "$B_SCRIPT"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	[[ "${BLIB_STORE["BLIB_SCRIPT_DIR"]}" == *"/blib" ]]
+	[[ "${BLIB_STORE["BLIB_SCRIPT_NAME"]}" == "blib" ]]
+
 	eval "$B_SCRIPT"
 	[ $? -eq 0 ]
 	#apparently bats copies files to /tmp/bats.*.src before executing them --> we need to check that

@@ -4,7 +4,7 @@
 #+
 #+The basic functions which are imported by default.
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
+#+Copyright (C) 2021  David Hobach  LGPLv3
 #+version: Execute `blib version` or use [b_version](#b_version).
 #+
 #+### Disclaimer ###
@@ -54,11 +54,16 @@
 
 #+### Global Variables ###
 
+#+B_LIB_DIR
+#+Path of the blib installation directory.
+B_LIB_DIR="$(readlink -f "${BASH_SOURCE[0]}")" || { >&2 echo "ERROR: Failed to compute the blib path." ; exit 3 ; }
+B_LIB_DIR="$(dirname "$B_LIB_DIR")" || { >&2 echo "ERROR: Failed to compute the blib path." ; exit 4 ; }
+
 #map to store global blib data (we use it to hide global variables from the namespace)
 #meant for data that may cause stateless testing with [runSL](#runSL) to fail (i.e. state changes here are monitored)
 #most module data should go here
 declare -gA BLIB_STORE=(
-	["BLIB_SCRIPT_DIR"]="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+	["BLIB_SCRIPT_DIR"]="$B_LIB_DIR"
 	["BLIB_SCRIPT_NAME"]="blib"
 	["BLIB_LIB_DIR"]="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/lib"
 	["BLIB_DOC_DIR"]="${BLIB_STORE["BLIB_SCRIPT_DIR"]}/doc"
@@ -115,12 +120,8 @@ B_ERR=""
 #+This should be set to an integer value between 1 and 255. Any other value may cause undefined behaviour.
 B_RC=1
 
-#+B_LIB_DIR
-#+Path of the blib installation directory.
-B_LIB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-
 #+B_CONF_DIR
-#+Path to blib configuration directory. Modules may create subfolders named by their module name there. May not exist.
+#+Path to the blib configuration directory. Modules may create subfolders named by their module name there. May not exist.
 B_CONF_DIR="/etc/blib"
 
 #+B_SCRIPT
@@ -130,7 +131,8 @@ B_CONF_DIR="/etc/blib"
 #+```
 B_SCRIPT=""
 read -r -d '' B_SCRIPT << 'EOF'
-B_SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+B_SCRIPT_DIR="$(readlink -f "${BASH_SOURCE[0]}")" || { B_ERR="Failed to compute B_SCRIPT_DIR." ; B_E }
+B_SCRIPT_DIR="$(dirname "$B_SCRIPT_DIR")" || { B_ERR="Failed to compute B_SCRIPT_DIR." ; B_E }
 B_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
 EOF
 
