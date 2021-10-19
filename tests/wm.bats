@@ -10,14 +10,8 @@ load test_common
 
 function setup {
 	loadBlib
-	skipIfNoWmctrl
+	skipIfCommandMissing "wmctrl"
 	b_import "wm"
-}
-
-function skipIfNoWmctrl {
-	! command -v wmctrl &> /dev/null && skip "wmctrl is not installed."
-
-	return 0
 }
 
 #assertCorrectWindowProperties [b_wm_getActiveWindowProperties output]

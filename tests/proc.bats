@@ -143,7 +143,7 @@ function testKillAndWait {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	[ $diff -gt 0 ]
-	[ $diff -lt 1500 ]
+	[ $diff -lt 2500 ]
 
 	#SIGKILL should also work
 	local startTime="$(date +%s%3N)"
@@ -156,7 +156,7 @@ function testKillAndWait {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	[ $diff -gt 0 ]
-	[ $diff -lt 1500 ]
+	[ $diff -lt 2500 ]
 
 	#test wait, if process takes time to finish
 	local startTime="$(date +%s%3N)"
@@ -183,7 +183,7 @@ function testKillAndWait {
 	[ $status -ne 0 ]
 	[ -z "$output" ]
 	[ $diff -gt 800 ]
-	[ $diff -lt 3000 ]
+	[ $diff -lt 3500 ]
 }
 
 @test "b_proc_killAndWait" {

@@ -17,7 +17,7 @@ function setup {
 function initGlobalVars {
 	T_BASE_DIR="/tmp/blib-keys-test"
 	T_APP_ID="my app"
-	T_PASS="passw0rd123"
+	T_PASS="$TEST_PASSWORD"
 }
 
 function rootFunc {
@@ -104,7 +104,7 @@ function assertOpen {
 
 	local duration=$(( $SECONDS - $start ))
 	echo "duration: $duration"
-	[ $duration -le 1 ]
+	[ $duration -le 2 ]
 }
 
 #assertExistentKey [id] [key content]

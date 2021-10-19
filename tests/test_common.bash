@@ -47,6 +47,9 @@ shopt -s expand_aliases
 ALIASES="$(sed -n '/^alias/,/^'"}'"'$/p' "$BLIB")"
 eval "$ALIASES"
 
+#a non-dictionary password for testing purposes
+TEST_PASSWORD="j4R-a2_q%jeTzQep6RmgErzl4zmBvF,rZa"
+
 #+### Functions ###
 
 #+loadBlib
@@ -71,11 +74,12 @@ function skipIfNoUserData {
 return 0
 }
 
-#+skipIfNoPandoc
-#+Skip the test if pandoc is not installed.
+#+skipIfCommandMissing [command]
+#+Skip the test if the given command is not installed.
 #+returns: Nothing.
-function skipIfNoPandoc {
-! command -v pandoc &> /dev/null && skip "pandoc is not installed."
+function skipIfCommandMissing {
+local cmd="$1"
+! command -v "$cmd" &> /dev/null && skip "$cmd is not installed."
 
 return 0
 }

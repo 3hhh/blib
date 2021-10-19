@@ -75,7 +75,7 @@ function initWithTestCallbacks {
 
 #pandocTest [out file] [out format]
 function pandocTest {
-	skipIfNoPandoc
+	skipIfCommandMissing "pandoc"
 
 	local outFile="$1"
 	local outFormat="$2"

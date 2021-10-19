@@ -12,20 +12,11 @@ T_SQLITE3_TESTDB1="${FIXTURES_DIR}/sqlite3/test.db"
 
 function setup {
 	loadBlib
+	skipIfCommandMissing "sqlite3"
 	b_import "sqlite3"
 }
 
-#skipIfNoSqlite3
-#Skip the test if sqlite3 is not installed.
-#returns: Nothing.
-function skipIfNoSqlite3 {
-	! command -v sqlite3 &> /dev/null && skip "sqlite3 is not installed."
-	return 0
-}
-
 @test "b_sqlite3_open & b_sqlite3_getOpen" {
-	skipIfNoSqlite3
-
 	runSL b_sqlite3_getOpen
 	[ $status -ne 0 ]
 	[ -z "$output" ]
@@ -54,8 +45,6 @@ function skipIfNoSqlite3 {
 }
 
 @test "b_sqlite3_exec & b_sqlite3_close" {
-	skipIfNoSqlite3
-
 	b_sqlite3_open "$T_SQLITE3_TESTDB1" 1
 
 	runSL b_sqlite3_getOpen

@@ -10,6 +10,7 @@ load test_common
 
 function setup {
 	loadBlib
+	skipIfCommandMissing "dig"
 	b_import "net"
 }
 

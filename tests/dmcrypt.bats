@@ -123,7 +123,7 @@ rm -rf "$@"
 	loadBlibTestState
 	b_dmcrypt_init "tty"
 	local prompt="Password please:"
-	local pw="passw0rd"
+	local pw="$TEST_PASSWORD"
 
 	runRoot b_dmcrypt_isOpen "${TEST_STATE["DMCRYPT_CONT"]}"
 	[ $status -ne 0 ]

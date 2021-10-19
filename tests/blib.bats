@@ -1345,7 +1345,7 @@ function testGendoc {
 }
 
 @test "command line usage: gendoc with pandoc" {
-	skipIfNoPandoc
+	skipIfCommandMissing "pandoc"
 
 	testGendoc "pdf" 0
 	echo 1

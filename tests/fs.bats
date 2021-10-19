@@ -234,7 +234,7 @@ function createFileAfter {
 	[ $status -ne 0 ]
 
 	#valid devices
-	local dev="$(findmnt -n -o SOURCE -T /)"
+	local dev="$(findmnt -vn -o SOURCE -T /)"
 	
 	echo 10
 	runSL b_fs_getMountpoints "$dev"
@@ -546,14 +546,18 @@ function ensureRemovedLoopDevice {
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 
-	runSL b_fs_enumerate "/tmp/"$'\n'"/tmp/nonexisting-file" 1
+	runSL b_fs_enumerate "/tmp"$'\n'"/tmp/nonexisting-file" 1
+	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == *"/tmp/"* ]]
+	[[ "$output" != *"//"* ]]
 	[[ "$output" != *"nonexisting-file"* ]]
 
 	runSL b_fs_enumerate "/tmp/"$'\n'"/tmp/nonexisting-file" 2
+	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" == *"/tmp/"* ]]
+	[[ "$output" != *"//"* ]]
 	[[ "$output" == *"nonexisting-file"* ]]
 
 	local tdir="$(mktemp -d)"
