@@ -266,10 +266,11 @@ local fname=""
 local fnew=
 while IFS= read -r fname ; do
 	if [ -d "$fname" ] ; then
+		[[ "$fname" == *"/" ]] && fname="${fname::-1}"
 		#recurse dirs
 		for fnew in "$fname/"* ; do
 			[[ "$fnew" == "$fname/*" ]] && continue
-			b_fs_enumerate "$fnew" || B_E
+			blib_fs_enumerate "$fnew" "$nonEx" || B_E
 		done
 	elif [ $nonEx -eq 2 ] || [ -f "$fname" ] ; then
 		echo "$fname"
