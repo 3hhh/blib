@@ -2,8 +2,8 @@
 # 
 #+Bats tests for the keys module.
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.3
+#+Copyright (C) 2021  David Hobach  LGPLv3
+#+0.4
 
 #load common test code
 load test_common
@@ -17,7 +17,6 @@ function setup {
 function initGlobalVars {
 	T_BASE_DIR="/tmp/blib-keys-test"
 	T_APP_ID="my app"
-	T_PASS="$TEST_PASSWORD"
 }
 
 function rootFunc {
@@ -77,7 +76,7 @@ function assertOpen {
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 
-	local passTwice="$T_PASS"$'\n'"$T_PASS"
+	local passTwice="$TEST_PASSWORD"$'\n'"$TEST_PASSWORD"
 
 	echo "$passTwice" | {
 		runRoot b_keys_init "$T_APP_ID" "" "tty" "" 300 "$T_BASE_DIR"
@@ -293,14 +292,15 @@ function assertClosed {
 	rm -f "$tfile"
 }
 
-#testSingleAddClose [app id] [keys to add]
+#testSingleAddClose [app id] [keys to add] [password]
 function testSingleAddClose {
 	set -e -o pipefail
 
 	local appId="$1"
 	local toAdd=$2
+	local pw="$3"
 
-	b_keys_init "$appId" 0 "tty" "" 60000 "$T_BASE_DIR" <<< "$T_PASS"
+	b_keys_init "$appId" 0 "tty" "" 60000 "$T_BASE_DIR" <<< "$pw"
 
 	local tkey=
 	tkey="$(mktemp)"
@@ -312,10 +312,10 @@ function testSingleAddClose {
 			added=$(( $added +1 ))
 			echo "$BASHPID Adding $added..."
 			echo "$added" > "$tkey"
-			b_keys_add "multi-test-$BASHPID-$added" "$tkey" <<< "$T_PASS"
+			b_keys_add "multi-test-$BASHPID-$added" "$tkey" <<< "$pw"
 		elif [ $rand -eq 1 ] ; then
 			echo "$BASHPID Initializing..."
-			b_keys_init "$appId" 0 "tty" "" 60000 "$T_BASE_DIR" <<< "$T_PASS"
+			b_keys_init "$appId" 0 "tty" "" 60000 "$T_BASE_DIR" <<< "$pw"
 		else
 			echo "$BASHPID Closing..."
 			b_keys_close
@@ -325,18 +325,19 @@ function testSingleAddClose {
 	rm -f "$tkey"
 }
 
-#ni_testMultiAddClose [app id] [thread count] [key to add]
+#ni_testMultiAddClose [app id] [thread count] [key to add] [password]
 function ni_testMultiAddClose {
 	#multiple threads adding & closing
 	#this is interesting as it is _really_ important that nothing is written to a closed key store
 	local appId="$1"
 	local threads=$2
 	local toAdd=$3
+	local pw="$4"
 
 	local i=
 	pids=()
 	for (( i = 0; i < $threads ; i++ )) ; do
-		testSingleAddClose "$appId" $toAdd &
+		testSingleAddClose "$appId" $toAdd "$pw" &
 		pids+=($!)
 	done
 
@@ -377,13 +378,13 @@ function countKeys {
 	local numThreads=4
 	local keys=4
 	local appId="multithreading app"
-	runRoot ni_testMultiAddClose "$appId" $numThreads $keys
+	runRoot ni_testMultiAddClose "$appId" $numThreads $keys "$TEST_PASSWORD"
 	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" != *"ERROR"* ]]
 
 	#open, if necessary
-	echo "$T_PASS" | {
+	echo "$TEST_PASSWORD" | {
 		runRoot b_keys_init "$appId" "" "tty" "" 300 "$T_BASE_DIR"
 		[ $status -eq 0 ]
 		[ -z "$output" ]
