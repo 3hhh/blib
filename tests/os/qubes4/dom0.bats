@@ -1195,6 +1195,8 @@ function crossAttachTest {
 }
 
 @test "b_dom0_crossAttachDevice & b_dom0_crossAttachFile" {
+	#NOTE: breaks in Qubes 4.1rc1, cf. https://github.com/QubesOS/qubes-issues/issues/6996
+
 	skipIfNoTestVMs
 	#b_dom0_crossAttachFile currently uses b_dom0_crossAttachDevice, so we only need to test the first one
 
