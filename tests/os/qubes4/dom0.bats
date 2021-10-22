@@ -1549,7 +1549,7 @@ function testDiskAttach {
 	run qvm-block ls
 	[ $status -eq 0 ]
 	echo "$output"
-	[[ "$output" != *"dom0:loop"* ]]
+	[[ "$output" != *"dom0:loop"* ]] #currently fails in Qubes 4.1rc1, cf. https://github.com/QubesOS/qubes-issues/issues/7000
 
 	#make sure it's detached
 	runSL qvm-shutdown --wait --timeout 10 "$targetVM"
