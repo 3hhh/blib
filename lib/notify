@@ -3,11 +3,11 @@
 #+Collection of notification related functions.
 #+
 #+Copyright (C) 2021  David Hobach  LGPLv3
-#+0.5
+#+0.6
 
 b_import "fs"
 
-b_deps "notify-send" "getent" "su"
+b_deps "notify-send" "getent" "su" "id"
 
 #+### Functions ###
 
@@ -52,14 +52,14 @@ b_fs_waitForFile "$addr" "$maxTime" && echo "$addr" || return $?
 
 #+b_notify_send [arg 1] ... [arg n]
 #+Send out a notification to the user via `notify-send`.
-#+If run as root, may send the notification to _all_ active users.
+#+If run as root, may send the notification to _all_ active non-root users.
 #+Calling `notify-send` directly can be problematic depending on the user, dbus session, environment variables, ... This function aims to circumvent these potential issues.
 #+[arg i]: All arguments are directly passed to `notify-send`.
 #+returns: Nothing. Errors during notification sending will trigger [B_E](#B_E).
 #+@B_E
 function b_notify_send {
 local env=""
-local user path par
+local user path par uid
 
 [ -z "$DISPLAY" ] && env="$env;DISPLAY=:0"
 
@@ -76,10 +76,11 @@ if [ $EUID -eq 0 ] || [[ ! "$DBUS_SESSION_BUS_ADDRESS" =~ $re ]] || [ ! -e "${BA
 		for path in /home/* ; do
 			[[ "$path" == "/home/*" ]] && return 0
 			user="${path#/home/}"
+			uid="$(id -u "$user")" || { B_ERR="Failed to obtain the user ID for the user $user." ; B_E }
 			#NOTE:
 			# - su appears more reliable than e.g. runuser as it does all the env stuff for us and may even setup a dbus instance if it's not running
 			# - we pass /dev/null to stdin though as su may be interactive
-			su - -c "$cmd" "$user" < /dev/null || { B_ERR="Failed to execute notify-send for the user $user." ; B_E }
+			su - -c "DISPLAY=${DISPLAY:-":0"};DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus $cmd" "$user" < /dev/null || { B_ERR="Failed to execute notify-send for the user $user." ; B_E }
 		done
 	else
 		blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$EUID/bus" "$@" || { B_ERR="Failed to execute notify-send for the user ID $EUID." ; B_E }
