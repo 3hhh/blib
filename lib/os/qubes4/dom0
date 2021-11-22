@@ -1376,12 +1376,12 @@ return 0
 
 #+b_dom0_applyFirewall [vm] [rules]
 #+Apply the given rules to the VM firewall.
-#+**Important**: Since the rules are applied iteratively, there may be short timeframes during which a VM may have a more permissive firewall than in the end.
+#+**Important**: Since the rules are applied iteratively, there may be short timeframes during which the VM may have no network access.
 #+[vm]: VM for which to apply the firewall rules.
 #+[rules]: Newline-separated list of firewall rules in _raw_ format (cf. `man qvm-firewall`). The rules are added in the order as specified.
-#+         (This corresponds to the `qvm-firewall` output.) Previously applied rules are left untouched.
+#+         (This corresponds to the `qvm-firewall --raw [vm]` output.) Previously applied rules are left untouched.
 #+         Empty lines and lines starting with `#` (comments) are ignored.
-#+returns: Nothing. If a rule cannot be added for whatever reason, the entire firewall is cleared to a drop-all state for security reasons.
+#+returns: Nothing. If a rule cannot be added for whatever reason, a drop-all rule will be inserted in the beginning for security reasons.
 #+@B_E
 function b_dom0_applyFirewall {
 local vm="$1"
@@ -1391,16 +1391,22 @@ local rule=
 local blankRegex='^[[:blank:]]*$'
 local commentRegex='^[[:blank:]]*#.*$'
 
+#temporarily insert drop-all to avoid excessive permissions during modification
+qvm-firewall --raw "$vm" add --before 0 drop || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
+
 while IFS= read -r rule ; do
 	[[ "$rule" =~ $blankRegex ]] && continue
 	[[ "$rule" =~ $commentRegex ]] && continue
 
-	if ! qvm-firewall "$vm" --raw add $rule ; then
+	if ! qvm-firewall --raw "$vm" add $rule ; then
 		b_dom0_clearFirewall "$vm"
 		B_ERR="Failed to add the rule ${rule} to the firewall for the VM $vm. The entire firewall was cleared."
 		B_E
 	fi
 done <<< "$rules"
+
+#remove temporary drop-all
+qvm-firewall --raw "$vm" del --rule-no=0 || { B_ERR="Failed to remove the temporary drop-all firewall rule." ; B_E }
 
 return 0
 }
@@ -1409,34 +1415,25 @@ return 0
 #+Clears the given VM firewall entirely (no rules left). This will make the VM firewall drop all connections.
 #+Existing connections may continue to work as long as the VM and the connection remain up (this is a known Qubes OS quirk).
 #+[vm]: VM for which to clear all rules.
-#+returns: Nothing. Errors may result in leftover rules which should generally allow less.
+#+returns: Nothing. Errors will result in a drop-all state.
 #+@B_E
 function b_dom0_clearFirewall {
 local vm="$1"
 
-local rules=
-rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing firewall rules for the VM $vm." ; B_E }
+#temporarily insert drop-all to avoid excessive permissions during modification
+qvm-firewall --raw "$vm" add --before 0 drop || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
 
-#remove accept rules first for security reasons (attempt to never allow more than before)
-local rule=
-declare -a dropRules=()
-while IFS= read -r rule ; do
-	[ -z "$rule" ] && continue
-	[[ "$rule" != "action="* ]] && B_ERR="Unexpected $vm VM firewall rule: $rule" && B_E
-
-	if [[ "$rule" == "action=accept"* ]] ; then
-		qvm-firewall "$vm" --raw del $rule || { B_ERR="Failed to remove the following $vm VM firewall rule: $rule" ; B_E }
-	else
-		dropRules+=("$rule")
-	fi
-done <<< "$rules"
-
-#remove the drop rules
-for rule in "${dropRules[@]}" ; do
-	qvm-firewall "$vm" --raw del $rule || { B_ERR="Failed to remove the following $vm VM firewall rule: $rule" ; B_E }
+while qvm-firewall --raw "$vm" del --rule-no=1 &> /dev/null ; do
+	:
 done
 
 #double check
-rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing rules for the VM $vm." ; B_E }
-[ -z "$rules" ] || { B_ERR="Failed to remove all $vm VM rules. Leftovers: $rules" ; B_E }
+local rules=
+rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing firewall rules for the VM $vm." ; B_E }
+[[ "$rules" == "action=drop" ]] || { B_ERR="Failed to correctly remove the firewall rules for the VM $vm. Remaining rules:"$'\n'"$rules" ; B_E }
+
+#remove temporary drop-all
+qvm-firewall --raw "$vm" del --rule-no=0 || { B_ERR="Failed to remove the temporary drop-all firewall rule." ; B_E }
+
+return 0
 }
