@@ -1392,7 +1392,7 @@ local blankRegex='^[[:blank:]]*$'
 local commentRegex='^[[:blank:]]*#.*$'
 
 #temporarily insert drop-all to avoid excessive permissions during modification
-qvm-firewall --raw "$vm" add --before 0 drop || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
+qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
 
 while IFS= read -r rule ; do
 	[[ "$rule" =~ $blankRegex ]] && continue
@@ -1421,7 +1421,7 @@ function b_dom0_clearFirewall {
 local vm="$1"
 
 #temporarily insert drop-all to avoid excessive permissions during modification
-qvm-firewall --raw "$vm" add --before 0 drop || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
+qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
 
 while qvm-firewall --raw "$vm" del --rule-no=1 &> /dev/null ; do
 	:
