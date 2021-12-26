@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # 
-#+Bats tests for the cdoc module.
+#+Bats tests for the traps module.
 #+
 #+Copyright (C) 2018  David Hobach  LGPLv3
 #+0.3
