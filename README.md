@@ -1,8 +1,8 @@
 # blib - a bash library
 
-blib is a lightweight general purpose library for bash developers written in pure bash.
+blib is a lightweight general purpose library for bash.
 
-It attempts to provide robust implementations for commonly encountered issues whilst leaving the bash syntax as it is.
+It aims to provide robust implementations for commonly encountered issues whilst leaving the bash syntax as it is.
 
 ## Functionality
 
@@ -25,6 +25,10 @@ blib currently provides functionality in the following areas:
 The various topics are grouped into dedicated modules which can be imported into the global bash namespace at will.
 
 A complete overview of the available list of modules and functions can be obtained from the [Documentation](#documentation).
+
+### Portability
+
+blib is currently _only_ tested on Linux systems. Your mileage on other OSes (e.g. Unixes, BSD, Windows, ...) may vary. You can use the [functionaility tests](#functionality-tests) to see what works as expected.
 
 ## Table of contents
 
@@ -110,6 +114,6 @@ If you didn't install to `/usr/lib`, you'll have to provide the installer script
 
 ## Copyright
 
-© 2020 David Hobach
+© 2021 David Hobach
 
 blib is released under the LGPLv3 license; see `LICENSE` for details.
