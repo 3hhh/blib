@@ -37,7 +37,7 @@ TEST_RUN_ID=1
 #+A map which can be used to create a persistent state across multiple tests.
 #+By default, bats creates a new shell environment for each test it runs, resetting all changes to global variables.
 #+The state can be managed with the load/save/clearBlibTestState functions below.
-declare -gA TEST_STATE
+declare -gA TEST_STATE=()
 
 #problem:
 #bats/we source blib only in functions (setup()) and not in global scope (makes sense, could have errors)
@@ -206,18 +206,20 @@ function funcTimeout {
 local timeout=$1
 shift
 
-#NOTE: we also close fd3 for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs
-"$@" 3>&- &
+#NOTE: we also close non-standard FDs for bats, cf. https://github.com/bats-core/bats-core/issues/205#issuecomment-973572596
+b_import "fd"
+( b_fd_closeNonStandard ; "$@" ) &
 local mainPid=$!
 
-( local cnt=0
+( b_fd_closeNonStandard
+local cnt=0
 while [ $cnt -lt $timeout ] ; do
 	[ ! -d /proc/$mainPid ] && exit 1
 	cnt=$(( $cnt +1 ))
 	sleep 1
 done
 kill $mainPid &> /dev/null
-) 3>&- &
+) &
 local killPid=$!
 
 local ret=

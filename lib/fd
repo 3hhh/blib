@@ -1,0 +1,58 @@
+#!/bin/bash
+#
+#+Collection of file descriptor related functions.
+#+
+#+Copyright (C) 2021  David Hobach  LGPLv3
+#+0.3
+
+#b_deps ""
+
+#+### Functions ###
+
+#+b_fd_getOpen [pid]
+#+Retrieve all open file descriptors for the given PID.
+#+[pid]: process ID (default: `$$`)
+#+returns: Newline-separated list of open file descriptor numbers; a non-zero exit code indicates that the process could not be found.
+function b_fd_getOpen {
+local pid="${1:-$$}"
+local fd=
+if [ -d "/proc/$pid" ] ; then
+	for fd in "/proc/$pid/fd/"* ; do
+		[[ "$fd" == "/proc/$pid/fd/*" ]] && continue
+		echo "${fd##*/}"
+	done
+else
+	return 1
+fi
+}
+
+#+b_fd_closeNonStandard
+#+Close all non-standard file descriptors (i.e. those > 2) held by the current process.
+#+returns: Nothing. [B_E](#B_E) is called on unexpected errors.
+#+@B_E
+function b_fd_closeNonStandard {
+local fd=
+local pid="$$"
+local fds="$(b_fd_getOpen "$pid")" || { B_ERR="Failed to obtain the open file descriptors for the process $pid." ; B_E }
+
+while IFS= read -r fd ; do
+	[ $fd -gt 2 ] && eval "exec $fd>&-"
+done <<< "$fds"
+
+return 0
+}
+
+#+b_fd_closeAll
+#+Close all file descriptors held by the current process.
+#+returns: Nothing. [B_E](#B_E) is called on unexpected errors.
+#+@B_E
+function b_fd_closeAll {
+b_fd_closeNonStandard || { B_ERR="Failed to close the non-standard file descriptors." ; B_E }
+
+#b_fs_closeNonStandard needs at least stdin inside the while loop, so we close the remaining manually now
+exec 0>&-
+exec 1>&-
+exec 2>&-
+
+return 0
+}

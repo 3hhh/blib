@@ -10,10 +10,11 @@
 #+Since the daemon cannot detach from its session via `setsid` in bash, the daemon will remain in the process group of its parent. So killing the parent with e.g. Ctrl-C will cause the parent group including the daemon to terminate. As a workaround, users may either ignore SIGINT requests or make sure the parent exits as soon as possible (recommended).
 #+
 #+Copyright (C) 2019  David Hobach  LGPLv3
-#+0.4
+#+0.5
 
 b_import "multithreading/mtx"
 b_import "proc"
+b_import "fd"
 b_deps "kill" "umask" "mkdir" "rm" "mktemp"
 
 BLIB_STORE["BLIB_DAEMON_QUIET"]=
@@ -102,7 +103,7 @@ pidFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
 { {	B_DAEMON_ID="$id"
 
 	#close all non-standard FDs
-	eval exec {3..255}\>\&-
+	b_fd_closeNonStandard
 
 	#change working dir & umask appear to be "good daemon behaviour", cf. http://www.netzmafia.de/skripten/unix/linux-daemon-howto.html
 	cd /

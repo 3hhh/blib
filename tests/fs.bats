@@ -112,6 +112,10 @@ function createFileAfter {
 	local seconds="$1"
 	local file="$2"
 
+	#close FDs for bats
+	b_import "fd"
+	b_fd_closeNonStandard
+
 	sleep $seconds
 	touch "$file"
 }
@@ -148,7 +152,7 @@ function createFileAfter {
 	echo 2
 	startTimer
 	echo 3
-	createFileAfter 2 "$tfile" 3>&- &
+	createFileAfter 2 "$tfile" &
 	echo 4
 	[ $(endTimer) -le 1 ]
 	echo 5
@@ -165,7 +169,7 @@ function createFileAfter {
 	echo a
 	startTimer
 	echo b
-	createFileAfter 2 "$tfile" 3>&- &
+	createFileAfter 2 "$tfile" &
 	echo c
 	[ $(endTimer) -le 1 ]
 	echo d

@@ -43,7 +43,14 @@ function skipIfNoTestVMs {
 	return 0
 }
 
+@test "dom0: clean init" {
+	clearBlibTestState
+}
+
 @test "b_dom0_startDispVM" {
+	#make sure the TEST_STATE var is loaded & declared
+	declare -p TEST_STATE
+
 	runSL b_dom0_startDispVM "non existing template"
 	[ $status -ne 0 ]
 	[ -n "$output" ]
@@ -1151,6 +1158,10 @@ function createFileAfter {
 	local seconds="$2"
 	local file="$3"
 
+	#close FDs for bats
+	b_import "fd"
+	b_fd_closeNonStandard
+
 	sleep $seconds
 	b_dom0_qvmRun "$vm" "touch \"$file\""
 }
@@ -1165,7 +1176,7 @@ function createFileAfter {
 	#just a single hopefully successful test, the remaining ones are already done in fs.bats
 	local tfile="$(mktemp -u)"
 	startTimer
-	createFileAfter "${TEST_STATE["DOM0_TESTVM_1"]}" 2 "$tfile" 3>&- &
+	createFileAfter "${TEST_STATE["DOM0_TESTVM_1"]}" 2 "$tfile" &
 	[ $(endTimer) -le 1 ]
 	runSL b_dom0_waitForFileIn "${TEST_STATE["DOM0_TESTVM_1"]}" "$tfile" 4
 	[ $(endTimer) -le 3 ]

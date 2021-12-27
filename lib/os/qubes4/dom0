@@ -187,7 +187,7 @@ function b_dom0_startDispVM {
 local template="${1:---}"
 
 #create the disposable VM and keep it running in the background
-#fd3 is explicitly closed for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs
+#fd3 is explicitly closed for bats, cf. https://github.com/bats-core/bats-core#file-descriptor-3-read-this-if-bats-hangs (closing all non-standard FDs will break our child PID finding method below)
 qvm-run --dispvm "$template" 'bash -c "while :; do sleep 100000; done"' < /dev/null &> /dev/null 3>&- &
 disown
 local pid=$!
