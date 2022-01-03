@@ -1573,6 +1573,38 @@ function testDiskAttach {
 	local re='^(file|lvm_thin|file-reflink|callback)$'
 	echo "$output"
 	[[ "$output" =~ $re ]]
+
+	runSL "b_dom0_getDefaultPoolDriver" "kernel"
+	[ $status -eq 0 ]
+	[[ "$output" == "linux-kernel" ]]
+}
+
+@test "b_dom0_getPoolDriver" {
+	runSL "b_dom0_getPoolDriver" "nonexisting-vm"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL "b_dom0_getPoolDriver" "${TEST_STATE["DOM0_TESTVM_1"]}" "nonexisting-type"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL "b_dom0_getPoolDriver" "${TEST_STATE["DOM0_TESTVM_1"]}"
+	[ $status -eq 0 ]
+	local re='^(file|lvm_thin|file-reflink|callback)$'
+	echo "$output"
+	[[ "$output" =~ $re ]]
+
+	runSL "b_dom0_getPoolDriver" "${TEST_STATE["DOM0_TESTVM_1"]}" "kernel"
+	[ $status -eq 0 ]
+	[[ "$output" == "linux-kernel" ]]
+
+	runSL "b_dom0_getPoolDriver" "${TEST_STATE["DOM0_TESTVM_1"]}" "volatile"
+	[ $status -eq 0 ]
+	[[ "$output" =~ $re ]]
+
+	runSL "b_dom0_getPoolDriver" "${TEST_STATE["DOM0_TESTVM_1"]}" "private"
+	[ $status -eq 0 ]
+	[[ "$output" =~ $re ]]
 }
 
 @test "b_dom0_attachVMDisk" {

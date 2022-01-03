@@ -12,7 +12,7 @@ b_import ui
 b_import proc
 b_import types
 
-b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "readlink" \
+b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qvm-volume" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "readlink" \
 "dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar" "qvm-firewall"
 
 #private vars
@@ -1088,8 +1088,8 @@ return 0
 #+[source VM]: Name of the VM whose private disk to attach to the target VM. *All data* of that VM will be shared with the target VM. Will be shut down as part of this function and must remain shut down as long as the disk is attached.
 #+[target VM]: VM where to attach the disk as block device to. Must be started.
 #+[rw flag]: If set to 0, attaches the disk file in r/w (read-write) mode. If set to 1 (default), attaches the file in r/o (read only) mode.
-#+[pool driver]: Driver of the pool that the disk was created in: One of file, file-reflink or lvm_thin (default: driver of your system's default pool).
-#+[disk path]: Full path to the disk. Default: Path to the private volume of the \[source VM\] in the default pool of the respective \[pool type\]. May override the \[source VM\] parameter.
+#+[pool driver]: Driver of the pool that the disk was created in: One of file, file-reflink or lvm_thin (default: driver of the given \[source VM\]).
+#+[disk path]: Full path to the disk. Default: Path to the private volume of the \[source VM\] in the pool of the respective \[pool driver\]. May override the \[source VM\] parameter.
 #+returns: The full path to the device created in the target VM and sets a zero exit code on success. Otherwise a non-zero exit code is set. Please call [b_dom0_detachDevice](#b_dom0_detachDevice) with the clean flag for the detach operation.
 #+@B_E
 function b_dom0_attachVMDisk {
@@ -1100,7 +1100,7 @@ local poolDriver="$4"
 local diskPath="$5"
 
 if [ -z "$poolDriver" ] ; then
-	poolDriver="$(b_dom0_getDefaultPoolDriver)" || { B_ERR="Failed to retrieve the default pool driver." ; B_E }
+	poolDriver="$(b_dom0_getPoolDriver "$sourceVM")" || { B_ERR="Failed to retrieve the pool driver for the VM $sourceVM." ; B_E }
 fi
 
 if [ -z "$diskPath" ] ; then
@@ -1135,17 +1135,35 @@ else
 fi
 }
 
-#+b_dom0_getDefaultPoolDriver
-#+Retrieve the driver name of the system's default pool.
-#+returns: Driver name of the system's default pool.
+#+b_dom0_getPoolDriver [vm] [volume]
+#+Get the name of the pool driver used by the given VM.
+#+[vm]: VM for which to retrieve the pool driver (default: system default pool).
+#+[volume]: VM volume type for which to retrieve the pool driver (default: private).
+#+returns: Name of the pool driver. [B_E](#B_E) is called on errors.
 #+@B_E
-function b_dom0_getDefaultPoolDriver {
+function b_dom0_getPoolDriver {
+local vm="$1"
+local volume="${2:-"private"}"
+
 local pool poolInfo
-pool="$(qubes-prefs "default_pool")" || { B_ERR="Failed to retrieve the default pool." ; B_E }
-poolInfo="$(qvm-pool -i "$pool")" || { B_ERR="Failed to retrieve the data for the pool $pool." ; B_E }
+if [ -n "$vm" ] ; then
+	pool="$(qvm-volume info "$vm:$volume" "pool")" || { B_ERR="Failed to identify the pool used by $vm:$volume." ; B_E }
+else
+	pool="$(qubes-prefs "default_pool_$volume")" || { B_ERR="Failed to retrieve the default_pool_$volume." ; B_E }
+fi
+poolInfo="$(qvm-pool -i "$pool")" || { B_ERR="Failed to retrieve information about the pool $pool." ; B_E }
 
 local re='driver[[:space:]]+([^[:space:]]+)'
 [[ "$poolInfo" =~ $re ]] && echo "${BASH_REMATCH[1]}" || { B_ERR="Failed to extract the driver from the following pool info: $poolInfo" ; B_E }
+}
+
+#+b_dom0_getDefaultPoolDriver [volume]
+#+Retrieve the driver name of the system's default pool.
+#+[volume]: Volume type for which to retrieve the pool driver (default: private).
+#+returns: Driver name of the system's default pool.
+#+@B_E
+function b_dom0_getDefaultPoolDriver {
+b_dom0_getPoolDriver "" "$1"
 }
 
 #+b_dom0_crossAttachDevice [source VM] [source device] [target VM] [rw flag]
