@@ -738,6 +738,55 @@ function multiParFunc {
 	B_ERR=""
 }
 
+function testLastPipesSucc {
+	local msg="$1"
+
+	true
+	b_assertLastPipes "$msg"
+
+	true | true
+	b_assertLastPipes "$msg"
+}
+
+function testLastPipesFail0 {
+	false | true | true
+	b_assertLastPipes "$1"
+}
+
+function testLastPipesFail1 {
+	true | false | true
+	b_assertLastPipes "$1"
+}
+
+@test "b_assertLastPipes" {
+	runSL b_assertLastPipes
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL testLastPipesSucc
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL testLastPipesSucc "foo err"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSL testLastPipesFail0
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"0"* ]]
+
+	runSL testLastPipesFail0 "foo error"
+	[ $status -ne 0 ]
+	[[ "$output" == "ERROR"* ]]
+	[[ "$output" == *"foo error"* ]]
+
+	runSL testLastPipesFail1
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+	[[ "$output" == *"1"* ]]
+}
+
 @test "b_version" {
 	runSL b_version
 	[ $status -eq 0 ]

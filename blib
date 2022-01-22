@@ -4,7 +4,7 @@
 #+
 #+The basic functions which are imported by default.
 #+
-#+Copyright (C) 2021  David Hobach  LGPLv3
+#+Copyright (C) 2022  David Hobach  LGPLv3
 #+version: Execute `blib version` or use [b_version](#b_version).
 #+
 #+### Disclaimer ###
@@ -456,6 +456,22 @@ ret=$?
 b_resetErrorHandler 1
 B_E
 return $ret
+}
+
+#+b_assertLastPipes [error message]
+#+Assert that the last pipe statements all had a zero exit code.
+#+An alternative to `set -o pipefail`.
+#+[error message]: Optional error message to use for [B_E](#B_E) in case the assertion fails.
+#+returns: Nothing. Assertion failures trigger [B_E](#B_E).
+#+@B_E
+function b_assertLastPipes {
+local pipes=("${PIPESTATUS[@]}")
+local err="$1"
+local i=
+for ((i=0; i < ${#pipes[@]}; i++)) ; do
+	[ ${pipes[$i]} -ne 0 ] && B_ERR="${err:-"One of the previous pipe operations failed (index: $i)."}" && B_E
+done
+return 0
 }
 
 #+b_defaultMessageHandler [message type] [message] [first part] [last part]
