@@ -5,7 +5,7 @@
 #+Copyright (C) 2021  David Hobach  LGPLv3
 #+0.5
 
-b_deps "mktemp" "mkfifo" "rm" "wc" "python3" "tee" "head"
+b_deps "python3"
 
 #+### Global Variables ###
 
