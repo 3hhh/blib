@@ -82,7 +82,7 @@ echo "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
 #+
 #+Please note that calling this function will make your script wait for the execution of the commands in the client VM.
 #+
-#+Wherever possible, this function should be combined with [b_silence](#b_silence) as the VM output shouldn't be trusted. Otherwise please keep in mind that **both** stdout *and* stderr may have untrusted output which may even contain binary data. In order to validate against binary data you can e.g. use [b_types_parseString](#b_types_parseString).
+#+Wherever possible, this function should be combined with [b_silence](#b_silence) as the VM output shouldn't be trusted. Otherwise please keep in mind that **both** stdout *and* stderr may have untrusted output which may even contain binary data. In order to validate against binary data you can e.g. use [b_types_parseString](#b_types_parseString) or [b_types_str](#b_types_str).
 #+
 #+[parameters]: Any parameters supported by qvm-run. If you pass -a, the default -n will be overriden. If you pass -u, the default root user is overriden. If you pass -v, -q will be overriden. If you pass --stdin, even stdin is passed to qvm-run. -p can be overriden by using /dev/null redirection. Only the short parameter versions are supported.
 #+returns: Sets the exit code of qvm-run and prints its output. May error out using [B_E](#B_E) if qvm-run itself fails.
