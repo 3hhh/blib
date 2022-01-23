@@ -290,6 +290,49 @@ function testInt {
 	B_TYPES_CHECK_NON_BINARY=0
 }
 
+@test "b_types_parseInteger" {
+	#basic tests only as we already test this elsewhere
+	{ runSL b_types_parseInteger
+	[ $status -eq 0 ]
+	[[ "$output" == "0" ]]
+	} <<< "0"
+
+	{ runSL b_types_parseInteger
+	[ $status -eq 0 ]
+	[[ "$output" == "345" ]]
+	} <<< "+345"
+
+	{ runSL b_types_parseInteger
+	[ $status -eq 0 ]
+	[[ "$output" == "-345" ]]
+	} <<< "-345"
+
+	{ runSL b_types_parseInteger
+	[ $status -ne 0 ]
+	[[ "$output" != *"ERROR"* ]]
+	} <<< "3,45"
+
+	{ runSL b_types_parseInteger
+	[ $status -ne 0 ]
+	[[ "$output" != *"ERROR"* ]]
+	} <<< "foobar"
+
+	{ runSL b_types_parseInteger
+	[ $status -ne 0 ]
+	[[ "$output" != *"ERROR"* ]]
+	} <<< ""
+
+	{ runSL b_types_parseInteger
+	[ $status -ne 0 ]
+	[[ "$output" != *"ERROR"* ]]
+	} <<< "0xff"
+
+	{ runSL b_types_parseInteger
+	[ $status -ne 0 ]
+	[[ "$output" != *"ERROR"* ]]
+	} <<< "123"$'\n'"456"
+}
+
 #runArrayTests [function] [out]
 function runArrayTests {
 	local func="$1"

@@ -9,17 +9,6 @@ b_deps "python3"
 
 #+### Global Variables ###
 
-#+B_TYPES_ENCODINGS
-#+Deprecated global map for human readable string encodings which can be used for [b_types_parseString](#b_typesParseString).
-declare -gA B_TYPES_ENCODINGS=(
-	["7-bit"]="ascii"
-	["8-bit"]="latin1"
-	["16-bit-bigendian"]="unsupported"
-	["16-bit-littleendian"]="unsupported"
-	["32-bit-bigendian"]="unsupported"
-	["32-bit-littleendian"]="unsupported"
-	)
-
 #+B_TYPES_ENCODING
 #+String encoding parameter for [b_types_str](#b_types_str) and [b_types_parseString)(#b_types_parseString). Default: ascii
 #+`ascii` makes sense in 99% of all cases as scripts should use ASCII only anyway (when no user-interaction is involved) in order to remain portable. Keep in mind that bash also needs to support the target encoding in order to support further processing. Currently available encodings: <https://docs.python.org/3.7/library/codecs.html#standard-encodings>
@@ -121,17 +110,39 @@ done
 blib_types_printInteger "$str"
 }
 
+#+b_types_parseInteger
+#+Checks whether whatever is lying in stdin is an Integer and if so, prints it to stdout.
+#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+returns: The data as Integer, if the input data was found to be an Integer. If no Integer was found to be lying in stdin, the output is an undefined string and a non-zero exit code is set. [B_E](#B_E) is only called on exceptional errors.
+#+@B_E
+function b_types_parseInteger {
+if [ $B_TYPES_CHECK_NON_BINARY -eq 0 ] ; then
+	local ret=
+	b_types_parseString "ascii" | blib_types_parseInteger 2> /dev/null
+	ret=(${PIPESTATUS[@]})
+	[ ${ret[0]} -ne 0 ] && return 2
+	[ ${ret[1]} -ne 0 ] && return 1
+else
+	#unsure whether it is a good idea to do this with untrusted binary data...
+	#--> default to the safe variant
+	blib_types_parseInteger 2> /dev/null || return 1
+fi
+return 0
+}
+
 #+b_types_isInteger [string]
 #+Check whether the given String is an integer (positive or negative) or not.
-#+[string]: The string to check. If it may be binary data, please make sure to pass it through [b_types_parseString](#b_types_parseString) or [b_types_str](#b_types_str) first.
+#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+[string]: The string to check.
 #+returns: Nothing, but sets a zero exit code if and only if the given string represents an integer.
 function b_types_isInteger {
-blib_types_printInteger "$@" &> /dev/null
+printf '%s' "$1" | b_types_parseInteger &> /dev/null
 }
 
 #+b_types_assertInteger [string] [error msg]
 #+Check whether the given String is an integer (positive or negative) and if not, error out.
-#+[string]: The string to check. If it may be binary data, please make sure to pass it through [b_types_parseString](#b_types_parseString) or [b_types_str](#b_types_str) first.
+#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+[string]: The string to check.
 #+[error msg]: Error message to use, if the check fails (optional).
 #+returns: Nothing. If it's no integer, [B_E](#B_E) is called.
 #+@B_E
@@ -150,13 +161,7 @@ function b_types_int {
 [ -z "$1" ] && B_ERR="No command specified." && B_E
 
 local ret=
-if [ $B_TYPES_CHECK_NON_BINARY -eq 0 ] ; then
-	b_types_str "$@" | blib_types_parseInteger 2> /dev/null
-else
-	#unsure whether it is a good idea to do this with untrusted binary data...
-	#--> default to the safe variant
-	"$@" | blib_types_parseInteger 2> /dev/null
-fi
+"$@" | b_types_parseInteger 2> /dev/null
 ret=(${PIPESTATUS[@]})
 [ ${ret[1]} -ne 0 ] && B_ERR="The command \"$1\" did not return an integer." && B_E
 return ${ret[0]}
