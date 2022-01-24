@@ -98,14 +98,12 @@ printf '%d\n' "$str"
 #returns: Sets a zero exit code, if it's an integer.
 function blib_types_parseInteger {
 local str line
-local cnt=0
 IFS= read -r str
 
 #make sure there's nothing left in stdin
 while IFS= read -r line ; do
-	cnt=$(($cnt +1))
+	return 1
 done
-[ $cnt -eq 0 ] || return 1
 
 blib_types_printInteger "$str"
 }
