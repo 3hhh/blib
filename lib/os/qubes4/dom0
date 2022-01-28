@@ -4,8 +4,8 @@
 #+
 #+**Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
-#+Copyright (C) 2021  David Hobach  LGPLv3
-#+0.5
+#+Copyright (C) 2022  David Hobach  LGPLv3
+#+0.6
 
 b_import fs
 b_import ui
@@ -36,6 +36,11 @@ mktemp"
 
 #overall VM dependencies (incl. user input)
 BLIB_STORE["BLIB_DOM0_VM_DEPS"]="${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"
+
+#+B_DOM0_QREXEC_STDERR
+#+Where to append the VM stderr output for [b_dom0_qvmRun](#b_dom0_qvmRun) and its related functions.
+#+Defaults to `/dev/null` for security reasons (VM output is always untrusted).
+B_DOM0_VM_STDERR="/dev/null"
 
 #+### Functions ###
 
@@ -76,6 +81,7 @@ echo "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
 #+   * -n was set as auto-starting VMs during Bash scripting can heavily influence the user experience (imagine the VM being shut down manually by the user whilst a bash script is running --> constant restarts)
 #+   * stdin is redirected to /dev/null by default to avoid potential security implications (accidental reads from dom0 stdin passed to a VM); this can be overriden using --stdin
 #+   * stdout has the VM output and the exit code is the one of the VM
+#+   * stderr VM output is appended to [B_DOM0_VM_STDERR](#B_DOM0_VM_STDERR) (defult: `/dev/null` for security reasons)
 #+   * distinguished exit conditions (executed command failed vs. qvm-run failed)
 #+   * workarounds for known Qubes bugs wrt qvm-run may be implemented here (e.g. qubes issues #3083, #4476, #4633 in the past)
 #+   * VM dependencies set with [b_dom0_setVMDeps](#b_dom0_setVMDeps) are checked
@@ -141,9 +147,9 @@ local ret=5
 local oldOpts=""
 [[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
 {	if [ $passStdin -eq 0 ] ; then
-		qvm-run $addParams "${opts[@]}" "$vm" "$cmd"
+		qvm-run $addParams "${opts[@]}" "$vm" "$cmd" 2>> "$B_DOM0_VM_STDERR"
 	else
-		qvm-run $addParams "${opts[@]}" "$vm" "$cmd" < /dev/null
+		qvm-run $addParams "${opts[@]}" "$vm" "$cmd" < /dev/null 2>> "$B_DOM0_VM_STDERR"
 	fi
 #directly remove the prefix and write to stdout (we don't want to save the potentially large output in a temp variable)
 } | tee >(dd bs=8 count=1 2> /dev/null | xxd -p > "$tPrefix" ; cat - &> /dev/null) | dd bs=8 skip=1 2> /dev/null

@@ -504,15 +504,19 @@ function checkHeartbeat {
 	}
 
 	#test stderr output
+	runSL b_dom0_qvmRun "$UTD_QUBES_TESTVM" 'echo "stdout here" ; >&2 echo "hello from stderr"'
+	[ $status -eq 0 ]
+	[[ "$output" == "stdout here" ]]
+
 	local tmpfile="$(mktemp)"
 	local out=""
-	out="$(b_dom0_qvmRun "$UTD_QUBES_TESTVM" 'echo "stdout here" ; >&2 echo "hello from stderr"' 2> "$tmpfile")"
+	out="$(B_DOM0_VM_STDERR="$tmpfile" ; b_dom0_qvmRun "$UTD_QUBES_TESTVM" 'echo "stdout here" ; >&2 echo "hello from stderr"')"
 	[[ "$out" == "stdout here" ]]
 	[[ "$(cat "$tmpfile")" == "hello from stderr" ]]
 
-	out="$(b_dom0_qvmRun --stdin "$UTD_QUBES_TESTVM" 'echo "stdout here" ; >&2 echo "hello from stderr"' 2> "$tmpfile" < /dev/null)"
+	out="$(B_DOM0_VM_STDERR="$tmpfile" ; b_dom0_qvmRun --stdin "$UTD_QUBES_TESTVM" 'echo "stdout here" ; >&2 echo "hello from stderr"' < /dev/null)"
 	[[ "$out" == "stdout here" ]]
-	[[ "$(cat "$tmpfile")" == "hello from stderr" ]]
+	[[ "$(cat "$tmpfile")" == "hello from stderr"$'\n'"hello from stderr" ]]
 
 	#cleanup
 	rm -f "$tmpfile"
