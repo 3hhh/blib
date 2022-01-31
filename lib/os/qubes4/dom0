@@ -42,6 +42,12 @@ BLIB_STORE["BLIB_DOM0_VM_DEPS"]="${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"
 #+Defaults to `/dev/null` for security reasons (VM output is always untrusted).
 B_DOM0_VM_STDERR="/dev/null"
 
+#+B_DOM0_QVM_RUN_PARAMS
+#+Alternative method to pass parameters to [b_dom0_qvmRun](#b_dom0_qvmRun) and its related functions.
+#+Useful for e.g. `--no-gui` to speed up performance when you never use a VM's GUI.
+#+Default: Empty array.
+declare -ga B_DOM0_QVM_RUN_PARAMS=()
+
 #+### Functions ###
 
 #+b_dom0_setVMDeps [list] [keep defaults]
@@ -79,7 +85,7 @@ echo "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
 #+
 #+   * a certain set of reasonable default parameters is used: -p -q -n -u root
 #+   * -n was set as auto-starting VMs during Bash scripting can heavily influence the user experience (imagine the VM being shut down manually by the user whilst a bash script is running --> constant restarts)
-#+   * stdin is redirected to /dev/null by default to avoid potential security implications (accidental reads from dom0 stdin passed to a VM); this can be overriden using --stdin
+#+   * stdin is redirected to /dev/null by default to avoid potential security implications (accidental reads from dom0 stdin passed to a VM); this can be overridden using --stdin
 #+   * stdout has the VM output and the exit code is the one of the VM
 #+   * stderr VM output is appended to [B_DOM0_VM_STDERR](#B_DOM0_VM_STDERR) (defult: `/dev/null` for security reasons)
 #+   * distinguished exit conditions (executed command failed vs. qvm-run failed)
@@ -90,18 +96,33 @@ echo "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
 #+
 #+Wherever possible, this function should be combined with [b_silence](#b_silence) as the VM output shouldn't be trusted. Otherwise please keep in mind that **both** stdout *and* stderr may have untrusted output which may even contain binary data. In order to validate against binary data you can e.g. use [b_types_parseString](#b_types_parseString) or [b_types_str](#b_types_str).
 #+
-#+[parameters]: Any parameters supported by qvm-run. If you pass -a, the default -n will be overriden. If you pass -u, the default root user is overriden. If you pass -v, -q will be overriden. If you pass --stdin, even stdin is passed to qvm-run. -p can be overriden by using /dev/null redirection. Only the short parameter versions are supported.
+#+[parameters]: Any parameters supported by qvm-run. If you pass -a, the default -n will be overridden. If you pass -u, the default root user is overridden. If you pass -v, -q will be overridden. If you pass --stdin, even stdin is passed to qvm-run. -p can be overridden by using /dev/null redirection. Only the short parameter versions and only one switch per argument are supported. Parameters may also be globally specified via [B_DOM0_QVM_RUN_PARAMS](#B_DOM0_QVM_RUN_PARAMS).
 #+returns: Sets the exit code of qvm-run and prints its output. May error out using [B_E](#B_E) if qvm-run itself fails.
 #+@B_E
 function b_dom0_qvmRun {
 #parse params
-local opts=()
+declare -A opts=()
 local userSpecified=1
 local autostart=1
 local verbose=1
 local passStdin=1
 local i=
 local par=""
+
+for par in "${B_DOM0_QVM_RUN_PARAMS[@]}" ; do
+	if [[ "$par" == "-u" ]] ; then
+		userSpecified=0
+	elif [[ "$par" == "-v" ]] ; then
+		verbose=0
+	elif [[ "$par" == "-a" ]] ; then
+		autostart=0
+	elif [[ "$par" == "--stdin" ]] ; then
+		passStdin=0
+		continue
+	fi
+
+	opts["$par"]=0
+done
 
 while [ $# -gt 2 ] ; do
 	par="$1"
@@ -118,7 +139,7 @@ while [ $# -gt 2 ] ; do
 		continue
 	fi
 
-	opts+=("$par")
+	opts["$par"]=0
 	shift
 done
 local vm="$1"
@@ -127,7 +148,7 @@ local cmd="$2"
 local addParams="-p"
 [ $userSpecified -ne 0 ] && addParams="$addParams -u root"
 [ $autostart -ne 0 ] && addParams="$addParams -n"
-[ $verbose -ne 0 ] && addParams="$addParams -q" || addParams="$addParams -v"
+[ $verbose -ne 0 ] && addParams="$addParams -q"
 
 #execute
 #NOTE:
@@ -147,9 +168,9 @@ local ret=5
 local oldOpts=""
 [[ ! -o pipefail ]] && set -o pipefail && oldOpts="set +o pipefail"
 {	if [ $passStdin -eq 0 ] ; then
-		qvm-run $addParams "${opts[@]}" "$vm" "$cmd" 2>> "$B_DOM0_VM_STDERR"
+		qvm-run $addParams "${!opts[@]}" "$vm" "$cmd" 2>> "$B_DOM0_VM_STDERR"
 	else
-		qvm-run $addParams "${opts[@]}" "$vm" "$cmd" < /dev/null 2>> "$B_DOM0_VM_STDERR"
+		qvm-run $addParams "${!opts[@]}" "$vm" "$cmd" < /dev/null 2>> "$B_DOM0_VM_STDERR"
 	fi
 #directly remove the prefix and write to stdout (we don't want to save the potentially large output in a temp variable)
 } | tee >(dd bs=8 count=1 2> /dev/null | xxd -p > "$tPrefix" ; cat - &> /dev/null) | dd bs=8 skip=1 2> /dev/null

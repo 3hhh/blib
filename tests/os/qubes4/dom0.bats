@@ -459,6 +459,12 @@ function checkHeartbeat {
 	[[ "$output" == "hello from stdin"$'\n'"hello from dispvm" ]]
 	}
 
+	echo "hello from stdin" | { B_DOM0_QVM_RUN_PARAMS=("--stdin") ; runSL b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" 'cat - ; echo "hello from dispvm" ; [ 1 -eq 1 ]'
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" == "hello from stdin"$'\n'"hello from dispvm" ]]
+	}
+
 	echo "hello from stdin" | { runSL b_dom0_qvmRun "${TEST_STATE["DOM0_TESTVM_1"]}" 'cat - ; echo "hello from dispvm" ; exit 122'
 	echo "$output"
 	[ $status -eq 122 ]
@@ -498,7 +504,7 @@ function checkHeartbeat {
 	[ $status -ne 0 ]
 
 	#with -a
-	echo "hello from stdin" | { runSL b_dom0_qvmRun -a --stdin "$UTD_QUBES_TESTVM" 'cat - ; echo "hello from dispvm" ; exit 0'
+	echo "hello from stdin" | { B_DOM0_QVM_RUN_PARAMS=("--stdin") ; runSL b_dom0_qvmRun -a "$UTD_QUBES_TESTVM" 'cat - ; echo "hello from dispvm" ; exit 0'
 	[ $status -eq 0 ]
 	[[ "$output" == "hello from stdin"$'\n'"hello from dispvm" ]]
 	}
