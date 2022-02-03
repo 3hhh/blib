@@ -10,12 +10,12 @@ b_deps "python3"
 #+### Global Variables ###
 
 #+B_TYPES_ENCODING
-#+String encoding parameter for [b_types_str](#b_types_str) and [b_types_parseString)(#b_types_parseString). Default: ascii
+#+String encoding parameter for [b_types_str](#b_types_str) and [b_types_parseString](#b_types_parseString). Default: ascii
 #+`ascii` makes sense in 99% of all cases as scripts should use ASCII only anyway (when no user-interaction is involved) in order to remain portable. Keep in mind that bash also needs to support the target encoding in order to support further processing. Currently available encodings: <https://docs.python.org/3.7/library/codecs.html#standard-encodings>
 B_TYPES_ENCODING="ascii"
 
 #+B_TYPES_MAX_BYTES
-#+Parameter for [b_types_str](#b_types_str) and [b_types_parseString)(#b_types_parseString) to specify the maximum number of bytes to read per line (default: -1/infinite). Ignore additional bytes. Useful to avoid memory DoS for untrusted input.
+#+Parameter for [b_types_str](#b_types_str) and [b_types_parseString](#b_types_parseString) to specify the maximum number of bytes to read per line (default: -1/infinite). Ignore additional bytes. Useful to avoid memory DoS for untrusted input.
 B_TYPES_MAX_BYTES=-1
 
 #+B_TYPES_CHECK_NON_BINARY
@@ -110,7 +110,7 @@ blib_types_printInteger "$str"
 
 #+b_types_parseInteger
 #+Checks whether whatever is lying in stdin is an Integer and if so, prints it to stdout.
-#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+ [B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
 #+returns: The data as Integer, if the input data was found to be an Integer. If no Integer was found to be lying in stdin, the output is an undefined string and a non-zero exit code is set. [B_E](#B_E) is only called on exceptional errors.
 #+@B_E
 function b_types_parseInteger {
@@ -130,7 +130,7 @@ return 0
 
 #+b_types_isInteger [string]
 #+Check whether the given String is an integer (positive or negative) or not.
-#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+ [B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
 #+[string]: The string to check.
 #+returns: Nothing, but sets a zero exit code if and only if the given string represents an integer.
 function b_types_isInteger {
@@ -139,7 +139,7 @@ printf '%s' "$1" | b_types_parseInteger &> /dev/null
 
 #+b_types_assertInteger [string] [error msg]
 #+Check whether the given String is an integer (positive or negative) and if not, error out.
-#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+ [B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
 #+[string]: The string to check.
 #+[error msg]: Error message to use, if the check fails (optional).
 #+returns: Nothing. If it's no integer, [B_E](#B_E) is called.
@@ -150,7 +150,7 @@ b_types_isInteger "$1" || { B_ERR="${2:-"No integer: $1"}" ; B_E }
 
 #+b_types_int [cmd] [cmd arg 1] ... [cmd arg n]
 #+Execute the given command and ensure that its output / stdout is an integer (positive or negative).
-#+[B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
+#+ [B_TYPES_CHECK_NON_BINARY](#B_TYPES_CHECK_NON_BINARY) can be used to enable/disable additional non-binary checking (default: 0/enabled).
 #+[cmd]: Command to execute. Stdout is checked to be an integer, stderr is passed through.
 #+[cmd arg i]: Arguments to pass to \[cmd\].
 #+returns: Stdout of \[cmd\], if it is an integer and an undefined string otherwise. The exit code is that of the executed command. [B_E](#B_E) is called if the output is _not_ an integer.
