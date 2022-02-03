@@ -15,6 +15,8 @@ b_import types
 b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qvm-volume" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "readlink" \
 "dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar" "qvm-firewall"
 
+#+### Global Variables ###
+
 #private vars
 BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
 #set to the correct value, if we're in dom0:
@@ -37,7 +39,7 @@ mktemp"
 #overall VM dependencies (incl. user input)
 BLIB_STORE["BLIB_DOM0_VM_DEPS"]="${BLIB_STORE["BLIB_DOM0_VM_DEPS_DEFAULT"]}"
 
-#+B_DOM0_QREXEC_STDERR
+#+B_DOM0_VM_STDERR
 #+Where to append the VM stderr output for [b_dom0_qvmRun](#b_dom0_qvmRun) and its related functions.
 #+Defaults to `/dev/null` for security reasons (VM output is always untrusted).
 B_DOM0_VM_STDERR="/dev/null"
