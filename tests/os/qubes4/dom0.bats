@@ -503,10 +503,10 @@ function checkHeartbeat {
 	runSL b_dom0_isRunning "$UTD_QUBES_TESTVM"
 	[ $status -ne 0 ]
 
-	#with -a
+	#with -a (B_DOM0_QVM_RUN_PARAMS should be ignored as local params supersede global ones)
 	echo "hello from stdin" | { B_DOM0_QVM_RUN_PARAMS=("--stdin") ; runSL b_dom0_qvmRun -a "$UTD_QUBES_TESTVM" 'cat - ; echo "hello from dispvm" ; exit 0'
 	[ $status -eq 0 ]
-	[[ "$output" == "hello from stdin"$'\n'"hello from dispvm" ]]
+	[[ "$output" == "hello from dispvm" ]]
 	}
 
 	#test stderr output
