@@ -207,11 +207,11 @@ local timeout=$1
 shift
 
 #NOTE: we also close non-standard FDs for bats, cf. https://github.com/bats-core/bats-core/issues/205#issuecomment-973572596
-b_import "fd"
-( b_fd_closeNonStandard ; "$@" ) &
+( b_import "fd" ; b_fd_closeNonStandard ; "$@" ) &
 local mainPid=$!
 
-( b_fd_closeNonStandard
+( b_import "fd"
+b_fd_closeNonStandard
 local cnt=0
 while [ $cnt -lt $timeout ] ; do
 	[ ! -d /proc/$mainPid ] && exit 1
