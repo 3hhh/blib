@@ -1,4 +1,12 @@
 # shellcheck config file
 
+enable=add-default-case
+enable=avoid-nullary-conditions
+enable=deprecate-which
+enable=quote-safe-variables
+
 # shellcheck cannot correctly detect unused variables in blib, so disable it
 disable=SC2034
+
+# disable complaints about dynamic sourcing
+disable=SC1090
