@@ -33,7 +33,7 @@ fi
 function b_fd_closeNonStandard {
 local fd=
 local pid="$$"
-local fds="$(b_fd_getOpen "$pid")" || { B_ERR="Failed to obtain the open file descriptors for the process $pid." ; B_E }
+local fds="$(b_fd_getOpen "$pid")" || { B_ERR="Failed to obtain the open file descriptors for the process $pid." ; B_E ; }
 
 while IFS= read -r fd ; do
 	[ $fd -gt 2 ] && eval "exec $fd>&-"
@@ -47,7 +47,7 @@ return 0
 #+returns: Nothing. [B_E](#B_E) is called on unexpected errors.
 #+@B_E
 function b_fd_closeAll {
-b_fd_closeNonStandard || { B_ERR="Failed to close the non-standard file descriptors." ; B_E }
+b_fd_closeNonStandard || { B_ERR="Failed to close the non-standard file descriptors." ; B_E ; }
 
 #b_fs_closeNonStandard needs at least stdin inside the while loop, so we close the remaining manually now
 exec 0>&-

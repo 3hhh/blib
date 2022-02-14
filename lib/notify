@@ -18,7 +18,7 @@ local env="$1"
 shift 2
 
 [[ "$env" == ";"* ]] && env="${env:1}"
-( eval "$env" && notify-send "$@" ) || { B_ERR="Failed to execute notify-send." ; B_E }
+( eval "$env" && notify-send "$@" ) || { B_ERR="Failed to execute notify-send." ; B_E ; }
 return 0
 }
 
@@ -43,8 +43,8 @@ fi
 
 local uid=
 local re='^[^:]+:[^:]+:([^:]+):.*$'
-uid="$(getent "passwd" "$user")" || { B_ERR="Failed to execute getent on user $user. Maybe it doesn't exist?" ; B_E }
-[[ "$uid" =~ $re ]] && uid="${BASH_REMATCH[1]}" || { B_ERR="Unexpected getent return value: $uid" ; B_E }
+uid="$(getent "passwd" "$user")" || { B_ERR="Failed to execute getent on user $user. Maybe it doesn't exist?" ; B_E ; }
+[[ "$uid" =~ $re ]] && uid="${BASH_REMATCH[1]}" || { B_ERR="Unexpected getent return value: $uid" ; B_E ; }
 
 local addr="/run/user/$uid/bus"
 b_fs_waitForFile "$addr" "$maxTime" && echo "$addr" || return $?
@@ -76,20 +76,20 @@ if [ $EUID -eq 0 ] || [[ ! "$DBUS_SESSION_BUS_ADDRESS" =~ $re ]] || [ ! -e "${BA
 		for path in /home/* ; do
 			[[ "$path" == "/home/*" ]] && return 0
 			user="${path#/home/}"
-			uid="$(id -u "$user")" || { B_ERR="Failed to obtain the user ID for the user $user." ; B_E }
+			uid="$(id -u "$user")" || { B_ERR="Failed to obtain the user ID for the user $user." ; B_E ; }
 			#NOTE:
 			# - su appears more reliable than e.g. runuser as it does all the env stuff for us and may even setup a dbus instance if it's not running
 			# - we pass /dev/null to stdin though as su may be interactive
-			su - -c "DISPLAY=${DISPLAY:-":0"};DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus $cmd" "$user" < /dev/null || { B_ERR="Failed to execute notify-send for the user $user." ; B_E }
+			su - -c "DISPLAY=${DISPLAY:-":0"};DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$uid/bus $cmd" "$user" < /dev/null || { B_ERR="Failed to execute notify-send for the user $user." ; B_E ; }
 		done
 	else
-		blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$EUID/bus" "$@" || { B_ERR="Failed to execute notify-send for the user ID $EUID." ; B_E }
+		blib_notify_send "$env;DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$EUID/bus" "$@" || { B_ERR="Failed to execute notify-send for the user ID $EUID." ; B_E ; }
 	fi
 
 	return 0
 fi
 
-blib_notify_send "$env" "$prefix" "$@" || { B_ERR="Failed to execute notify-send." ; B_E }
+blib_notify_send "$env" "$prefix" "$@" || { B_ERR="Failed to execute notify-send." ; B_E ; }
 }
 
 #+b_notify_sendNoError [arg 1] ... [arg n]

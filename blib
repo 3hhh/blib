@@ -131,8 +131,8 @@ B_CONF_DIR="/etc/blib"
 #+```
 B_SCRIPT=""
 read -r -d '' B_SCRIPT << 'EOF'
-B_SCRIPT_DIR="$(readlink -f "${BASH_SOURCE[0]}")" || { B_ERR="Failed to compute B_SCRIPT_DIR." ; B_E }
-B_SCRIPT_DIR="$(dirname "$B_SCRIPT_DIR")" || { B_ERR="Failed to compute B_SCRIPT_DIR." ; B_E }
+B_SCRIPT_DIR="$(readlink -f "${BASH_SOURCE[0]}")" || { B_ERR="Failed to compute B_SCRIPT_DIR." ; B_E ; }
+B_SCRIPT_DIR="$(dirname "$B_SCRIPT_DIR")" || { B_ERR="Failed to compute B_SCRIPT_DIR." ; B_E ; }
 B_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
 EOF
 
@@ -167,11 +167,11 @@ shopt -s expand_aliases
 #+More examples:
 #+```bash
 #+#handle a potentially failing command:
-#+cmd || { B_ERR="cmd failed." ; B_E }
+#+cmd || { B_ERR="cmd failed." ; B_E ; }
 #+
 #+#capture stdout of a potentially failing command:
 #+local out=
-#+out="$(cmd)" || { B_ERR="cmd failed." ; B_E }
+#+out="$(cmd)" || { B_ERR="cmd failed." ; B_E ; }
 #+
 #+#handle multiple potentially failing commands in a try/catch like manner:
 #+(	set -e
@@ -595,7 +595,7 @@ local cmd=
 for ((i=0; i <= max; i++)) ; do
 	#use a temporary file as cache
 	#NOTE: this is the closest we can get to stdout/stderr as it is inherited/shared to subthreads similarly to stdout/stderr
-	cfile="$(mktemp)" || { B_ERR="Failed to allocate a temporary file." ; B_E }
+	cfile="$(mktemp)" || { B_ERR="Failed to allocate a temporary file." ; B_E ; }
 	BLIB_CACHING_MSG_HANDLER_CACHES["$i"]="$cfile"
 
 	if [ $B_TEST_MODE -ne 0 ] ; then
@@ -792,7 +792,7 @@ for dep in "$@" ; do
 	command -v "$dep" &> /dev/null || unmet="$dep"$'\n'"$unmet"
 done
 
-[ -z "$unmet" ] || { B_ERR="The script requires the following commands, but they were not found:"$'\n'"$unmet" ; B_E }
+[ -z "$unmet" ] || { B_ERR="The script requires the following commands, but they were not found:"$'\n'"$unmet" ; B_E ; }
 }
 
 #+b_import [module] [double import]
@@ -1110,7 +1110,7 @@ local outFormat="${1:-raw}"
 
 #create header
 local header=
-header="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+header="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E ; }
 blib_getDocHeader "$outFormat" > "$header"
 
 input=( "$header"
@@ -1127,7 +1127,7 @@ fi
 echo -n "Generating the $outFormat documentation...  "
 "${BLIB_STORE["BLIB_CDOC"]}" --hl 2 --ex '^.*/tests/fixtures/.*$' \
 	--id '^.*/lib/(.*)$' --id '^.*/(blib)$' --id '^.*/(tests/.*)$' \
-	--verb "$header" -rid "$output" "${input[@]}" || { B_ERR="Failed to correctly execute ${BLIB_STORE["BLIB_CDOC"]}." ; B_E }
+	--verb "$header" -rid "$output" "${input[@]}" || { B_ERR="Failed to correctly execute ${BLIB_STORE["BLIB_CDOC"]}." ; B_E ; }
 
 rm -f "$header" &> /dev/null
 echo "Done."
@@ -1154,7 +1154,7 @@ if [ -z "$module" ] ; then
 		bats -p "$tst"
 		ret=$(( $ret + $?))
 		testFiles=$(( $testFiles +1 ))
-	done <<< "$(set -o pipefail ; find "$testDir" -name "*.bats" | sort)" || { B_ERR="Failed to execute find." ; B_E }
+	done <<< "$(set -o pipefail ; find "$testDir" -name "*.bats" | sort)" || { B_ERR="Failed to execute find." ; B_E ; }
 
 	[ $testFiles -le 2 ] && B_ERR="Failed to find any relevant tests." && B_E
 
@@ -1174,7 +1174,7 @@ local modulePath=""
 
 modulePath="$(blib_getModulePath "$module")" || { B_ERR="Invalid or non-existing module: $module"; B_E; }
 
-"${BLIB_STORE["BLIB_CDOC"]}" --id '^.*/lib/(.*)$' --id '^.*/(blib)$' -id ".raw" "$modulePath" || { B_ERR="Failed to correctly execute ${BLIB_STORE["BLIB_CDOC"]}." ; B_E }
+"${BLIB_STORE["BLIB_CDOC"]}" --id '^.*/lib/(.*)$' --id '^.*/(blib)$' -id ".raw" "$modulePath" || { B_ERR="Failed to correctly execute ${BLIB_STORE["BLIB_CDOC"]}." ; B_E ; }
 
 return 0
 }

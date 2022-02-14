@@ -33,8 +33,8 @@ local file="$1"
 local cnt=""
 
 #NOTE: unfortunately wc -l includes the file name
-cnt="$(wc -l "$file")" || { B_ERR="Failed to read the file $file." ; B_E }
-[[ "$cnt" =~ ^([0-9]+) ]] && cnt="${BASH_REMATCH[1]}" || { B_ERR="Failed to obtain the line count for the file $file." ; B_E }
+cnt="$(wc -l "$file")" || { B_ERR="Failed to read the file $file." ; B_E ; }
+[[ "$cnt" =~ ^([0-9]+) ]] && cnt="${BASH_REMATCH[1]}" || { B_ERR="Failed to obtain the line count for the file $file." ; B_E ; }
 
 echo "$cnt"
 }
@@ -92,7 +92,7 @@ local ret=
 ret="$(b_fs_getMountpoints "$dev")"
 
 if [ -n "$mp" ] ; then
-	mkdir -p "$mp" || { B_ERR="Failed to create the parent directories of $mp." ; B_E }
+	mkdir -p "$mp" || { B_ERR="Failed to create the parent directories of $mp." ; B_E ; }
 
 	if [ $enforce -eq 0 ] ; then
 		#NOTE: we use findmnt as devices and mount points can come in many notations
@@ -100,7 +100,7 @@ if [ -n "$mp" ] ; then
 			local cur=
 			while IFS= read -r cur ; do
 				if [ -n "$cur" ] ; then
-					mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E }
+					mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E ; }
 					ret="$mp"$'\n'"$ret"
 					break
 				fi
@@ -115,10 +115,10 @@ if [ -n "$ret" ] ; then
 fi
 
 if [ -z "$mp" ] ; then
-	mp="$(mktemp -d)" || { B_ERR="Failed to create a temporary directory." ; B_E }
+	mp="$(mktemp -d)" || { B_ERR="Failed to create a temporary directory." ; B_E ; }
 fi
 
-mount $mopts "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the device $dev to $mp." ; B_E }
+mount $mopts "$dev" "$mp" &> /dev/null && echo "$mp" || { B_ERR="Failed to mount the device $dev to $mp." ; B_E ; }
 }
 
 #+b_fs_createLoopDeviceIfNecessary [file]
@@ -145,7 +145,7 @@ if [ $? -ne 0 ] ; then
 		#no old device --> create a new one
 		#we use the exit code as ours
 		#usually requires root access rights
-		losetup -f --show "$file" || { B_ERR="Failed to create a loop device from $file." ; B_E }
+		losetup -f --show "$file" || { B_ERR="Failed to create a loop device from $file." ; B_E ; }
 	fi
 fi
 }
@@ -161,25 +161,25 @@ local loop=
 local file=
 if [ -b "$in" ] ; then
 	loop="$in"
-	file="$(losetup -n --raw -O "back-file" "$loop")" || { B_ERR="Failed to execute losetup -n." ; B_E }
+	file="$(losetup -n --raw -O "back-file" "$loop")" || { B_ERR="Failed to execute losetup -n." ; B_E ; }
 	#NOTE: the kernel often leaves the node alone after losetup -d was called on an existing loop device --> -b may return true, even if the loop device is down; the back-file check will return no file, but a zero exit code then
 	[ -z "$file" ] && return 0
 elif [ -f "$in" ] ; then
 	#NOTE: losetup returns a zero exit code below even if the file does not exist _or_ has no loop device
-	loop="$(losetup -j "$in" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup -j." ; B_E }
+	loop="$(losetup -j "$in" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup -j." ; B_E ; }
 	file="$in"
 	[ -z "$loop" ] && return 0
 	local loopCnt="$(echo "$loop" | wc -l)"
-	[ $loopCnt -ne 1 ] && { B_ERR="$loopCnt loop devices detected for $in. Backing off..." ; B_E }
+	[ $loopCnt -ne 1 ] && { B_ERR="$loopCnt loop devices detected for $in. Backing off..." ; B_E ; }
 else
 	return 0
 fi
 
 #NOTE: losetup -d only _asks_ the kernel to remove the loop, if it's unused --> we need to give the kernel some time & check whether it was removed
-losetup -d "$loop" || { B_ERR="Failed to execute losetup -d." ; B_E }
+losetup -d "$loop" || { B_ERR="Failed to execute losetup -d." ; B_E ; }
 sleep 0.1
 local out=
-out="$(losetup -j "$file" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup." ; B_E }
+out="$(losetup -j "$file" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup." ; B_E ; }
 #NOTE:
 # - losetup returns a zero exit code even if there's no matching file
 # - if the loop was recreated by another process in the meantime, the file is hopefully a different one
@@ -198,7 +198,7 @@ local str="$1"
 local checkFlag="${2:-0}"
 
 local re='^[[:space:]]*([\+\-]?)([0-9]+)([bBkKmMgGtTpP]?[bB]?)[[:space:]]*$'
-[[ "$str" =~ $re ]] || { B_ERR="Failed to parse the size: $str" ; B_E }
+[[ "$str" =~ $re ]] || { B_ERR="Failed to parse the size: $str" ; B_E ; }
 
 local pref="${BASH_REMATCH[1]}"
 local num="${BASH_REMATCH[2]}"
@@ -245,15 +245,15 @@ function b_fs_removeWithOverwrite {
 local file="$1"
 local rdev="${2:-/dev/urandom}"
 
-[ -f "$file" ] || { B_ERR="The file $file doesn't exist." ; B_E }
-[ -c "$rdev" ] || { B_ERR="Nonexisting randomness source: $rdev" ; B_E }
+[ -f "$file" ] || { B_ERR="The file $file doesn't exist." ; B_E ; }
+[ -c "$rdev" ] || { B_ERR="Nonexisting randomness source: $rdev" ; B_E ; }
 
 local fsize=
-fsize="$(stat -c '%s' "$file")" || { B_ERR="Failed to identify the size of the file $file." ; B_E }
+fsize="$(stat -c '%s' "$file")" || { B_ERR="Failed to identify the size of the file $file." ; B_E ; }
 
-head -c "$fsize" < "$rdev" > "$file" || { B_ERR="Failed to overwrite the file $file." ; B_E }
-sync -d "$file" || { B_ERR="Failed to sync the file $file." ; B_E }
-rm -f "$file" || { B_ERR="Failed to remove the file $file." ; B_E }
+head -c "$fsize" < "$rdev" > "$file" || { B_ERR="Failed to overwrite the file $file." ; B_E ; }
+sync -d "$file" || { B_ERR="Failed to sync the file $file." ; B_E ; }
+rm -f "$file" || { B_ERR="Failed to remove the file $file." ; B_E ; }
 return 0
 }
 
@@ -299,6 +299,6 @@ function b_fs_enumerate {
 	#subshell just for temporary shell options
 	shopt -s dotglob
 	blib_fs_enumerate "$@"
-	) || { B_ERR="Failed to enumerate the given paths." ; B_E }
+	) || { B_ERR="Failed to enumerate the given paths." ; B_E ; }
 return 0
 }

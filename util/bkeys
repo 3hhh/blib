@@ -113,7 +113,7 @@ b_keys_close "$store"
 }
 
 function main {
-[[ $(whoami) == "root" ]] || { B_ERR="This script must be run as root." ; B_E }
+[[ $(whoami) == "root" ]] || { B_ERR="This script must be run as root." ; B_E ; }
 
 b_args_init 0 "--app" 1 "--wait" 1 "--store" 1
 b_args_parse "$@"

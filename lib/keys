@@ -55,7 +55,7 @@ if b_mtx_waitFor "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" 0 "${BLIB_STORE["BL
 	fi
 	)
 	ret=$?
-	b_mtx_release "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" || { B_ERR="Failed to release the mutex ${BLIB_STORE["BLIB_KEYS_MTX"]} (pid: $BASHPID)." ; B_E }
+	b_mtx_release "${BLIB_STORE["BLIB_KEYS_MTX"]}" "$BASHPID" || { B_ERR="Failed to release the mutex ${BLIB_STORE["BLIB_KEYS_MTX"]} (pid: $BASHPID)." ; B_E ; }
 	[ $ret -ne 0 ] && B_ERR="Failed to execute the operation on the key store ${BLIB_STORE["BLIB_KEYS_STORE"]}." && B_E
 else
 	B_ERR="Failed to obtain the mutex ${BLIB_STORE["BLIB_KEYS_MTX"]} to access the key store ${BLIB_STORE["BLIB_KEYS_STORE"]}."
@@ -87,7 +87,7 @@ BLIB_STORE["BLIB_KEYS_STORE"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/keys.lks"
 [ -z "$passPrompt" ] && passPrompt="Password for the key store (Open: ${BLIB_STORE["BLIB_KEYS_STORE"]}): "
 BLIB_STORE["BLIB_KEYS_MNT_RW"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/rw"
 BLIB_STORE["BLIB_KEYS_MNT_RO"]="${BLIB_STORE["BLIB_KEYS_DIR"]}/mnt/ro"
-BLIB_STORE["BLIB_KEYS_DEV"]="/dev/mapper/$(b_dmcrypt_getMapperName "${BLIB_STORE["BLIB_KEYS_STORE"]}")" || { B_ERR="Failed to obtain a device for ${BLIB_STORE["BLIB_KEYS_STORE"]}" ; B_E }
+BLIB_STORE["BLIB_KEYS_DEV"]="/dev/mapper/$(b_dmcrypt_getMapperName "${BLIB_STORE["BLIB_KEYS_STORE"]}")" || { B_ERR="Failed to obtain a device for ${BLIB_STORE["BLIB_KEYS_STORE"]}" ; B_E ; }
 BLIB_STORE["BLIB_KEYS_APP_ID"]="$appId"
 BLIB_STORE["BLIB_KEYS_PASS_PROMPT"]="$passPrompt"
 BLIB_STORE["BLIB_KEYS_WAIT_TIME"]="$waitTime"
@@ -123,9 +123,9 @@ local storeDir="$6"
 blib_keys_initVars "$appId" "$uiMode" "$passPrompt" "$waitTime" "$storeDir" || B_E
 
 local keydir=
-mkdir -p "${BLIB_STORE["BLIB_KEYS_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_DIR"]}" ; B_E }
-mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" ; B_E }
-mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" ; B_E }
+mkdir -p "${BLIB_STORE["BLIB_KEYS_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_DIR"]}" ; B_E ; }
+mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" ; B_E ; }
+mkdir -p "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}" ; B_E ; }
 
 if [ $autoCreate -eq 0 ] && [ ! -e "${BLIB_STORE["BLIB_KEYS_STORE"]}" ] ; then
 	b_dmcrypt_createLuks "${BLIB_STORE["BLIB_KEYS_STORE"]}" "20M" "ext4" "" "Password for the key store (Create: ${BLIB_STORE["BLIB_KEYS_STORE"]}): " || B_E
@@ -138,7 +138,7 @@ return 0
 }
 
 function blib_keys_assertInitialized {
-[ -n "${BLIB_STORE["BLIB_KEYS_DIR"]}" ] || { B_ERR="The key store was not initialized. Please call b_keys_init first." ; B_E }
+[ -n "${BLIB_STORE["BLIB_KEYS_DIR"]}" ] || { B_ERR="The key store was not initialized. Please call b_keys_init first." ; B_E ; }
 }
 
 #blib_keys_open
@@ -158,10 +158,10 @@ fi
 #mount r/w, if necessary
 local dev="$(findmnt -n -o SOURCE -M "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}")"
 if [ -z "$dev" ] ; then
-	mount "${BLIB_STORE["BLIB_KEYS_DEV"]}" "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { b_keys_close ;  B_ERR="Failed to mount ${BLIB_STORE["BLIB_KEYS_DEV"]}." ; B_E }
+	mount "${BLIB_STORE["BLIB_KEYS_DEV"]}" "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { b_keys_close ;  B_ERR="Failed to mount ${BLIB_STORE["BLIB_KEYS_DEV"]}." ; B_E ; }
 else
 	#mounted --> make sure correctly
-	[[ "$dev" == "${BLIB_STORE["BLIB_KEYS_DEV"]}" ]] || { b_keys_close ; B_ERR="Something unexpected is mounted at ${BLIB_STORE["BLIB_KEYS_MNT_RW"]}. Please fix it manually." ; B_E }
+	[[ "$dev" == "${BLIB_STORE["BLIB_KEYS_DEV"]}" ]] || { b_keys_close ; B_ERR="Something unexpected is mounted at ${BLIB_STORE["BLIB_KEYS_MNT_RW"]}. Please fix it manually." ; B_E ; }
 fi
 
 #mount r/o, if necessary
@@ -178,13 +178,13 @@ if [ -z "$dev" ] ; then
 	fi
 else
 	#mounted --> make sure correctly
-	[[ "$dev" == "${BLIB_STORE["BLIB_KEYS_DEV"]}" ]] || { b_keys_close ; B_ERR="Something unexpected is mounted at ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}. Please fix it manually." ; B_E }
+	[[ "$dev" == "${BLIB_STORE["BLIB_KEYS_DEV"]}" ]] || { b_keys_close ; B_ERR="Something unexpected is mounted at ${BLIB_STORE["BLIB_KEYS_MNT_RO"]}. Please fix it manually." ; B_E ; }
 fi
 
 #create app directory
 local appDir="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}"
 if [ ! -d "$appDir" ] ; then
-	mkdir -p "$appDir" || { B_ERR="Failed to create $appDir. Make sure to choose a filesystem-compatible application name!" ; B_E }
+	mkdir -p "$appDir" || { B_ERR="Failed to create $appDir. Make sure to choose a filesystem-compatible application name!" ; B_E ; }
 fi
 
 return 0
@@ -198,7 +198,7 @@ local path="$2"
 local target="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key"
 [ -f "$target" ] && B_ERR="A key with the ID $id already exists. Please delete the existing key before attempting to add a new one." && B_E
 #NOTE: cp -n returns a zero exit code, if the target already exists (but doesn't do anything)
-cp -n "$path" "$target" || { B_ERR="Failed to write to $target." ; B_E }
+cp -n "$path" "$target" || { B_ERR="Failed to write to $target." ; B_E ; }
 }
 
 #+b_keys_add [key id] [key path] [keep flag]
@@ -254,7 +254,7 @@ else
 	depth=1
 fi
 #NOTE: depth is mostly used to exclude the backup directories
-find "$path" -maxdepth $depth -mindepth $depth -type f -name '*.key' || { B_ERR="Failed to execute find." ; B_E }
+find "$path" -maxdepth $depth -mindepth $depth -type f -name '*.key' || { B_ERR="Failed to execute find." ; B_E ; }
 }
 
 #+b_keys_getContent [key id]
@@ -267,8 +267,8 @@ local id="$1"
 local path=
 
 blib_keys_assertInitialized || B_E
-path="$(b_keys_get "$id")" || { B_ERR="Failed to obtain the path for the ID $id." ;  B_E }
-cat "$path" 2> /dev/null || { B_ERR="Failed to read $path. Maybe the ID $id is invalid or the key store is currently closed?" ; B_E }
+path="$(b_keys_get "$id")" || { B_ERR="Failed to obtain the path for the ID $id." ; B_E ; }
+cat "$path" 2> /dev/null || { B_ERR="Failed to read $path. Maybe the ID $id is invalid or the key store is currently closed?" ; B_E ; }
 }
 
 #thread unsafe variant of b_keys_delete
@@ -278,11 +278,11 @@ local backup="${2:-0}"
 
 local path="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]}/${id}.key"
 if [ $backup -eq 0 ] ; then
-	mkdir -p "${BLIB_STORE["BLIB_KEYS_BAK"]}" || { B_ERR="Failed to create the backup directory ${BLIB_STORE["BLIB_KEYS_BAK"]}." ; B_E }
-	cp -f "$path" "${BLIB_STORE["BLIB_KEYS_BAK"]}" || { B_ERR="Failed to create a backup for the key $id. Aborting..." ; B_E }
+	mkdir -p "${BLIB_STORE["BLIB_KEYS_BAK"]}" || { B_ERR="Failed to create the backup directory ${BLIB_STORE["BLIB_KEYS_BAK"]}." ; B_E ; }
+	cp -f "$path" "${BLIB_STORE["BLIB_KEYS_BAK"]}" || { B_ERR="Failed to create a backup for the key $id. Aborting..." ; B_E ; }
 fi
 
-rm -f "$path" || { B_ERR="Failed to delete the key $id." ; B_E }
+rm -f "$path" || { B_ERR="Failed to delete the key $id." ; B_E ; }
 }
 
 #+b_keys_delete [key id] [backup]
@@ -321,7 +321,7 @@ else
 	(
 		blib_keys_initVars "b_keys_close" "" "" -1 "$storeDir" || B_E
 		blib_mtx_op blib_keys_close_tu "$@" || B_E
-	) || { B_ERR="Failed to close $storeDir." ; B_E }
+	) || { B_ERR="Failed to close $storeDir." ; B_E ; }
 fi
 
 return 0

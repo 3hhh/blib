@@ -41,7 +41,7 @@ local unixResult=""
 local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
 [ -z "$mult" ] && B_ERR="Invalid unit: $unit" && B_E
 
-unixResult="$(date $addParams --date="$date" +%s)" || { B_ERR="Failed to parse the date $date." ; B_E }
+unixResult="$(date $addParams --date="$date" +%s)" || { B_ERR="Failed to parse the date $date." ; B_E ; }
 unixResult=$(( $unixResult + $toAdd * $mult))
 #use the exit code as return exit code:
 if [ -n "$format" ] ; then
@@ -81,8 +81,8 @@ local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
 [ -z "$mult" ] && B_ERR="Invalid unit: $unit" && B_E
 local unix1=""
 local unix2=""
-unix1=$(date --date="$date1" +%s) || { B_ERR="Failed to parse the date $date1." ; B_E }
-unix2=$(date --date="$date2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E }
+unix1=$(date --date="$date1" +%s) || { B_ERR="Failed to parse the date $date1." ; B_E ; }
+unix2=$(date --date="$date2" +%s) || { B_ERR="Failed to parse the date $date2." ; B_E ; }
 echo $(( ( $unix2 - $unix1 ) / $mult ))
 }
 
@@ -101,7 +101,7 @@ local mult="${BLIB_DATE_UNIT2SECSMULT["$unit"]}"
 local now=
 printf -v now '%(%s)T' -1
 local lastAccess=""
-lastAccess="$(date -r "$file" +%s)" || { B_ERR="Failed to read the timestamps of the file $file. Maybe it doesn't exist?" ; B_E }
+lastAccess="$(date -r "$file" +%s)" || { B_ERR="Failed to read the timestamps of the file $file. Maybe it doesn't exist?" ; B_E ; }
 local ret=$(( ( $now - $lastAccess ) / $mult ))
 echo "$ret"
 }

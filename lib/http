@@ -42,7 +42,7 @@ function b_http_rawUrlEncode {
 local str="$1"
 local ret=""
 ret="$(curl -s -o /dev/null -w %{url_effective} --get --data-urlencode "$str" "")"
-[ $? -ne 3 ] && { B_ERR="curl failed to encode $str." ; B_E }
+[ $? -ne 3 ] && { B_ERR="curl failed to encode $str." ; B_E ; }
 echo -n "${ret:2}"
 return 0
 }

@@ -44,9 +44,9 @@ local baseDir="$1"
 
 #use mktemp & its return value
 if [ -n "$baseDir" ] ; then
-	mktemp -p "$baseDir" -d -u || { B_ERR="Failed to create a temp dir." ; B_E }
+	mktemp -p "$baseDir" -d -u || { B_ERR="Failed to create a temp dir." ; B_E ; }
 else
-	mktemp -d -u || { B_ERR="Failed to create a temp dir." ; B_E }
+	mktemp -d -u || { B_ERR="Failed to create a temp dir." ; B_E ; }
 fi
 }
 
@@ -119,10 +119,10 @@ local mutex="$1"
 local blockId="$2"
 local blockFile="$mutex/$blockId"
 local oldBlockId=
-oldBlockId="$(blib_mtx_getBlockIdFor "$mutex")" || { B_ERR="The mutex $mutex does not exist or we had issues identifying it." ; B_E }
+oldBlockId="$(blib_mtx_getBlockIdFor "$mutex")" || { B_ERR="The mutex $mutex does not exist or we had issues identifying it." ; B_E ; }
 local oldBlockFile="$mutex/$oldBlockId"
 
-touch "$blockFile" &> /dev/null || { B_ERR="Failed to write to $blockFile. Maybe the mutex $mutex was released in the meantime?" ; B_E }
+touch "$blockFile" &> /dev/null || { B_ERR="Failed to write to $blockFile. Maybe the mutex $mutex was released in the meantime?" ; B_E ; }
 if ! rm -f "$oldBlockFile" &> /dev/null ; then
 	rm -f "$blockFile" &> /dev/null
 	B_ERR="Failed to remove the old block ID $oldBlockFile."
@@ -144,9 +144,9 @@ return 0
 #+```bash
 #+ local mutex=""
 #+ local mutexRet=""
-#+ mutex="$(b_mtx_create)" || { B_ERR="Failed to create a mutex." ; B_E }
+#+ mutex="$(b_mtx_create)" || { B_ERR="Failed to create a mutex." ; B_E ; }
 #+ mutexRet="$(b_mtx_try "$mutex")" \
-#+ || { B_ERR="Failed to obtain the mutex $mutex. Reason: $mutexRet" ; B_E }
+#+ || { B_ERR="Failed to obtain the mutex $mutex. Reason: $mutexRet" ; B_E ; }
 #+ #assuming the mutex is only meant to be removed after full
 #+ #execution of the script:
 #+ trap "$mutexRet" EXIT

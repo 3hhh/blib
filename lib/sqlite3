@@ -44,16 +44,16 @@ b_sqlite3_getOpen > /dev/null && B_ERR="Another database is currently open. Plea
 #set vars
 BLIB_STORE_VOLATILE["BLIB_SQLITE3_FILE"]="$db"
 BLIB_STORE_VOLATILE["BLIB_SQLITE3_TIMEOUT"]="$timeout"
-BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]="$(mktemp -d)" || { blib_sqlite3_reset ; B_ERR="Failed to create a temporary directory." ; B_E }
+BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]="$(mktemp -d)" || { blib_sqlite3_reset ; B_ERR="Failed to create a temporary directory." ; B_E ; }
 BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]="${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}/in"
 BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]="${BLIB_STORE_VOLATILE["BLIB_SQLITE3_BASE"]}/out"
 
 #initialize
-mkfifo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" || { blib_sqlite3_reset ; B_ERR="Failed to create a pipe." ; B_E }
-mkfifo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" || { blib_sqlite3_reset ; B_ERR="Failed to create a pipe." ; B_E }
+mkfifo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" || { blib_sqlite3_reset ; B_ERR="Failed to create a pipe." ; B_E ; }
+mkfifo "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" || { blib_sqlite3_reset ; B_ERR="Failed to create a pipe." ; B_E ; }
 sqlite3 -interactive "$db" < "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" &> "${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" &
-exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]}>"${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" || { blib_sqlite3_reset ; B_ERR="Failed to redirect a pipe." ; B_E }
-exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]}<"${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" || { blib_sqlite3_reset ; B_ERR="Failed to redirect a pipe." ; B_E }
+exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN_FD"]}>"${BLIB_STORE_VOLATILE["BLIB_SQLITE3_IN"]}" || { blib_sqlite3_reset ; B_ERR="Failed to redirect a pipe." ; B_E ; }
+exec {BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]}<"${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT"]}" || { blib_sqlite3_reset ; B_ERR="Failed to redirect a pipe." ; B_E ; }
 
 #test first exec here to make sure it's open in the background & to remove the version info
 local out=
@@ -123,7 +123,7 @@ local cmd="$1"
 local timeout="${2:-${BLIB_STORE_VOLATILE["BLIB_SQLITE3_TIMEOUT"]}}"
 local filterInput="${3:-0}"
 
-b_sqlite3_getOpen > /dev/null || { B_ERR="No database open." ; B_E }
+b_sqlite3_getOpen > /dev/null || { B_ERR="No database open." ; B_E ; }
 blib_sqlite3_assertValidCommand "$cmd"
 
 #start reader thread

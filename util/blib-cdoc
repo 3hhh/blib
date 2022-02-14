@@ -139,8 +139,8 @@ fi
 local i=1
 local cur="$(b_args_get $i)"
 while [ -n "$cur" ] ; do
-	[ -e "$cur" ] || { B_ERR="Does not exist: $cur" ; B_E }
-	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E }
+	[ -e "$cur" ] || { B_ERR="Does not exist: $cur" ; B_E ; }
+	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E ; }
 	[ -n "$IN_LIST" ] && IN_LIST="$IN_LIST"$'\n'"$cur" || IN_LIST="$cur"
 	(( i++ ))
 	cur="$(b_args_get $i)"
@@ -159,8 +159,8 @@ done
 local i=0
 local cur="$(b_args_getOption "--verb" "" $i)"
 while [ -n "$cur" ] ; do
-	[ -f "$cur" ] || { B_ERR="No file: $cur" ; B_E }
-	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E }
+	[ -f "$cur" ] || { B_ERR="No file: $cur" ; B_E ; }
+	cur="$(readlink -e "$cur")" || { B_ERR="Failed to execute readlink." ; B_E ; }
 	VERB["$cur"]=0
 	(( i++ ))
 	cur="$(b_args_getOption "--verb" "" $i)"
@@ -209,7 +209,7 @@ function cb_file {
 local file="$1"
 
 #normalize
-file="$(readlink -e "$file")" || { B_ERR="Failed to execute readlink." ; B_E }
+file="$(readlink -e "$file")" || { B_ERR="Failed to execute readlink." ; B_E ; }
 
 #already done before?
 [ ${DONE["$file"]+exists} ] && return 2
@@ -223,7 +223,7 @@ done
 
 #is it a bash file?
 local mtype=
-mtype="$(file -b --mime-type "$file")" || { B_RC=66 ; B_ERR="Failed to identify the mime type of the file ${file}." ; B_E }
+mtype="$(file -b --mime-type "$file")" || { B_RC=66 ; B_ERR="Failed to identify the mime type of the file ${file}." ; B_E ; }
 [[ "$mtype" == "text/x-shellscript" ]] && return 0
 
 return 2
@@ -267,7 +267,7 @@ local line=
 local out="$in"
 
 local docId=
-docId="$(getDocId "$file")" || { B_ERR="Failed to obtain an ID for $file." ; B_E }
+docId="$(getDocId "$file")" || { B_ERR="Failed to obtain an ID for $file." ; B_E ; }
 if [ $blockCnt -eq 0 ] ; then
 	#print file header, if first block
 	HEADER_LEVEL=$HEADER_LEVEL_INIT
@@ -352,7 +352,7 @@ if [ $blockCnt -eq 0 ] ; then
 		echo ""
 		printHeader "Dependencies" "" $(( HEADER_LEVEL_INIT +1 ))
 		local deps=
-		deps="$(b_meta_getClearDeps "$file")" || { B_ERR="Failed to obtain the dependencies for $file." ; B_E }
+		deps="$(b_meta_getClearDeps "$file")" || { B_ERR="Failed to obtain the dependencies for $file." ; B_E ; }
 		[ -z "$deps" ] && echo "no dependencies" || sort <<< "$deps"
 	fi
 
@@ -361,9 +361,9 @@ if [ $blockCnt -eq 0 ] ; then
 		echo ""
 		printHeader "Imports" "" $(( HEADER_LEVEL_INIT +1 ))
 		local imports=
-		imports="$(b_meta_getClearImports "$file")" || { B_ERR="Failed to obtain the imports for $file." ; B_E }
+		imports="$(b_meta_getClearImports "$file")" || { B_ERR="Failed to obtain the imports for $file." ; B_E ; }
 		if [ -n "$imports" ] ; then
-			imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E }
+			imports="$(sort <<< "$imports")" || { B_ERR="Failed to sort." ; B_E ; }
 			if [[ "$OUTPUT_EXT" == "raw" ]] ; then
 				echo "$imports"
 			else
@@ -433,7 +433,7 @@ local in="$1"
 local file="$2"
 
 #normalize
-file="$(readlink -e "$file")" || { B_ERR="Failed to execute readlink." ; B_E }
+file="$(readlink -e "$file")" || { B_ERR="Failed to execute readlink." ; B_E ; }
 
 DONE["$file"]=0
 
@@ -448,7 +448,7 @@ if [ $ADD_REFTABLE -eq 0 ] ; then
 	printHeader "Reference List" "$refId" $(( HEADER_LEVEL_INIT ))
 	echo ""
 	local list="$(b_arr_toList "${REF_CACHE_VAR[@]}" "${REF_CACHE_FUNC[@]}")"
-	list="$(sort <<< "$list")" || { B_ERR="Failed to sort." ; B_E }
+	list="$(sort <<< "$list")" || { B_ERR="Failed to sort." ; B_E ; }
 
 	local line=
 	while IFS= read -r line ; do
@@ -468,7 +468,7 @@ initCdoc
 local printStdout=1
 if [ -z "$OUTPUT_BASE" ] ; then
 	printStdout=0
-	OUTPUT_BASE="$(mktemp -u)" || { B_ERR="Failed to create a temp file." ; B_E }
+	OUTPUT_BASE="$(mktemp -u)" || { B_ERR="Failed to create a temp file." ; B_E ; }
 	OUTPUT="${OUTPUT_BASE}.$OUTPUT_EXT"
 fi
 
@@ -481,7 +481,7 @@ b_cdoc_generateBlibStyle "$IN_LIST" "$OUTPUT" "$outFormat" $DELETE_EXISTING > /d
 
 #print, if necessary
 if [ $printStdout -eq 0 ] ; then
-	cat "$OUTPUT" || { B_ERR="Failed to run cat." ; B_E }
+	cat "$OUTPUT" || { B_ERR="Failed to run cat." ; B_E ; }
 	rm -f "$OUTPUT"
 fi
 }

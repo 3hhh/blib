@@ -102,7 +102,7 @@ while [ $# -gt 0 ] ; do
 	shift
 	[ -z "$optCnt" ] && B_ERR="Option count for $opt missing." && B_E
 	[[ ! "$optCnt" =~ [0-9]+ ]] && B_ERR="Invalid option count for option $opt: $optCnt" && B_E
-	[[ "$opt" =~ $optRe ]] || { B_ERR="Option with bad syntax: $opt" ; B_E }
+	[[ "$opt" =~ $optRe ]] || { B_ERR="Option with bad syntax: $opt" ; B_E ; }
 
 	BLIB_ARGS_OPTCNT["$opt"]="$optCnt"
 done
@@ -222,7 +222,7 @@ done
 
 if [ ${BLIB_STORE_VOLATILE["BLIB_ARGS_ALLOW"]} -ne 0 ] ; then
 	local invalid=
-	invalid="$(b_args_assertOptions "${!BLIB_ARGS_OPTCNT[@]}")" || { B_ERR="Invalid options: $invalid" ; B_E }
+	invalid="$(b_args_assertOptions "${!BLIB_ARGS_OPTCNT[@]}")" || { B_ERR="Invalid options: $invalid" ; B_E ; }
 fi
 
 return 0
@@ -420,7 +420,7 @@ local ret=""
 local optRe='^(.*)_[0-9]+$'
 for opt in "${!B_ARGS_OPTS[@]}" ; do
 	vals="${B_ARGS_OPTS["$opt"]}"
-	[[ "$opt" =~ $optRe ]] && opt="${BASH_REMATCH[1]}" || { B_ERR="Unexpected option key: $opt - Programming mistake?!" ; B_E }
+	[[ "$opt" =~ $optRe ]] && opt="${BASH_REMATCH[1]}" || { B_ERR="Unexpected option key: $opt - Programming mistake?!" ; B_E ; }
 
 	#filter
 	local filter=1

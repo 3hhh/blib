@@ -20,7 +20,7 @@ BLIB_STORE["BLIB_DMCRYPT_UI_MODE"]="auto"
 #blib_assertCryptsetup
 #@B_E
 function blib_assertCryptsetup {
-command -v "cryptsetup" &> /dev/null || { B_ERR="Couldn't find cryptetup (maybe you're not root?)." ; B_E }
+command -v "cryptsetup" &> /dev/null || { B_ERR="Couldn't find cryptetup (maybe you're not root?)." ; B_E ; }
 }
 
 #+b_dmcrypt_init [ui mode]
@@ -43,9 +43,9 @@ function b_dmcrypt_getMapperName {
 #idea: Compute a likely unique mapper name in a stateless way from the path.
 local path="$1"
 local cPath=
-cPath="$(readlink -m "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E }
+cPath="$(readlink -m "$path")" || { B_ERR="Failed to retrieve the canonical path for $path" ; B_E ; }
 local md5=
-md5="$(b_hash_str "$cPath")" || { B_ERR="Failed to obtain the md5 hash." ; B_E }
+md5="$(b_hash_str "$cPath")" || { B_ERR="Failed to obtain the md5 hash." ; B_E ; }
 echo "blib-dmcrypt-$md5"
 }
 
@@ -104,11 +104,11 @@ blib_assertCryptsetup || B_E
 [ -e "$path" ] && B_ERR="$path already exists. Backing off..." && B_E
 
 local dir=
-dir="$(dirname "$path")" || { B_ERR="Failed to run dirname." ; B_E }
-mkdir -p "$dir" || { B_ERR="Failed to run mkdir." ; B_E }
+dir="$(dirname "$path")" || { B_ERR="Failed to run dirname." ; B_E ; }
+mkdir -p "$dir" || { B_ERR="Failed to run mkdir." ; B_E ; }
 
 local mname=
-mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E ; }
 
 #obtain password, if necessary
 local pass=""
@@ -164,7 +164,7 @@ shift
 blib_assertCryptsetup || B_E
 
 local _mname=
-_mname="$(b_dmcrypt_getMapperName "$_path")" || { B_ERR="Failed to obtain a valid mapper name for $_path." ; B_E }
+_mname="$(b_dmcrypt_getMapperName "$_path")" || { B_ERR="Failed to obtain a valid mapper name for $_path." ; B_E ; }
 
 #obtain password, if necessary
 local _passw=""
@@ -173,7 +173,7 @@ if blib_dmcrypt_passwordRequired "$@" ; then
 fi
 
 #open
-cryptsetup "$@" open "$_path" "$_mname" <<< "$_passw" || { _passw="${_passw//?/0}" ; _passw="" ; B_ERR="Failed to open the encrypted container $_path." ; B_E }
+cryptsetup "$@" open "$_path" "$_mname" <<< "$_passw" || { _passw="${_passw//?/0}" ; _passw="" ; B_ERR="Failed to open the encrypted container $_path." ; B_E ; }
 local _dev="/dev/mapper/$_mname"
 
 #overwrite the password in memory with zeroes, then free it
@@ -181,8 +181,8 @@ _passw="${pass//?/0}" ; _passw=""
 
 #mount, if necessary
 if [ -n "$_mp" ] ; then
-	mkdir -p "$_mp" || { B_ERR="Failed to create the mount point $_mp." ; B_E }
-	mount "$_dev" "$_mp" || { B_ERR="Failed to mount $_dev to $_mp." ; B_E }
+	mkdir -p "$_mp" || { B_ERR="Failed to create the mount point $_mp." ; B_E ; }
+	mount "$_dev" "$_mp" || { B_ERR="Failed to mount $_dev to $_mp." ; B_E ; }
 fi
 
 #set the output variable
@@ -201,7 +201,7 @@ shift
 blib_assertCryptsetup || B_E
 
 local mname=
-mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E ; }
 
 #check whether it's already closed
 local stat=
@@ -210,7 +210,7 @@ stat="$(cryptsetup status "$mname")"
 
 #close
 umount "/dev/mapper/$mname" &> /dev/null
-cryptsetup "$@" close "$mname" || { B_ERR="Failed to close $path." ; B_E }
+cryptsetup "$@" close "$mname" || { B_ERR="Failed to close $path." ; B_E ; }
 }
 
 #+b_dmcrypt_isOpen [path]
@@ -223,7 +223,7 @@ local path="$1"
 blib_assertCryptsetup || B_E
 
 local mname=
-mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E }
+mname="$(b_dmcrypt_getMapperName "$path")" || { B_ERR="Failed to obtain a valid mapper name for $path." ; B_E ; }
 
 cryptsetup status "$mname" &> /dev/null
 }

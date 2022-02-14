@@ -21,7 +21,7 @@ b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qvm
 BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]=60
 #set to the correct value, if we're in dom0:
 if command -v "qubes-prefs" &> /dev/null ; then
-	BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E }
+	BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]="$(qubes-prefs "default_qrexec_timeout")" || { B_ERR="Failed to use qubes-prefs." ; B_E ; }
 fi
 BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]=""
 
@@ -183,7 +183,7 @@ return $ret
 function b_dom0_getDispVMs {
 local all=""
 local line=""
-all="$(qvm-ls -O NAME,CLASS --raw-data)" || { B_ERR="Failed to run qvm-ls." ; B_E }
+all="$(qvm-ls -O NAME,CLASS --raw-data)" || { B_ERR="Failed to run qvm-ls." ; B_E ; }
 
 while IFS= read -r line ; do
 	[[ "$line" =~ ^(disp[0-9]+)\|DispVM$ ]] && echo "${BASH_REMATCH[1]}"
@@ -280,7 +280,7 @@ local str="$2"
 local ret=""
 
 local bFile=""
-bFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+bFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E ; }
 echo "$str" > "$bFile"
 
 b_dom0_execIn "$1" "$bFile" "$3"
@@ -314,7 +314,7 @@ shift
 shift
 
 local toExec=""
-toExec="$(b_generateStandalone "$func" "$@")" || { B_ERR="Failed to generate a standalone file for the function $func." ; B_E }
+toExec="$(b_generateStandalone "$func" "$@")" || { B_ERR="Failed to generate a standalone file for the function $func." ; B_E ; }
 
 b_dom0_execStrIn "$vm" "$toExec" "$user"
 }
@@ -364,10 +364,10 @@ local enforce="$4"
 local mopts="$5"
 local out=""
 
-out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "fs" - - "$dev" "$mp" "$enforce" "$mopts" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E }
+out="$(b_dom0_execFuncIn "$vm" "" "b_fs_mountIfNecessary" "fs" - - "$dev" "$mp" "$enforce" "$mopts" 2> /dev/null)" || { B_ERR="Failed to run b_fs_mountIfNecessary inside the VM $vm for the device $dev --> $mp." ; B_E ; }
 
 #make sure the untrusted VM output is not binary (otherwise bash will run into big trouble)
-out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
+out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E ; }
 
 #shortcut without below sanity check if the desired mount point could be achieved
 [[ "$out" == "$mp" ]] && echo "$mp" && return 0
@@ -377,7 +377,7 @@ out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly retu
 local line=""
 local pathRe='^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /~\.\+\-]+$'
 while IFS= read -r line ; do
-	[[ "$line" =~ $pathRe ]] || { B_ERR="The sanity check for the output of VM $vm failed. Original output: $out" ; B_E }
+	[[ "$line" =~ $pathRe ]] || { B_ERR="The sanity check for the output of VM $vm failed. Original output: $out" ; B_E ; }
 done <<< "$out"
 
 echo "$out"
@@ -396,10 +396,10 @@ local vm="$1"
 local file="$2"
 local out=""
 
-out="$(b_dom0_execFuncIn "$vm" "" "b_fs_createLoopDeviceIfNecessary" "fs" - - "$file" 2> /dev/null)" || { B_ERR="Failed to create a loop device for the file $file in the VM $vm." ; B_E }
+out="$(b_dom0_execFuncIn "$vm" "" "b_fs_createLoopDeviceIfNecessary" "fs" - - "$file" 2> /dev/null)" || { B_ERR="Failed to create a loop device for the file $file in the VM $vm." ; B_E ; }
 
 #make sure the untrusted VM output is not binary (otherwise bash will run into big trouble)
-out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
+out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E ; }
 
 #sanity checks as the VM output is untrusted
 local re='^/dev/loop[0-9]+$'
@@ -434,7 +434,7 @@ local isDev="$3"
 local blockinfo="$4"
 
 if [ -z "$blockinfo" ] ; then
-	blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+	blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E ; }
 fi
 
 if [ -z "$isDev" ] ; then
@@ -528,7 +528,7 @@ local nameEsc=
 printf -v dirEsc '%q' "$dir"
 printf -v nameEsc '%q' "$name"
 
-b_silence b_dom0_qvmRun --stdin "$vm" "$(declare -f "blib_dom0_untarStdinToVmFunc") ; blib_dom0_untarStdinToVmFunc $dirEsc $nameEsc" || { B_ERR="Failed to untar inside the VM $vm. Exit code: $?" ; B_E }
+b_silence b_dom0_qvmRun --stdin "$vm" "$(declare -f "blib_dom0_untarStdinToVmFunc") ; blib_dom0_untarStdinToVmFunc $dirEsc $nameEsc" || { B_ERR="Failed to untar inside the VM $vm. Exit code: $?" ; B_E ; }
 return 0
 }
 
@@ -554,8 +554,8 @@ local targetName=""
 [ ! -e "$dom0Path" ] && B_ERR="Failed to find $dom0Path in dom0." && B_E
 
 #NOTE: we need basename here as it should also work for directories
-dom0FileName="$(basename "$dom0Path")" || { B_ERR="Failed to compute the basename for $dom0Path." ; B_E }
-dom0Dir="$(dirname "$dom0Path")" || { B_ERR="Failed to compute the dirname for $dom0Path." ; B_E }
+dom0FileName="$(basename "$dom0Path")" || { B_ERR="Failed to compute the basename for $dom0Path." ; B_E ; }
+dom0Dir="$(dirname "$dom0Path")" || { B_ERR="Failed to compute the dirname for $dom0Path." ; B_E ; }
 
 #compute the target name
 if [ $parentDir -eq 0 ] ; then
@@ -566,7 +566,7 @@ else
 fi
 
 #prep
-blib_dom0_copyPrepareTarget "$targetName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
+blib_dom0_copyPrepareTarget "$targetName" "$vm" "$vmDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E ; }
 
 #copy
 #
@@ -579,7 +579,7 @@ blib_dom0_copyPrepareTarget "$targetName" "$vm" "$vmDir" "$overwrite" || { B_E ;
 # - qvm-copy-to-vm has the disadvantage of requiring ~/QubesIncoming/dom0 file system size
 # - tar has "natural" directory support
 # - see b_dom0_crossCopy for further notes on the tar implementation
-tar -C "$dom0Dir" -c -f - "$dom0FileName" 2> /dev/null | blib_dom0_untarStdinTo "$vm" "$vmDir" "$targetName" || { B_ERR="Failed to run tar inside the $vm VM." ; B_E }
+tar -C "$dom0Dir" -c -f - "$dom0FileName" 2> /dev/null | blib_dom0_untarStdinTo "$vm" "$vmDir" "$targetName" || { B_ERR="Failed to run tar inside the $vm VM." ; B_E ; }
 [ ${PIPESTATUS[0]} -ne 0 ] && B_ERR="Failed to run tar on $dom0Path in dom0." && B_E
 return 0
 }
@@ -605,8 +605,8 @@ local overwrite=${5:-0}
 local parentDir=${6:-0}
 local dstName=""
 
-srcFileName="$(basename "$srcFile")" || { B_ERR="Failed to compute the basename for $srcFile." ; B_E }
-srcVMDir="$(dirname "$srcFile")" || { B_ERR="Failed to compute the dirname for $srcFile." ; B_E }
+srcFileName="$(basename "$srcFile")" || { B_ERR="Failed to compute the basename for $srcFile." ; B_E ; }
+srcVMDir="$(dirname "$srcFile")" || { B_ERR="Failed to compute the dirname for $srcFile." ; B_E ; }
 
 #compute the target/dst name
 if [ $parentDir -eq 0 ] ; then
@@ -617,7 +617,7 @@ else
 fi
 
 #prep
-blib_dom0_copyPrepareTarget "$dstName" "$dstVM" "$dstVMDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E }
+blib_dom0_copyPrepareTarget "$dstName" "$dstVM" "$dstVMDir" "$overwrite" || { B_E ; B_ERR="blib_dom0_copyPrepareTarget failed." ; B_E ; }
 
 #escape
 printf -v srcVMDir '%q' "$srcVMDir"
@@ -627,7 +627,7 @@ printf -v srcFileName '%q' "$srcFileName"
 #basic idea: tar file or directory, pipe it via qvm-run / b_dom0_qvmRun to the destination VM and untar there
 #tar -f - means: write to stdout/read from stdin
 #the --one-top-level=[name] --strip-components=1 lets us define the name of the top-level element of the tar archive (surprisingly, this also worked for files when I tested it)
-b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -c -f - $srcFileName" 2> /dev/null | blib_dom0_untarStdinTo "$dstVM" "$dstVMDir" "$dstName" || { B_ERR="Failed to run tar inside the $dstVM VM." ; B_E }
+b_dom0_qvmRun "$srcVM" "tar -C $srcVMDir -c -f - $srcFileName" 2> /dev/null | blib_dom0_untarStdinTo "$dstVM" "$dstVMDir" "$dstName" || { B_ERR="Failed to run tar inside the $dstVM VM." ; B_E ; }
 [ ${PIPESTATUS[0]} -ne 0 ] && B_ERR="Failed to run tar on $srcFile inside the $srcVM VM." && B_E
 return 0
 }
@@ -713,7 +713,7 @@ blib_dom0_checkRunningMultiple 1 "$@"
 #+@B_E
 function b_dom0_isHalted {
 local halted=
-halted="$(qvm-ls --halted --raw-list)" || { B_ERR="Failed to execute qvm-ls." ; B_E }
+halted="$(qvm-ls --halted --raw-list)" || { B_ERR="Failed to execute qvm-ls." ; B_E ; }
 
 local vm=
 declare -A haltedMap
@@ -808,14 +808,14 @@ else
 fi
 
 if [ -n "$keyFile" ] ; then
-	b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to decrypt using the keyfile $keyFile." ; B_E }
+	b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to decrypt using the keyfile $keyFile." ; B_E ; }
 else
 	#NOTES:
 	# - we need stdin & stdout for the password prompt; that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
 	# - we do the prompting ourselves though as an additional security measure: An attacker might display something entirely different, read more than a single line and attempt to lure the user into providing some totally different password or data.
 	local pass=
 	b_ui_passwordPrompt "pass" "auto" "$passPrompt" || B_E
-	echo -n "$pass" | b_silence b_dom0_qvmRun --stdin "$vm" "$cmd" || { pass="${pass//?/0}" ; pass="" ; B_ERR="Failed to decrypt." ; B_E }
+	echo -n "$pass" | b_silence b_dom0_qvmRun --stdin "$vm" "$cmd" || { pass="${pass//?/0}" ; pass="" ; B_ERR="Failed to decrypt." ; B_E ; }
 
 	#overwrite the password in memory with zeroes, then free it
 	pass="${pass//?/0}" ; pass=""
@@ -842,7 +842,7 @@ printf -v mpEsc '%q' "$mp"
 printf -v mapperNameEsc '%q' "$mapperName"
 
 local cmd="[ -n $mpEsc ] && { umount -A -R $mpEsc || exit 2 ; } ; cryptsetup close $mapperNameEsc"
-b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close inside the VM $vm." ; B_E }
+b_silence b_dom0_qvmRun "$vm" "$cmd" || { B_ERR="Failed to run cryptsetup close inside the VM $vm." ; B_E ; }
 #we use the b_dom0_qvmRun exit code as ours
 }
 
@@ -860,7 +860,7 @@ local outVar="$1"
 local input="$2"
 
 if [ -z "$input" ] ; then
-	input="$(qvm-block ls)" || { B_ERR="Failed to run qvm-block ls." ; B_E }
+	input="$(qvm-block ls)" || { B_ERR="Failed to run qvm-block ls." ; B_E ; }
 fi
 
 #sample qvm-block l output:
@@ -943,7 +943,7 @@ done <<< "$input"
 
 ret["max"]=$i
 
-ret="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the qvm-block ls output." ; B_E }
+ret="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the qvm-block ls output." ; B_E ; }
 echo "${ret/declare -A ret/declare -A $outVar}"
 }
 
@@ -964,7 +964,7 @@ local retField="$1"
 shift
 
 if [ -z "$blockinfo" ] ; then
-	blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E }
+	blockinfo="$(b_dom0_parseQvmBlock "blockinfo")" || { B_ERR="Failed to obtain the qvm-block ls information." ; B_E ; }
 else
 	local regex='^declare \-A ([^=]+)=(.*)$'
 	if [[ "$blockinfo" =~ $regex ]] ; then
@@ -975,7 +975,7 @@ else
 	fi
 fi
 
-eval "$blockinfo" || { B_ERR="b_dom0_parseQvmBlock output incorrect." ; B_E }
+eval "$blockinfo" || { B_ERR="b_dom0_parseQvmBlock output incorrect." ; B_E ; }
 local i=0
 local checkField=""
 local checkValue=""
@@ -1050,15 +1050,15 @@ local addOptions=""
 if [ $force -eq 0 ] ; then
 	#cf. https://www.qubes-os.org/doc/mount-lvm-image/ & https://github.com/QubesOS/qubes-issues/issues/4687#issuecomment-451626625
 	#it seems that writing a unique string to /desc is OK
-	qubesdb-write "/qubes-block-devices/$dev/desc" "$dom0Dev" || { B_ERR="Failed to write to the Qubes DB." ; B_E }
+	qubesdb-write "/qubes-block-devices/$dev/desc" "$dom0Dev" || { B_ERR="Failed to write to the Qubes DB." ; B_E ; }
 fi
 
 #run qvm-block
-qvm-block a $addOptions "$targetVM" "dom0:$dev" || { [ $force -eq 0 ] && qubesdb-rm "/qubes-block-devices/$dev/" ; B_ERR="Failed to attach the device $dev to the VM $targetVM." ; B_E }
+qvm-block a $addOptions "$targetVM" "dom0:$dev" || { [ $force -eq 0 ] && qubesdb-rm "/qubes-block-devices/$dev/" ; B_ERR="Failed to attach the device $dev to the VM $targetVM." ; B_E ; }
 
 #retrieve info
 local frontend=""
-frontend="$(b_dom0_getQvmBlockInfo "" "frontend-dev" "backend" "dom0" "device id" "$dev")" || { qvm-block d "$targetVM" "dom0:$dev" ; [ $force -eq 0 ] && qubesdb-rm "/qubes-block-devices/$dev/" ; B_ERR="Failed to attach." ; B_E }
+frontend="$(b_dom0_getQvmBlockInfo "" "frontend-dev" "backend" "dom0" "device id" "$dev")" || { qvm-block d "$targetVM" "dom0:$dev" ; [ $force -eq 0 ] && qubesdb-rm "/qubes-block-devices/$dev/" ; B_ERR="Failed to attach." ; B_E ; }
 echo "/dev/$frontend"
 return 0
 }
@@ -1082,7 +1082,7 @@ local loDevice=""
 #unfortunately qvm-block l has issues for files, so we create a loop device first and use that one
 #also see: R3.0: qvm-block doesn't work well on files (https://groups.google.com/forum/#!msg/qubes-users/IotETu-gsm4/FO2GOu5pBwAJ)
 #for 4.0rc1 I'm not even sure whether it supports files...
-loDevice="$(b_execFuncAs "root" "b_fs_createLoopDeviceIfNecessary" "fs" - - "$dom0File")" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to create a loop device from $dom0File" ; B_E }
+loDevice="$(b_execFuncAs "root" "b_fs_createLoopDeviceIfNecessary" "fs" - - "$dom0File")" || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to create a loop device from $dom0File" ; B_E ; }
 
 #attach & print return value
 local ret=
@@ -1090,7 +1090,7 @@ b_setBE 1
 b_dom0_attachDevice "$loDevice" "$targetVM" "$rwFlag" "$force"
 ret=$?
 b_resetErrorHandler 1
-[ $ret -eq 0 ] || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to attach the device $loDevice to the VM $targetVM." ; B_E }
+[ $ret -eq 0 ] || { blib_dom0_closeLoop "$loDevice" ; B_ERR="Failed to attach the device $loDevice to the VM $targetVM." ; B_E ; }
 
 #set the autoclear flag so that the kernel will remove the loop once Qubes stops using it (works since kernel 3.7 / lazy detaching)
 blib_dom0_closeLoop "$loDevice"
@@ -1116,7 +1116,7 @@ local poolDriver="$4"
 local diskPath="$5"
 
 if [ -z "$poolDriver" ] ; then
-	poolDriver="$(b_dom0_getPoolDriver "$sourceVM")" || { B_ERR="Failed to retrieve the pool driver for the VM $sourceVM." ; B_E }
+	poolDriver="$(b_dom0_getPoolDriver "$sourceVM")" || { B_ERR="Failed to retrieve the pool driver for the VM $sourceVM." ; B_E ; }
 fi
 
 if [ -z "$diskPath" ] ; then
@@ -1135,7 +1135,7 @@ fi
 
 #make sure the source VM is shut down (strange things may happen otherwise)
 #NOTE: Qubes 4 returns an exit code of 0 for already shut down VMs
-qvm-shutdown --wait --timeout 10 "$sourceVM" &> /dev/null || { B_ERR="Failed to shut down the VM $sourceVM." ; B_E }
+qvm-shutdown --wait --timeout 10 "$sourceVM" &> /dev/null || { B_ERR="Failed to shut down the VM $sourceVM." ; B_E ; }
 
 #all the details on how to do it for the various pool types: https://github.com/QubesOS/qubes-issues/issues/4687
 if [[ "$poolDriver" == "file" ]] || [[ "$poolDriver" == "file-reflink" ]] ; then
@@ -1143,7 +1143,7 @@ if [[ "$poolDriver" == "file" ]] || [[ "$poolDriver" == "file-reflink" ]] ; then
 elif [[ "$poolDriver" == "lvm_thin" ]] ; then
 	#also cf. https://www.qubes-os.org/doc/mount-lvm-image/
 	local dev=
-	dev="$(readlink -e "$diskPath")" || { B_ERR="Failed to identify the LVM device from $diskPath." ; B_E }
+	dev="$(readlink -e "$diskPath")" || { B_ERR="Failed to identify the LVM device from $diskPath." ; B_E ; }
 	b_dom0_attachDevice "$dev" "$targetVM" "$rwFlag" 0
 else
 	B_ERR="Unsupported pool driver: $poolDriver"
@@ -1163,14 +1163,14 @@ local volume="${2:-"private"}"
 
 local pool poolInfo
 if [ -n "$vm" ] ; then
-	pool="$(qvm-volume info "$vm:$volume" "pool")" || { B_ERR="Failed to identify the pool used by $vm:$volume." ; B_E }
+	pool="$(qvm-volume info "$vm:$volume" "pool")" || { B_ERR="Failed to identify the pool used by $vm:$volume." ; B_E ; }
 else
-	pool="$(qubes-prefs "default_pool_$volume")" || { B_ERR="Failed to retrieve the default_pool_$volume." ; B_E }
+	pool="$(qubes-prefs "default_pool_$volume")" || { B_ERR="Failed to retrieve the default_pool_$volume." ; B_E ; }
 fi
-poolInfo="$(qvm-pool -i "$pool")" || { B_ERR="Failed to retrieve information about the pool $pool." ; B_E }
+poolInfo="$(qvm-pool -i "$pool")" || { B_ERR="Failed to retrieve information about the pool $pool." ; B_E ; }
 
 local re='driver[[:space:]]+([^[:space:]]+)'
-[[ "$poolInfo" =~ $re ]] && echo "${BASH_REMATCH[1]}" || { B_ERR="Failed to extract the driver from the following pool info: $poolInfo" ; B_E }
+[[ "$poolInfo" =~ $re ]] && echo "${BASH_REMATCH[1]}" || { B_ERR="Failed to extract the driver from the following pool info: $poolInfo" ; B_E ; }
 }
 
 #+b_dom0_getDefaultPoolDriver [volume]
@@ -1203,11 +1203,11 @@ local deviceName="${sourceDevice##*/}"
 [ -z "$deviceName" ] && B_ERR="Failed to extract the device name from $sourceDevice." && B_E
 
 #run qvm-block
-qvm-block a $addOptions "$targetVM" "${sourceVM}:${deviceName}" || { B_ERR="Failed to run qvm-block successfully." ; B_E }
+qvm-block a $addOptions "$targetVM" "${sourceVM}:${deviceName}" || { B_ERR="Failed to run qvm-block successfully." ; B_E ; }
 
 #retrieve info
 local frontend=""
-frontend="$(b_dom0_getQvmBlockInfo "" "frontend-dev" "backend" "$sourceVM" "device id" "$deviceName")" || { B_ERR="Failed to attach." ; B_E }
+frontend="$(b_dom0_getQvmBlockInfo "" "frontend-dev" "backend" "$sourceVM" "device id" "$deviceName")" || { B_ERR="Failed to attach." ; B_E ; }
 echo "/dev/$frontend"
 return 0
 }
@@ -1228,7 +1228,7 @@ local rwFlag="${4:-1}"
 local loDevice=""
 
 #same as in b_dom0_attachFile
-loDevice="$(b_dom0_createLoopDeviceIfNecessary "$sourceVM" "$sourceFile")" || { B_ERR="Failed to create a loop device for the file $sourceFile in the VM $sourceVM." ; B_E }
+loDevice="$(b_dom0_createLoopDeviceIfNecessary "$sourceVM" "$sourceFile")" || { B_ERR="Failed to create a loop device for the file $sourceFile in the VM $sourceVM." ; B_E ; }
 
 #attach
 b_dom0_crossAttachDevice "$sourceVM" "$loDevice" "$targetVM" "$rwFlag"
@@ -1250,15 +1250,15 @@ local devName="${dev##*/}"
 
 #get the backend ID
 local bid=""
-bid="$(b_dom0_getQvmBlockInfo "" "id" "frontend-dev" "$devName" "used by" "$vm")" || { B_ERR="Failed to find the backend ID for the device $devName in the VM $vm." ; B_E }
+bid="$(b_dom0_getQvmBlockInfo "" "id" "frontend-dev" "$devName" "used by" "$vm")" || { B_ERR="Failed to find the backend ID for the device $devName in the VM $vm." ; B_E ; }
 
 #detach
-qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E }
+qvm-block d "$vm" "$bid" || { B_ERR="Failed to detach." ; B_E ; }
 
 #clean from Qubes DB, if necessary
 if [ $clean -eq 0 ] ; then
 	#we simply attempt to remove it (the exit code always appears to be 0 whether it's there or not)
-	qubesdb-rm "/qubes-block-devices/$devName/" || { B_ERR="Failed to clean the Qubes DB from $devName." ; B_E }
+	qubesdb-rm "/qubes-block-devices/$devName/" || { B_ERR="Failed to clean the Qubes DB from $devName." ; B_E ; }
 fi
 
 return 0
@@ -1377,8 +1377,8 @@ while IFS= read -r line ; do
 done <<< "$list"
 
 local out=
-out="$(b_dom0_execStrIn "$vm" "$toExec" 2> /dev/null)" || { B_ERR="Failed to run a command inside the VM $vm." ; B_E }
-out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E }
+out="$(b_dom0_execStrIn "$vm" "$toExec" 2> /dev/null)" || { B_ERR="Failed to run a command inside the VM $vm." ; B_E ; }
+out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly returned binary data?! This might be an attack coming from that VM." ; B_E ; }
 
 #parse (untrusted!) VM output
 local ret=()
@@ -1426,7 +1426,7 @@ local blankRegex='^[[:blank:]]*$'
 local commentRegex='^[[:blank:]]*#.*$'
 
 #temporarily insert drop-all to avoid excessive permissions during modification
-qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
+qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E ; }
 
 while IFS= read -r rule ; do
 	[[ "$rule" =~ $blankRegex ]] && continue
@@ -1440,7 +1440,7 @@ while IFS= read -r rule ; do
 done <<< "$rules"
 
 #remove temporary drop-all
-qvm-firewall --raw "$vm" del --rule-no=0 || { B_ERR="Failed to remove the temporary drop-all firewall rule." ; B_E }
+qvm-firewall --raw "$vm" del --rule-no=0 || { B_ERR="Failed to remove the temporary drop-all firewall rule." ; B_E ; }
 
 return 0
 }
@@ -1455,7 +1455,7 @@ function b_dom0_clearFirewall {
 local vm="$1"
 
 #temporarily insert drop-all to avoid excessive permissions during modification
-qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E }
+qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E ; }
 
 while qvm-firewall --raw "$vm" del --rule-no=1 &> /dev/null ; do
 	:
@@ -1463,11 +1463,11 @@ done
 
 #double check
 local rules=
-rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing firewall rules for the VM $vm." ; B_E }
-[[ "$rules" == "action=drop" ]] || { B_ERR="Failed to correctly remove the firewall rules for the VM $vm. Remaining rules:"$'\n'"$rules" ; B_E }
+rules="$(qvm-firewall "$vm" --raw list)" || { B_ERR="Failed to obtain the existing firewall rules for the VM $vm." ; B_E ; }
+[[ "$rules" == "action=drop" ]] || { B_ERR="Failed to correctly remove the firewall rules for the VM $vm. Remaining rules:"$'\n'"$rules" ; B_E ; }
 
 #remove temporary drop-all
-qvm-firewall --raw "$vm" del --rule-no=0 || { B_ERR="Failed to remove the temporary drop-all firewall rule." ; B_E }
+qvm-firewall --raw "$vm" del --rule-no=0 || { B_ERR="Failed to remove the temporary drop-all firewall rule." ; B_E ; }
 
 return 0
 }

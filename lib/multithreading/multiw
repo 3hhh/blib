@@ -55,14 +55,14 @@ local file="$1"
 [ -e "$file" ] && [ ! -h "$file" ] && B_ERR="The file $file cannot be managed by multiw as it already appears to be used otherwise." && B_E
 
 local rand=
-rand="$(shuf -i 0-999999999 -n1)" || { B_ERR="Failed to generate a random number." ; B_E }
+rand="$(shuf -i 0-999999999 -n1)" || { B_ERR="Failed to generate a random number." ; B_E ; }
 local realFileProg="${file}.$rand.multiw.prog"
 local realFileDone="${file}.$rand.multiw.done"
 [ -e "$realFileProg" ] && B_ERR="Unexpected file name clash ($realFileProg)." && B_E
 [ -e "$realFileDone" ] && B_ERR="Unexpected file name clash ($realFileDone)." && B_E
 
 #write (non-atomic)
-cat - > "$realFileProg" || { B_ERR="Write error for the file $realFileProg." ; B_E }
+cat - > "$realFileProg" || { B_ERR="Write error for the file $realFileProg." ; B_E ; }
 
 #get the file list to remove later (non-atomic)
 #maybe TODO: make it less expensive
@@ -83,7 +83,7 @@ for rem in "$file".*.multiw.done ; do
 done
 
 #mark our work as done (atomic, but not needed)
-mv -f "$realFileProg" "$realFileDone" || { B_ERR="Failed to mark $realFileProg as done." ; B_E }
+mv -f "$realFileProg" "$realFileDone" || { B_ERR="Failed to mark $realFileProg as done." ; B_E ; }
 
 #Potential racing condition here:
 #Another process observes that we marked our realFile as done, updates his to done as well, sets the symlink, removes our file, we update the symlink to a removed file. --> that's why we need to assume that this process hangs for at most ${BLIB_STORE["BLIB_MULTIW_MAX_HANG"]} seconds
@@ -91,8 +91,8 @@ mv -f "$realFileProg" "$realFileDone" || { B_ERR="Failed to mark $realFileProg a
 #replace symlink (the mv is atomic)
 local tmp="$realFileDone.tmp"
 [ -e "$tmp" ] && B_ERR="Unexpected temp file clash ($tmp)." && B_E
-ln -s "$realFileDone" "$tmp" || { B_ERR="Failed to create a symlink for $realFileDone." ; B_E }
-mv -f -T "$tmp" "$file" || { B_ERR="Failed to update the target file $file symlink." ; B_E }
+ln -s "$realFileDone" "$tmp" || { B_ERR="Failed to create a symlink for $realFileDone." ; B_E ; }
+mv -f -T "$tmp" "$file" || { B_ERR="Failed to update the target file $file symlink." ; B_E ; }
 
 #remove the older files
 #NOTE: this will not cause issues to currently on-going read operations as open handles will remain present

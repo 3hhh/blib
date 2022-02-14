@@ -29,8 +29,8 @@ BLIB_STORE["BLIB_IPCV_TEMP_NAME"]="temp"
 BLIB_STORE["BLIB_IPCV_TEMP"]="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/${BLIB_STORE["BLIB_IPCV_TEMP_NAME"]}"
 
 #safety check & some init
-findmnt "/dev/shm" &> /dev/null || { B_ERR="Your system does not appear to use /dev/shm. Thus you cannot use the ipcv module." ; B_E }
-mkdir -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}" || { B_ERR="Failed to create the directory $BLIB_IPCV_TEMP." ; B_E }
+findmnt "/dev/shm" &> /dev/null || { B_ERR="Your system does not appear to use /dev/shm. Thus you cannot use the ipcv module." ; B_E ; }
+mkdir -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}" || { B_ERR="Failed to create the directory $BLIB_IPCV_TEMP." ; B_E ; }
 
 #+### Functions ###
 
@@ -69,21 +69,21 @@ blib_ipcv_assertCorrectNamespace "$ns" || B_E
 shift
 
 local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
-mkdir -p "$nsDir" || { B_ERR="Failed to create the directory for the namespace at $nsDir." ; B_E }
+mkdir -p "$nsDir" || { B_ERR="Failed to create the directory for the namespace at $nsDir." ; B_E ; }
 
 local ret=0
 local tmp=
 local out=
 local var=
 for var in "$@" ; do
-	tmp="$(mktemp -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}")" || { B_ERR="Failed to create a temporary memory object." ; B_E }
-	out="$(declare -p "$var")" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to find the variable ${var}." ; B_E }
+	tmp="$(mktemp -p "${BLIB_STORE["BLIB_IPCV_TEMP"]}")" || { B_ERR="Failed to create a temporary memory object." ; B_E ; }
+	out="$(declare -p "$var")" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to find the variable ${var}." ; B_E ; }
 
 	#NOTE: unfortunately declare -p doesn't save the very important -g in some bash versions --> we need to add it
-	echo "${out/declare/declare -g}" > "$tmp" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to write the variable ${var}." ; B_E }
+	echo "${out/declare/declare -g}" > "$tmp" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to write the variable ${var}." ; B_E ; }
 
 	#NOTE: the below mv should be atomic on almost all Linux distros
-	mv -f "$tmp" "$nsDir/$var" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to move a temporary memory object for the variable $var." ; B_E }
+	mv -f "$tmp" "$nsDir/$var" || { rm -f "$tmp" &> /dev/null ; B_ERR="Failed to move a temporary memory object for the variable $var." ; B_E ; }
 done
 
 return 0
@@ -146,7 +146,7 @@ for varPath in "$nsDir"/* "$nsDir"/.[^.]* ; do
 	vars+=( "$var" )
 done
 
-blib_ipcv_load "$ns" "${vars[@]}" || { B_ERR="Failed to load the namespace $ns." ; B_E }
+blib_ipcv_load "$ns" "${vars[@]}" || { B_ERR="Failed to load the namespace $ns." ; B_E ; }
 return 0
 }
 
@@ -185,7 +185,7 @@ blib_ipcv_assertCorrectNamespace "$ns" || B_E
 
 local nsDir="${BLIB_STORE["BLIB_IPCV_SHM_BASE"]}/$ns"
 if [ -d "$nsDir" ] ; then
-	rm -rf "$nsDir" || { B_ERR="Failed to unset the namespace ${ns}." ; B_E }
+	rm -rf "$nsDir" || { B_ERR="Failed to unset the namespace ${ns}." ; B_E ; }
 else
 	[ -e "$nsDir" ] && B_ERR="Invalid namespace $ns provided ($nsDir appears to be no directory)." && B_E
 fi

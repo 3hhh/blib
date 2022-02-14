@@ -57,7 +57,7 @@ local signal="$1"
 
 local re='^[0-9]+$'
 if [[ ! $signal =~ $re ]] ; then
-	signal="$(kill -l "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+	signal="$(kill -l "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E ; }
 fi
 echo "$signal"
 }
@@ -75,7 +75,7 @@ local signal="$2"
 local timeout="${3:-0}"
 
 if [ -n "$signal" ] ; then
-	signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+	signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E ; }
 	local cmd="kill -s $signal $pid"
 else
 	local cmd="kill $pid"
@@ -105,7 +105,7 @@ local regex="$1"
 local signal="${2:-"SIGTERM"}"
 local timeout="${3:-0}"
 
-signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E ; }
 
 local cmd=
 printf -v cmd 'killall -s %q -wr %q' "$signal" "$regex"

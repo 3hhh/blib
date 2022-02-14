@@ -145,7 +145,7 @@ printf '%s' "$1" | b_types_parseInteger &> /dev/null
 #+returns: Nothing. If it's no integer, [B_E](#B_E) is called.
 #+@B_E
 function b_types_assertInteger {
-b_types_isInteger "$1" || { B_ERR="${2:-"No integer: $1"}" ; B_E }
+b_types_isInteger "$1" || { B_ERR="${2:-"No integer: $1"}" ; B_E ; }
 }
 
 #+b_types_int [cmd] [cmd arg 1] ... [cmd arg n]
@@ -208,7 +208,7 @@ return 1
 #+returns: Nothing. If doesn't look like a bash array, [B_E](#B_E) is called.
 #+@B_E
 function b_types_assertLooksLikeArray {
-b_types_looksLikeArray "$1" || { B_ERR="${2:-"Doesn't look like a bash array: $1"}" ; B_E }
+b_types_looksLikeArray "$1" || { B_ERR="${2:-"Doesn't look like a bash array: $1"}" ; B_E ; }
 }
 
 #+b_types_looksLikeMap [string]
@@ -245,5 +245,5 @@ return 1
 #+returns: Nothing. If doesn't look like a bash array, [B_E](#B_E) is called.
 #+@B_E
 function b_types_assertLooksLikeMap {
-b_types_looksLikeMap "$1" || { B_ERR="${2:-"Doesn't look like a bash map: $1"}" ; B_E }
+b_types_looksLikeMap "$1" || { B_ERR="${2:-"Doesn't look like a bash map: $1"}" ; B_E ; }
 }

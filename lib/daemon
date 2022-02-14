@@ -65,7 +65,7 @@ b_daemon_init
 function blib_daemon_assertGoodId {
 local id="$1"
 local allowedRe='^[0-9a-zA-Z\.\+_:~-]+$'
-[[ "$id" =~ $allowedRe ]] || { B_ERR="The given ID $id doesn't match the allowed regex $allowedRe." ; B_E }
+[[ "$id" =~ $allowedRe ]] || { B_ERR="The given ID $id doesn't match the allowed regex $allowedRe." ; B_E ; }
 return 0
 }
 
@@ -93,13 +93,13 @@ printf -v stdout '%q' "${BLIB_STORE["BLIB_DAEMON_STDOUT"]}"
 printf -v stderr '%q' "${BLIB_STORE["BLIB_DAEMON_STDERR"]}"
 
 #block the mutex with our own block id
-mkdir -p "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}." ; B_E }
-b_mtx_try "$mtx" "$$" 0 1 &> /dev/null || { B_ERR="The daemon $id appears to be running already." ; B_E }
+mkdir -p "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}." ; B_E ; }
+b_mtx_try "$mtx" "$$" 0 1 &> /dev/null || { B_ERR="The daemon $id appears to be running already." ; B_E ; }
 
 #start daemon
 #NOTE: we "double fork" to make sure the parent is dead; this should make sure that the daemon can never acquire /dev/console, cf. https://stackoverflow.com/questions/881388/what-is-the-reason-for-performing-a-double-fork-when-creating-a-daemon
 local pidFile=
-pidFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
+pidFile="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E ; }
 { {	B_DAEMON_ID="$id"
 
 	#close all non-standard FDs
@@ -119,7 +119,7 @@ echo "$!" > "$pidFile"
 } &
 
 #wait for intermediate process to die
-wait $! || { B_ERR="The intermediate process returned a non-zero exit code." ; B_E }
+wait $! || { B_ERR="The intermediate process returned a non-zero exit code." ; B_E ; }
 
 #get the pid of the child
 local pid="$(<"$pidFile")"
@@ -149,7 +149,7 @@ local id="$1"
 local signal="${2:-15}"
 local timeout="${3:-0}"
 
-signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E ; }
 
 blib_daemon_info "Stopping ${id}..."
 
@@ -171,10 +171,10 @@ esac
 
 #kill daemon
 local ret=0
-kill -s "$signal" "$pid" &> /dev/null || { B_ERR="${id} could not be terminated. Insufficient access rights?" ; B_E }
+kill -s "$signal" "$pid" &> /dev/null || { B_ERR="${id} could not be terminated. Insufficient access rights?" ; B_E ; }
 b_proc_waitForPid "$pid" "$timeout"
 if b_proc_pidExists "$pid" ; then
-	kill -9 "$pid" &> /dev/null || { B_ERR="${id} could not be killed. Insufficient access rights?" ; B_E }
+	kill -9 "$pid" &> /dev/null || { B_ERR="${id} could not be killed. Insufficient access rights?" ; B_E ; }
 	blib_daemon_info "${id} had to be killed."
 	ret=2
 fi
@@ -284,7 +284,7 @@ function b_daemon_sendSignal {
 local id="$1"
 local signal="$2"
 
-signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E }
+signal="$(b_proc_resolveSignal "$signal")" || { B_ERR="Failed to resolve the signal $signal." ; B_E ; }
 
 #get pid
 local pid=
@@ -303,6 +303,6 @@ case $? in
 esac
 
 #send signal
-kill -s "$signal" "$pid" &> /dev/null || { B_ERR="Failed to send the $signal signal to ${id}. Insufficient access rights?" ; B_E }
+kill -s "$signal" "$pid" &> /dev/null || { B_ERR="Failed to send the $signal signal to ${id}. Insufficient access rights?" ; B_E ; }
 return 0
 }

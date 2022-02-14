@@ -34,7 +34,7 @@ local prog="${BLIB_HASH_PROGRAMS["$algo"]}"
  b_deps "$prog"
 
 local out=
-out="$($prog "$file")" || { B_ERR="Failed to execute $prog." ; B_E }
+out="$($prog "$file")" || { B_ERR="Failed to execute $prog." ; B_E ; }
 echo "${out%% *}"
 }
 
@@ -55,6 +55,6 @@ local prog="${BLIB_HASH_PROGRAMS["$algo"]}"
  b_deps "$prog"
 
 local out=
-out="$($prog <<< "$str")" || { B_ERR="Failed to execute $prog." ; B_E }
+out="$($prog <<< "$str")" || { B_ERR="Failed to execute $prog." ; B_E ; }
 echo "${out%% *}"
 }

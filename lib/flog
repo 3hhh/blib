@@ -140,22 +140,22 @@ BLIB_STORE["BLIB_FLOG_INTERMEDIATE"]="${5:-$(b_getDefaultMessageHandlerIntermedi
 
 #generate ID (exactly one ID per output must be generated)
 local path="$(readlink -m "${BLIB_STORE["BLIB_FLOG_FILENAME"]}")"
-BLIB_STORE["BLIB_FLOG_ID"]="$(b_hash_str "$path")" || { B_ERR="Failed to obtain the md5 sum for $path." ; B_E }
+BLIB_STORE["BLIB_FLOG_ID"]="$(b_hash_str "$path")" || { B_ERR="Failed to obtain the md5 sum for $path." ; B_E ; }
 
 #create the mutex directory, if needed
 if [ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] ; then
-	mkdir -p "${BLIB_STORE["BLIB_FLOG_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIBBLIB_STORE["BLIB_FLOG_MTX_DIR"]}." ; B_E }
+	mkdir -p "${BLIB_STORE["BLIB_FLOG_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIBBLIB_STORE["BLIB_FLOG_MTX_DIR"]}." ; B_E ; }
 fi
 
 #create the output file, if needed
 if [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] ; then
 	[[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != *"/"* ]] && B_ERR="Unexpected file name without slashes: ${BLIB_STORE["BLIB_FLOG_FILENAME"]}" && B_E
-	mkdir -p "${BLIB_STORE["BLIB_FLOG_FILENAME"]%/*}" || { B_ERR="Failed to create the parent directories of ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E }
+	mkdir -p "${BLIB_STORE["BLIB_FLOG_FILENAME"]%/*}" || { B_ERR="Failed to create the parent directories of ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E ; }
 	[ ! -e "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] && > "${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
 fi
 
 #open the output for appending, let bash choose the file descriptor
-exec {BLIB_STORE["BLIB_FLOG_FD"]}>>"${BLIB_STORE["BLIB_FLOG_FILENAME"]}" || { B_ERR="Failed to open the log output ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E }
+exec {BLIB_STORE["BLIB_FLOG_FD"]}>>"${BLIB_STORE["BLIB_FLOG_FILENAME"]}" || { B_ERR="Failed to open the log output ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E ; }
 
 #set the init done flag
 BLIB_STORE["BLIB_FLOG_INIT_DONE"]=0
@@ -182,14 +182,14 @@ if  [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] && [ ${BLIB_STORE["B
 		[ ! -f "$log" ] && return 0
 
 		#count lines
-		cnt="$(b_fs_getLineCount "$log")" || { B_ERR="Failed to count the number of lines of ${log}." ; B_E }
+		cnt="$(b_fs_getLineCount "$log")" || { B_ERR="Failed to count the number of lines of ${log}." ; B_E ; }
 		
 		#reduce if necessary
 		if [ $cnt -gt ${BLIB_STORE["BLIB_FLOG_LOG_LINES_UB"]} ] ; then
 			local tmp=""
-			tmp="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E }
-			tail -n ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} "$log" > "$tmp" || { B_ERR="Failed to reduce the log $log." ; B_E }
-			cat "$tmp" > "$log" || { B_ERR="Failed to write the reduced log back." ; B_E }
+			tmp="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E ; }
+			tail -n ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} "$log" > "$tmp" || { B_ERR="Failed to reduce the log $log." ; B_E ; }
+			cat "$tmp" > "$log" || { B_ERR="Failed to write the reduced log back." ; B_E ; }
 			rm -f "$tmp" &> /dev/null
 			b_flog_log "Reduced the log to its last ${BLIB_STORE["BLIB_FLOG_LOG_LINES_LB"]} lines." || B_E
 		fi
@@ -242,7 +242,7 @@ fi
 #obtain mutex, if necessary
 local mtx="${BLIB_STORE["BLIB_FLOG_MTX_DIR"]}/${BLIB_STORE["BLIB_FLOG_ID"]}"
 if [ ${BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]} -eq 0 ] ; then
-	b_mtx_waitFor "$mtx" "$BASHPID" 0 -1 > /dev/null || { B_ERR="Failed to obtain the log file mutex." ; B_E }
+	b_mtx_waitFor "$mtx" "$BASHPID" 0 -1 > /dev/null || { B_ERR="Failed to obtain the log file mutex." ; B_E ; }
 fi
 
 #write

@@ -209,10 +209,10 @@ local rawOut="$(mktemp)"
 local blockOut="$(mktemp)"
 
 #generate the final file list
-fileList="$(b_fs_enumerate "$fileList")" || { B_ERR="Failed to enumerate the file list." ; B_E }
+fileList="$(b_fs_enumerate "$fileList")" || { B_ERR="Failed to enumerate the file list." ; B_E ; }
 
 #call doc begin callback
-${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document begin callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} returned an error." ; B_E }
+${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document begin callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} returned an error." ; B_E ; }
 
 #extract the documentation from the code / generate the raw doc
 local fname=""
@@ -238,9 +238,9 @@ while IFS= read -r fname ; do
 				if [ -n "$block" ] ; then
 					#call block callback
 					#NOTE: we do this in the current shell to support usage of global variables within the callback
-					${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat" > "$blockOut" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E }
+					${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} "$block" $blockCnt "$fname" "$outFormat" > "$blockOut" || { B_ERR="The block callback function ${BLIB_STORE["BLIB_CDOC_BLOCK_CALLBACK"]} returned an error." ; B_E ; }
 					#NOTE: the x stuff is just done in order to keep trailing newlines
-					block="$(cat "$blockOut" ; echo x)" || { B_ERR="Failed to read from the block output for the file $fname." ; B_E }
+					block="$(cat "$blockOut" ; echo x)" || { B_ERR="Failed to read from the block output for the file $fname." ; B_E ; }
 					block="${block%x}"
 					[ -n "$o" ] && o="${o}$block" || o="$block"
 					block=""
@@ -248,12 +248,12 @@ while IFS= read -r fname ; do
 				fi
 				lastMatched=1
 			fi
-		done < "$fname" || { B_ERR="Failed to read the code file $fname." ; B_E }
+		done < "$fname" || { B_ERR="Failed to read the code file $fname." ; B_E ; }
 		;;
 
 		"1")
 		#include as-is
-		o="$(cat "$fname" ; echo x)" || { B_ERR="Failed to read ${fname}." ; B_E }
+		o="$(cat "$fname" ; echo x)" || { B_ERR="Failed to read ${fname}." ; B_E ; }
 		o="${o%x}"
 		;;
 
@@ -269,14 +269,14 @@ while IFS= read -r fname ; do
 	esac
 
 	#call post processing callback
-	${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} "$o" "$fname" "$outFormat" >> "$rawOut" || { B_ERR="The post processing callback function ${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} returned an error." ; B_E }
+	${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} "$o" "$fname" "$outFormat" >> "$rawOut" || { B_ERR="The post processing callback function ${BLIB_STORE["BLIB_CDOC_POST_PROCESSING_CALLBACK"]} returned an error." ; B_E ; }
 done <<< "$fileList"
 
 #cleanup
 rm -f "$blockOut"
 
 #call doc end callback
-${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document end callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} returned an error." ; B_E }
+${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} "$outFile" "$outFormat" >> "$rawOut" || { B_ERR="The document end callback function ${BLIB_STORE["BLIB_CDOC_DOCUMENT_END_CALLBACK"]} returned an error." ; B_E ; }
 
 #convert to output format if needed
 if [ -n "$outFormat" ] ; then
@@ -284,13 +284,13 @@ if [ -n "$outFormat" ] ; then
 	[[ "$outFormat" != "pandoc" ]] && formatParam="-t $outFormat"
 	
 	#call pandoc
-	pandoc "${@:4}" $internalAddOptions $formatParam -o "$outFile" "$rawOut" || { B_ERR="Errors detected during the pandoc conversion. Please review the pandoc output for details." ; B_E }
+	pandoc "${@:4}" $internalAddOptions $formatParam -o "$outFile" "$rawOut" || { B_ERR="Errors detected during the pandoc conversion. Please review the pandoc output for details." ; B_E ; }
 
 	#cleanup
 	rm -f "$rawOut"
 else
 	#no conversion required --> move raw file to output
-	mv -f "$rawOut" "$outFile" || { B_ERR="Failed to move the raw output in $rawOut to $outFile." ; B_E }
+	mv -f "$rawOut" "$outFile" || { B_ERR="Failed to move the raw output in $rawOut to $outFile." ; B_E ; }
 fi
 
 return 0
@@ -319,7 +319,7 @@ case "$outFormat" in
 	;;
 
 	pdf)
-	[[ "$cdocOutput" == *".pdf" ]] || { B_ERR="Currently only output files of format pdf with a pdf file ending are supported. So please adjust your file name." ; B_E }
+	[[ "$cdocOutput" == *".pdf" ]] || { B_ERR="Currently only output files of format pdf with a pdf file ending are supported. So please adjust your file name." ; B_E ; }
 	cdocOutFormat="pandoc"
 	;;
 
@@ -344,7 +344,7 @@ esac
 
 #generate the doc
 local out=""
-out="$(b_cdoc_generate "$fileList" "$cdocOutput" "$cdocOutFormat" "${cdocAdditional[@]}")" || { B_ERR="Failed to generate the doc: $out" ; B_E }
+out="$(b_cdoc_generate "$fileList" "$cdocOutput" "$cdocOutFormat" "${cdocAdditional[@]}")" || { B_ERR="Failed to generate the doc: $out" ; B_E ; }
 
 #return
 echo "$cdocOutput"

@@ -59,8 +59,8 @@ fi
 #special case: empty map which might not have an equal sign in its declaration
 [[ $spec1 == *"="* ]] && spec1="declare -A arr1=${spec1#*=}" || spec1="declare -A arr1"
 [[ $spec2 == *"="* ]] && spec2="declare -A arr2=${spec2#*=}" || spec2="declare -A arr2"
-eval "$spec1" || { B_ERR="First eval failed." ; B_E }
-eval "$spec2" || { B_ERR="Second eval failed." ; B_E }
+eval "$spec1" || { B_ERR="First eval failed." ; B_E ; }
+eval "$spec2" || { B_ERR="Second eval failed." ; B_E ; }
 
 #compare
 [ ${#arr1[@]} -ne ${#arr2[@]} ] && return 1
