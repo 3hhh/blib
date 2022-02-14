@@ -1,0 +1,4 @@
+# shellcheck config file
+
+# shellcheck cannot correctly detect unused variables in blib, so disable it
+disable=SC2034
