@@ -103,6 +103,7 @@ echo -n "$severity"
 #+@StateChanging
 function b_flog_close {
 #close the file descriptor
+# shellcheck disable=SC1083
 [ -n "${BLIB_STORE["BLIB_FLOG_FD"]}" ] && exec {BLIB_STORE["BLIB_FLOG_FD"]}>&-
 blib_flog_reset
 return 0
@@ -139,7 +140,8 @@ BLIB_STORE["BLIB_FLOG_THREAD_SAFE"]="${4:-1}"
 BLIB_STORE["BLIB_FLOG_INTERMEDIATE"]="${5:-$(b_getDefaultMessageHandlerIntermediate)}"
 
 #generate ID (exactly one ID per output must be generated)
-local path="$(readlink -m "${BLIB_STORE["BLIB_FLOG_FILENAME"]}")"
+local path=
+path="$(readlink -m "${BLIB_STORE["BLIB_FLOG_FILENAME"]}")" || { B_ERR="Failed to run readlink on ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E ; }
 BLIB_STORE["BLIB_FLOG_ID"]="$(b_hash_str "$path")" || { B_ERR="Failed to obtain the md5 sum for $path." ; B_E ; }
 
 #create the mutex directory, if needed
@@ -151,10 +153,11 @@ fi
 if [[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != "/dev/"* ]] ; then
 	[[ "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" != *"/"* ]] && B_ERR="Unexpected file name without slashes: ${BLIB_STORE["BLIB_FLOG_FILENAME"]}" && B_E
 	mkdir -p "${BLIB_STORE["BLIB_FLOG_FILENAME"]%/*}" || { B_ERR="Failed to create the parent directories of ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E ; }
-	[ ! -e "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] && > "${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
+	[ ! -e "${BLIB_STORE["BLIB_FLOG_FILENAME"]}" ] && : > "${BLIB_STORE["BLIB_FLOG_FILENAME"]}"
 fi
 
 #open the output for appending, let bash choose the file descriptor
+# shellcheck disable=SC1083
 exec {BLIB_STORE["BLIB_FLOG_FD"]}>>"${BLIB_STORE["BLIB_FLOG_FILENAME"]}" || { B_ERR="Failed to open the log output ${BLIB_STORE["BLIB_FLOG_FILENAME"]}." ; B_E ; }
 
 #set the init done flag
@@ -298,6 +301,7 @@ if [ $ret -ne 0 ] ; then
 	echo "ERROR: Failed to log a message due to the following error: $B_ERR" >&2
 	echo "Exit code: $ret" >&2
 	echo "Original message: $msg" >&2
+	# shellcheck disable=SC2155
 	local stack="$(b_printStackTrace 1)"
 	echo "Stack Trace:"$'\n'"$stack" >&2
 	B_ERR=""

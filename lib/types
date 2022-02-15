@@ -78,7 +78,7 @@ function b_types_str {
 
 local ret=
 "$@" | b_types_parseString
-ret=(${PIPESTATUS[@]})
+ret=("${PIPESTATUS[@]}")
 [ ${ret[1]} -ne 0 ] && B_ERR="The command \"$1\" did not return a string." && B_E
 return ${ret[0]}
 }
@@ -115,9 +115,8 @@ blib_types_printInteger "$str"
 #+@B_E
 function b_types_parseInteger {
 if [ $B_TYPES_CHECK_NON_BINARY -eq 0 ] ; then
-	local ret=
 	b_types_parseString "ascii" | blib_types_parseInteger 2> /dev/null
-	ret=(${PIPESTATUS[@]})
+	local ret=("${PIPESTATUS[@]}")
 	[ ${ret[0]} -ne 0 ] && return 2
 	[ ${ret[1]} -ne 0 ] && return 1
 else
@@ -158,9 +157,8 @@ b_types_isInteger "$1" || { B_ERR="${2:-"No integer: $1"}" ; B_E ; }
 function b_types_int {
 [ -z "$1" ] && B_ERR="No command specified." && B_E
 
-local ret=
 "$@" | b_types_parseInteger 2> /dev/null
-ret=(${PIPESTATUS[@]})
+local ret=("${PIPESTATUS[@]}")
 [ ${ret[1]} -ne 0 ] && B_ERR="The command \"$1\" did not return an integer." && B_E
 return ${ret[0]}
 }

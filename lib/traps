@@ -53,6 +53,7 @@ else
 	new="${toAdd}${old}"
 fi
 
+# shellcheck disable=SC2064
 trap "$new" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E ; }
 }
 
@@ -106,5 +107,6 @@ done <<< "$old"
 [ $linesRemoved -ne 0 ] && B_ERR="Didn't find any tag named $tag." && B_E
 [ $inRemoveTag -ne 1 ] && B_ERR="Failed to find the closing line for the tag $tag." && B_E
 
+# shellcheck disable=SC2064
 trap "$new" "$signal" 2> /dev/null || { B_ERR="Failed to set the new trap for the signal $signal." ; B_E ; }
 }

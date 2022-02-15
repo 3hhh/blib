@@ -169,7 +169,8 @@ elif [ -f "$in" ] ; then
 	loop="$(losetup -j "$in" -O "name" --raw -n)" || { B_ERR="Failed to execute losetup -j." ; B_E ; }
 	file="$in"
 	[ -z "$loop" ] && return 0
-	local loopCnt="$(echo "$loop" | wc -l)"
+	local loopCnt=
+	loopCnt="$(echo "$loop" | wc -l)" || { B_ERR="Failed to execute wc." ; B_E ; }
 	[ $loopCnt -ne 1 ] && { B_ERR="$loopCnt loop devices detected for $in. Backing off..." ; B_E ; }
 else
 	return 0

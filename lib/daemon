@@ -122,6 +122,7 @@ echo "$!" > "$pidFile"
 wait $! || { B_ERR="The intermediate process returned a non-zero exit code." ; B_E ; }
 
 #get the pid of the child
+# shellcheck disable=SC2155
 local pid="$(<"$pidFile")"
 [ -z "$pid" ] && B_ERR="Failed to retrieve the PID of the daemon just started from $pidFile." && B_E
 rm -f "$pidFile" &> /dev/null

@@ -15,7 +15,7 @@ b_deps "notify-send" "getent" "su" "id"
 #@B_E
 function blib_notify_send {
 local env="$1"
-shift 2
+shift
 
 [[ "$env" == ";"* ]] && env="${env:1}"
 ( eval "$env" && notify-send "$@" ) || { B_ERR="Failed to execute notify-send." ; B_E ; }
@@ -89,7 +89,7 @@ if [ $EUID -eq 0 ] || [[ ! "$DBUS_SESSION_BUS_ADDRESS" =~ $re ]] || [ ! -e "${BA
 	return 0
 fi
 
-blib_notify_send "$env" "$prefix" "$@" || { B_ERR="Failed to execute notify-send." ; B_E ; }
+blib_notify_send "$env" "$@" || { B_ERR="Failed to execute notify-send." ; B_E ; }
 }
 
 #+b_notify_sendNoError [arg 1] ... [arg n]

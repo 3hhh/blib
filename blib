@@ -289,7 +289,9 @@ local minMinor="${2:-0}"
 local maxMajor="$3"
 local maxMinor="$4"
 
+# shellcheck disable=SC2155
 local major="$(b_version 1)"
+# shellcheck disable=SC2155
 local minor="$(b_version 2)"
 
 if [ $major -gt $minMajor ] ; then
@@ -345,6 +347,7 @@ if [ $sendErr -eq 0 ] ; then
 fi
 
 if [ $sendStack -eq 0 ] ; then
+	# shellcheck disable=SC2155
 	local stack="$(b_printStackTrace 1)"
 	b_error "Stack Trace:"$'\n'"$stack" $firstMsg 1
 	firstMsg=1
@@ -421,7 +424,7 @@ local lastInd=$(( ${#BLIB_ERR_HANDLER_LAST[@]} -1 ))
 local last="b_defaultErrorHandler"
 if [ $lastInd -ge 0 ] ; then
 	last="${BLIB_ERR_HANDLER_LAST[$lastInd]}"
-	unset BLIB_ERR_HANDLER_LAST[$lastInd]
+	unset 'BLIB_ERR_HANDLER_LAST[$lastInd]'
 fi
 BLIB_STORE_VOLATILE["BLIB_ERR_HANDLER"]="$last"
 
@@ -834,7 +837,7 @@ This binary however provides some information to library users.
 [command] may be one of:
 list 			list all available modules
 info [module]		print the description of the given module including all functions and global variables made available by the module
-gendoc [-t] [format]	generate the blib code documentation in the given format at "${BLIB_STORE["BLIB_DOC_DIR"]}"
+gendoc [-t] [format]	generate the blib code documentation in the given format at ${BLIB_STORE["BLIB_DOC_DIR"]}
 			-t	: include the test code documentation
 			[format]: one of raw, md, pdf, html, man (default: raw)
 test [module]		run unit tests for the given module; if no module is specified, run all available unit tests
@@ -1061,7 +1064,7 @@ return $ret
 function b_isModule {
 local modTest="$1"
 #execute in subshell to avoid error out:
-$(blib_getModulePath "$modTest" &> /dev/null)
+(blib_getModulePath "$modTest" &> /dev/null)
 }
 
 #getDocHeader [doc format]
@@ -1071,6 +1074,7 @@ $(blib_getModulePath "$modTest" &> /dev/null)
 function blib_getDocHeader {
 local header=""
 local format="$1"
+# shellcheck disable=SC2155
 local version="$(b_version)"
 read -r -d '' header << 'EOF'
 ---
@@ -1218,6 +1222,7 @@ done < "$modulePath"
 
 #see usage
 function blib_list {
+# shellcheck disable=SC2155
 local mods="$(b_getBlibModules)"
 
 local module=""

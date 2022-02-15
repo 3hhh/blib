@@ -130,6 +130,7 @@ done
 function blib_args_parseSingleOpt {
 local opt="$1"
 
+# shellcheck disable=SC2155
 local ind="${opt}_$(blib_args_getNextIndex "$opt")"
 B_ARGS_OPTS["$ind"]=""
 local retArgs="${BLIB_ARGS_OPTCNT["$opt"]}"

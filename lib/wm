@@ -58,6 +58,7 @@ while IFS= read -r line ; do
 	fi
 done <<< "$input"
 
-ret="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the wmctrl output." ; B_E ; }
-echo "${ret/declare -A ret/declare -A $outVar}"
+local retStr=
+retStr="$(declare -p ret 2> /dev/null)" || { B_ERR="Failed to parse the wmctrl output." ; B_E ; }
+echo "${retStr/declare -A ret/declare -A $outVar}"
 }

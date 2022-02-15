@@ -123,6 +123,7 @@ fi
 
 	#open & create fs, if necessary
 	if [ -n "$fsType" ] ; then
+		# shellcheck disable=SC2155
 		local keyfileArgs="$(blib_dmcrypt_getOpenKeyfileArguments "$@")"
 		cryptsetup --type luks $keyfileArgs open "$path" "$mname" <<< "$pass"
 		mkfs -t "$fsType" "/dev/mapper/$mname" &> /dev/null

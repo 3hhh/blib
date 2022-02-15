@@ -156,6 +156,7 @@ else
 fi
 
 #mount r/w, if necessary
+#shellcheck disable=SC2155
 local dev="$(findmnt -n -o SOURCE -M "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}")"
 if [ -z "$dev" ] ; then
 	mount "${BLIB_STORE["BLIB_KEYS_DEV"]}" "${BLIB_STORE["BLIB_KEYS_MNT_RW"]}" || { b_keys_close ;  B_ERR="Failed to mount ${BLIB_STORE["BLIB_KEYS_DEV"]}." ; B_E ; }
@@ -165,6 +166,7 @@ else
 fi
 
 #mount r/o, if necessary
+#shellcheck disable=SC2155
 local dev="$(findmnt -n -o SOURCE -M "${BLIB_STORE["BLIB_KEYS_MNT_RO"]}")"
 if [ -z "$dev" ] ; then
 	(	set -e

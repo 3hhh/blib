@@ -205,8 +205,9 @@ local outFormat="$3"
 [ -n "$outFormat" ] && b_deps "pandoc"
 local internalAddOptions=""
 [ $# -le 3 ] && internalAddOptions="-s"
-local rawOut="$(mktemp)"
-local blockOut="$(mktemp)"
+local rawOut blockOut
+rawOut="$(mktemp)" || { B_ERR="Failed to allocate a temp file." ; B_E ; }
+blockOut="$(mktemp)" || { B_ERR="Failed to allocate a temp file." ; B_E ; }
 
 #generate the final file list
 fileList="$(b_fs_enumerate "$fileList")" || { B_ERR="Failed to enumerate the file list." ; B_E ; }

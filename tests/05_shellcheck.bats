@@ -21,7 +21,7 @@ function execShellcheck {
     if [ -f "$path" ] ; then
       echo "########################################################################################################"
       echo "Checking ${path}..."
-      shellcheck -s "bash" -S warning "$path" || ret=$?
+      shellcheck -s "bash" -S "warning" "$path" || ret=$?
     elif [ -d "$path" ] ; then
       local file=
       for file in "$path"/* ; do

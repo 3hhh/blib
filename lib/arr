@@ -62,6 +62,11 @@ fi
 eval "$spec1" || { B_ERR="First eval failed." ; B_E ; }
 eval "$spec2" || { B_ERR="Second eval failed." ; B_E ; }
 
+# shellcheck disable=SC2154
+declare -p arr1 &> /dev/null || { B_ERR="The first map spec was invalid. The invalid code was executed!" ; B_E ; }
+# shellcheck disable=SC2154
+declare -p arr2 &> /dev/null || { B_ERR="The second map spec was invalid. The invalid code was executed!" ; B_E ; }
+
 #compare
 [ ${#arr1[@]} -ne ${#arr2[@]} ] && return 1
 local key=

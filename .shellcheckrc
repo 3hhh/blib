@@ -8,5 +8,8 @@ enable=quote-safe-variables
 # shellcheck cannot correctly detect unused variables in blib, so disable it
 disable=SC2034
 
+# libraries don't use all their arguments
+disable=SC2120
+
 # disable complaints about dynamic sourcing
 disable=SC1090
