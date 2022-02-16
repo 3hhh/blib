@@ -64,7 +64,7 @@ b_daemon_init
 #Check whether the ID conforms to what we need.
 function blib_daemon_assertGoodId {
 local id="$1"
-local allowedRe='^[0-9a-zA-Z\.\+_:~-]+$'
+local allowedRe='^[0-9a-zA-Z.+_:~-]+$'
 [[ "$id" =~ $allowedRe ]] || { B_ERR="The given ID $id doesn't match the allowed regex $allowedRe." ; B_E ; }
 return 0
 }

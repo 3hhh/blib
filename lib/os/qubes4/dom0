@@ -378,7 +378,7 @@ out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly retu
 #apply some sanity checks to the VM output otherwise as it is entirely untrusted
 #WARNING: a-zA-Z also allows utf-8 characters on many systems --> that's why this more restrictive explicit version was used here --> it may be too restrictive for some users though
 local line=""
-local pathRe='^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /~\.\+\-]+$'
+local pathRe='^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /~.+-]+$'
 while IFS= read -r line ; do
 	[[ "$line" =~ $pathRe ]] || { B_ERR="The sanity check for the output of VM $vm failed. Original output: $out" ; B_E ; }
 done <<< "$out"

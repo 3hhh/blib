@@ -88,7 +88,7 @@ return ${ret[0]}
 #returns: Sets a zero exit code, if it's an integer.
 function blib_types_printInteger {
 local str="$1"
-local re='^[\+-]?[0-9]+$'
+local re='^[+-]?[0-9]+$'
 [[ "$str" =~ $re ]] || return 1
 printf '%d\n' "$str"
 }

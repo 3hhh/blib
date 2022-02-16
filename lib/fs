@@ -198,7 +198,7 @@ function b_fs_parseSize {
 local str="$1"
 local checkFlag="${2:-0}"
 
-local re='^[[:space:]]*([\+\-]?)([0-9]+)([bBkKmMgGtTpP]?[bB]?)[[:space:]]*$'
+local re='^[[:space:]]*([+-]?)([0-9]+)([bBkKmMgGtTpP]?[bB]?)[[:space:]]*$'
 [[ "$str" =~ $re ]] || { B_ERR="Failed to parse the size: $str" ; B_E ; }
 
 local pref="${BASH_REMATCH[1]}"
