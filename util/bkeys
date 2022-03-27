@@ -45,9 +45,6 @@ The following commands are available:
 add [key id] [key path]
 	Add the given key found at [key path] to the system-wide key store under the ID [key id].
 
-	Options:
-	--remove	Safely remove the [key path] file after adding it to the key store.
-
 delete [key id]
 	Remove the key identified by [key id] from the system-wide key store.
 
@@ -81,10 +78,7 @@ b_keys_init "$appId" "$autoCreate" "tty" "" "$waitTime" "$store"
 }
 
 function addC {
-local keep=0
-b_args_getOption "--remove" > /dev/null && keep=1
-
-b_keys_add "$(b_args_get 1)" "$(b_args_get 2)" $keep
+b_keys_add "$(b_args_get 1)" "$(b_args_get 2)"
 }
 
 function deleteC {
@@ -126,7 +120,7 @@ local numArgs="$(b_args_getCount)"
 case "$cmd" in
 	"add")
 		[ $numArgs -eq 3 ] || usage
-		b_args_assertOptions "--app" "--store" "--wait" "--no-create" "--remove"
+		b_args_assertOptions "--app" "--store" "--wait" "--no-create"
 		initKeys
 		addC
 		;;
