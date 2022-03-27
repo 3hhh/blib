@@ -246,7 +246,7 @@ function b_fs_removeWithOverwrite {
 local file="$1"
 local rdev="${2:-/dev/urandom}"
 
-[ -f "$file" ] || { B_ERR="The file $file doesn't exist." ; B_E ; }
+[ -f "$file" ] || { B_ERR="Not a file: $file" ; B_E ; }
 [ -c "$rdev" ] || { B_ERR="Nonexisting randomness source: $rdev" ; B_E ; }
 
 local fsize=
@@ -295,7 +295,7 @@ function b_fs_removeRelativelySafely {
 local file="$1"
 local rdev="${2:-/dev/urandom}"
 
-[ -c "$rdev" ] || { B_ERR="Nonexisting randomness source: $rdev" ; B_E ; }
+[ -f "$file" ] || { B_ERR="Not a file: $file" ; B_E ; }
 
 local fdev=
 fdev="$(b_fs_getBlockDevice "$file")" || { B_ERR="Failed to get the block device for $file. Maybe it doesn't exist?" ; B_E ; }

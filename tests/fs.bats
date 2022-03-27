@@ -58,6 +58,10 @@ function teardown {
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 
+	runSL b_fs_removeWithOverwrite "/tmp/"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
 	local tmp=
 	tmp="$(mktemp)"
 	runSL dd if=/dev/zero of="$tmp" bs=100K count=1
@@ -120,6 +124,10 @@ function teardown {
 	skipIfNotRoot
 
 	runSL b_fs_removeRelativelySafely "/tmp/nonexisting"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	runSL b_fs_removeWithOverwrite "/tmp/"
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 
