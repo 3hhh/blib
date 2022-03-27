@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+#See usage().
+#
+#Copyright (C) 2022  David Hobach  GPLv3
+#version: 0.3
+#
+#This program is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+
+source blib
+b_checkVersion 1 5 || { >&2 echo "This script depends on blib (https://github.com/3hhh/blib) version 1.5 or higher. Please install a supported version." ; exit 1 ; }
+eval "$B_SCRIPT"
+
+b_import "fs"
+
+
+function usage {
+echo "Usage: $B_SCRIPT_NAME [file 1] ... [file n]
+
+Attempt to remove the given files in a _relatively_ safe way.
+There's no guarantee that the files are irreversibly removed, but the script tries to do its best."
+
+exit 1
+}
+
+function main {
+[ $# -lt 1 ] && usage
+b_enforceUser "root"
+
+local file=
+local errs=0
+b_setBE 1
+for file in "$@" ; do
+	b_fs_removeRelativelySafely "$file"
+	[ $? -ne 0 ] && errs=$(( $errs +1 )) && B_ERR=""
+done
+b_setBE 0
+
+[ "$errs" -eq 0 ]
+}
+
+main "$@"

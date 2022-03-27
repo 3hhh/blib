@@ -28,8 +28,8 @@ function execShellcheck {
         execShellcheck "$file" || ret=$?
       done
     else
-      #ignore
-      :
+      B_ERR="Not found: $path"
+      B_E
     fi
   done
   
@@ -44,6 +44,7 @@ function execShellcheck {
     "$B_LIB_DIR/installer"
     "$B_LIB_DIR/util/bkeys"
     "$B_LIB_DIR/util/blib-cdoc"
+    "$B_LIB_DIR/util/rm_relatively_safely"
     "$B_LIB_DIR/lib"
     )
   runSL execShellcheck "${paths[@]}"
