@@ -28,7 +28,7 @@ A complete overview of the available list of modules and functions can be obtain
 
 ### Portability
 
-blib is currently _only_ tested on Linux systems. Your mileage on other OSes (e.g. Unixes, BSD, Windows, ...) may vary. You can use the [functionaility tests](#functionality-tests) to see what works as expected.
+blib is currently _only_ tested on Linux systems. Your mileage on other OSes (e.g. Unixes, BSD, Windows, ...) may vary. You can use the [functionality tests](#functionality-tests) to see what works as expected.
 
 ## Table of contents
 
