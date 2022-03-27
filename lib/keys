@@ -12,10 +12,9 @@
 #+ - thread safe: no write operation can happen to a closed key store ([b_keys_close](#b_keys_close) and write operations are single threaded only)
 #+ - retrieved keys are read-only unless managed via this interface
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.6
+#+Copyright (C) 2022  David Hobach  LGPLv3
+#+0.7
 
-b_import fs
 b_import dmcrypt
 b_import multithreading/mtx
 b_deps "mkdir" "cat" "readlink" "cp" "rm" "findmnt" "find"
@@ -203,24 +202,19 @@ local target="${BLIB_STORE["BLIB_KEYS_MNT_RW"]}/${BLIB_STORE["BLIB_KEYS_APP_ID"]
 cp -n "$path" "$target" || { B_ERR="Failed to write to $target." ; B_E ; }
 }
 
-#+b_keys_add [key id] [key path] [keep flag]
+#+b_keys_add [key id] [key path]
 #+Add the given key to the key store.
 #+[key id]: Unique identifier for the key to add.
-#+[key path]: Full path to the key to add.
-#+[keep flag]: Keep the \[key path\] file after a successful copy operation (default: 0 / keep). If set to 1, it is safely removed from disk.
+#+[key path]: Full path to the key to add. It is _not_ removed. Use functions such as [b_fs_removeRelativelySafely](#b_fs_removeRelativelySafely) to do that.
 #+returns: Sets a zero exit code on success and errors out with [B_E](#B_E) otherwise.
 #+@B_E
 function b_keys_add {
 local id="$1"
 local path="$2"
-local kflag="${3:-0}"
 
 blib_keys_assertInitialized || B_E
 blib_mtx_op blib_keys_add_tu "$id" "$path" || B_E
 
-if [ $kflag -ne 0 ] ; then
-	b_fs_removeRelativelySafely "$path" || B_E
-fi
 return 0
 }
 

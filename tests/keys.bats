@@ -172,10 +172,10 @@ echo 1
 	local id2="test key 2"
 echo 2
 	b_keys_add "$id1" "$tkey1"
-	b_keys_add "$id2" "$tkey2" 1
+	b_keys_add "$id2" "$tkey2"
 echo 3
 	[ -f "$tkey1" ]
-	[ ! -e "$tkey2" ]
+	[ -f "$tkey2" ]
 echo 4
 	assertExistentKey "$id1" "$keycontent1"
 	assertExistentKey "$id2" "$keycontent2"
@@ -224,6 +224,7 @@ echo 11
 echo 12
 	#cleanup
 	rm -f "$tkey1"
+	rm -f "$tkey2"
 }
 
 @test "b_keys_add, get, getContent, getAll, delete" {
