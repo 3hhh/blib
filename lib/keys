@@ -219,7 +219,7 @@ blib_keys_assertInitialized || B_E
 blib_mtx_op blib_keys_add_tu "$id" "$path" || B_E
 
 if [ $kflag -ne 0 ] ; then
-	b_fs_removeWithOverwrite "$path" || B_E
+	b_fs_removeRelativelySafely "$path" || B_E
 fi
 return 0
 }
