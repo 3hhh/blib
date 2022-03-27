@@ -56,7 +56,7 @@ function teardown {
 @test "b_fs_removeWithOverwrite" {
 	runSL b_fs_removeWithOverwrite "/tmp/nonexistingfoo"
 	[ $status -ne 0 ]
-	[ -n "$output" ]
+	[[ "$output" == *"ERROR"* ]]
 
 	local tmp=
 	tmp="$(mktemp)"
@@ -70,15 +70,100 @@ function teardown {
 
 	runSL b_fs_removeWithOverwrite "$tmp" "/dev/nonexisting"
 	[ $status -ne 0 ]
-	[ -n "$output" ]
+	[[ "$output" == *"ERROR"* ]]
 
 	runSL b_fs_removeWithOverwrite "$tmp"
 	echo "$output"
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	[ ! -e "$tmp" ]
+}
 
-	#maybe TODO: test overwrite on ext4 with e.g. extundelete
+@test "b_fs_isRotatingDrive" {
+	runSL b_fs_isRotatingDrive "nonexisting"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	local devs="$(lsblk -dn -o name,rota)"
+	local dev rota
+	while IFS=' ' read -r dev rota ; do
+		[ $(( $RANDOM % 2 )) -eq 0 ] && dev="/dev/$dev"
+		runSL b_fs_isRotatingDrive "$dev"
+		echo "$dev: $rota"
+		[ $rota -eq 0 ] && [ $status -ne 0 ] || [ $status -eq 0 ]
+		[ -z "$output" ]
+	done <<< "$devs"
+}
+
+@test "b_fs_getBlockDevice" {
+	runSL b_fs_getBlockDevice "/foo/bar/nonexisting"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	local tfile="$(mktemp)"
+	[ -f "$tfile" ]
+
+	runSL b_fs_getBlockDevice "/tmp"
+	[ $status -eq 0 ]
+	[ -n "$output" ]
+	[[ "$output" != *"ERROR"* ]]
+	local tempDev="$output"
+
+	runSL b_fs_getBlockDevice "$tfile"
+	[ $status -eq 0 ]
+	[[ "$output" == "$tempDev" ]]
+
+	rm -f "$tfile"
+}
+
+@test "b_fs_removeRelativelySafely" {
+	skipIfNotRoot
+
+	runSL b_fs_removeRelativelySafely "/tmp/nonexisting"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR"* ]]
+
+	local tmp="$(mktemp)"
+	[ -f "$tmp" ]
+	echo "hello world!" > "$tmp"
+
+	runSL b_execFuncAs "root" b_fs_removeRelativelySafely "fs" - - "$tmp"
+	echo "$output"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+	[ ! -e "$tmp" ]
+}
+
+function testWriteReconstruction {
+	set -e -o pipefail
+	local dir="$1"
+
+	echo "Testing whether b_fs_removeRelativelySafely works as expected on $dir... If you see this, files removed with b_fs_removeRelativelySafely from there can likely be reconstructed."
+
+	[ -d "$dir" ] || { B_ERR="$dir not existing." ; B_E ; }
+	local tfile="$dir/blib_fs_bats_test_file"
+	[ ! -e "$tfile" ] || { B_ERR="$tfile already exists." ; B_E ; }
+
+	local tstring="blib_fs_bats_testWriteReconstruction_$RANDOM"
+	echo "$tstring" > "$tfile" || { B_ERR="Failed to write $tfile." ; B_E ; }
+
+	local bdev=
+	bdev="$(b_fs_getBlockDevice "$tfile")" || { B_ERR="Failed to get the block device for $tfile." ; B_E ; }
+	b_fs_removeRelativelySafely "$tfile" || exit 3
+
+	#give queued trims some time to execute on the disk
+	sleep 5
+
+	#check whether we find the test string on the device
+	strings "$bdev" | ( ! grep "$tstring" )
+}
+
+@test "b_fs_removeRelativelySafely - make sure that write reconstruction on $HOME doesn't work (slow, may fail)" {
+	skipIfNotRoot
+	runSC b_execFuncAs "root" testWriteReconstruction "fs" - - "$HOME"
+	echo "$output"
+	[ $status -eq 0 ]
+	[[ "$output" != *"ERROR"* ]]
 }
 
 @test "b_fs_getLineCount" {
