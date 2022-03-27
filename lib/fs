@@ -275,7 +275,7 @@ ret="$(lsblk -n -o name,rota "$dev")" || { B_ERR="The device $dev does not exist
 #+b_fs_getBlockDevice [file]
 #+Get the block device on which the given file or directory is stored.
 #+[file]: Full path to the file.
-#+returns: Full device path where the given file or directory is stored.
+#+returns: Full device path where the given file or directory is stored. May return pseudo file systems (e.g. tmpfs).
 #+@B_E
 function b_fs_getBlockDevice {
 local file="$1"
@@ -300,7 +300,10 @@ local rdev="${2:-/dev/urandom}"
 local fdev=
 fdev="$(b_fs_getBlockDevice "$file")" || { B_ERR="Failed to get the block device for $file. Maybe it doesn't exist?" ; B_E ; }
 
-if b_fs_isRotatingDrive "$fdev" ; then
+if [[ "$fdev" == "tmpfs" ]] || [[ "$fdev" == "ramfs" ]] ; then
+	#in RAM, pretty safe to just remove
+	rm -f "$file" || { B_ERR="Failed to remove the file $file." ; B_E ; }
+elif b_fs_isRotatingDrive "$fdev" ; then
 	b_fs_removeWithOverwrite "$file" "$rdev" || B_E
 else
 	#fstrim usually needs root privileges, so we check for it here

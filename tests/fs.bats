@@ -123,7 +123,8 @@ function teardown {
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 
-	local tmp="$(mktemp)"
+	[ -d "$HOME" ]
+	local tmp="$(mktemp -p "$HOME")"
 	[ -f "$tmp" ]
 	echo "hello world!" > "$tmp"
 
@@ -141,8 +142,8 @@ function testWriteReconstruction {
 	echo "Testing whether b_fs_removeRelativelySafely works as expected on $dir... If you see this, files removed with b_fs_removeRelativelySafely from there can likely be reconstructed."
 
 	[ -d "$dir" ] || { B_ERR="$dir not existing." ; B_E ; }
-	local tfile="$dir/blib_fs_bats_test_file"
-	[ ! -e "$tfile" ] || { B_ERR="$tfile already exists." ; B_E ; }
+	local tfile="$(mktemp -p "$dir")"
+	[ -f "$tfile" ] || { B_ERR="$tfile couldn't be created." ; B_E ; }
 
 	local tstring="blib_fs_bats_testWriteReconstruction_$RANDOM"
 	echo "$tstring" > "$tfile" || { B_ERR="Failed to write $tfile." ; B_E ; }
