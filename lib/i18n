@@ -1,0 +1,504 @@
+#!/bin/bash
+#
+#+Collection of data and functions related to internationalization.
+#+
+#+Copyright (C) 2022  David Hobach  LGPLv3
+#+0.2
+
+b_deps "shuf" "timedatectl"
+
+#+### Global Variables ###
+
+#+B_I18N_COUNTRY2TIMEZONE
+#+ISO 3166-2 country code --> newline-separated list of time zones in that country
+#original data: https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/xml/countries.xml
+#License: ODC Open Database License v1.0
+#```
+##!/bin/bash
+##script to transform the data into the i18n format
+#
+#set -e -o pipefail
+#
+#countryRe='^.*<iso2>([A-Z]{2})</iso2>.*$'
+#timezoneRe='^.*<zoneName>([^<]+)</zoneName>.*$'
+#last=""
+#while IFS= read -r line ; do
+#  if [[ "$line" =~ $countryRe ]] ; then
+#    [ -n "$last" ] && echo "$last"'"' && last=""
+#    last='["'"${BASH_REMATCH[1]}"'"]="'
+#  elif [[ "$line" =~ $timezoneRe ]] ; then
+#    [[ "$last" == *'"' ]] || last="$last"$'\n'
+#    last="${last}${BASH_REMATCH[1]}"
+#  fi
+#done < "countries.xml"
+#```
+declare -gA B_I18N_COUNTRY2TIMEZONE=(
+["AF"]="Asia/Kabul"
+["AX"]="Europe/Mariehamn"
+["AL"]="Europe/Tirane"
+["DZ"]="Africa/Algiers"
+["AS"]="Pacific/Pago_Pago"
+["AD"]="Europe/Andorra"
+["AO"]="Africa/Luanda"
+["AI"]="America/Anguilla"
+["AQ"]="Antarctica/Casey
+Antarctica/Davis
+Antarctica/DumontDUrville
+Antarctica/Mawson
+Antarctica/McMurdo
+Antarctica/Palmer
+Antarctica/Rothera
+Antarctica/Syowa
+Antarctica/Troll
+Antarctica/Vostok"
+["AG"]="America/Antigua"
+["AR"]="America/Argentina/Buenos_Aires
+America/Argentina/Catamarca
+America/Argentina/Cordoba
+America/Argentina/Jujuy
+America/Argentina/La_Rioja
+America/Argentina/Mendoza
+America/Argentina/Rio_Gallegos
+America/Argentina/Salta
+America/Argentina/San_Juan
+America/Argentina/San_Luis
+America/Argentina/Tucuman
+America/Argentina/Ushuaia"
+["AM"]="Asia/Yerevan"
+["AW"]="America/Aruba"
+["AU"]="Antarctica/Macquarie
+Australia/Adelaide
+Australia/Brisbane
+Australia/Broken_Hill
+Australia/Currie
+Australia/Darwin
+Australia/Eucla
+Australia/Hobart
+Australia/Lindeman
+Australia/Lord_Howe
+Australia/Melbourne
+Australia/Perth
+Australia/Sydney"
+["AT"]="Europe/Vienna"
+["AZ"]="Asia/Baku"
+["BH"]="Asia/Bahrain"
+["BD"]="Asia/Dhaka"
+["BB"]="America/Barbados"
+["BY"]="Europe/Minsk"
+["BE"]="Europe/Brussels"
+["BZ"]="America/Belize"
+["BJ"]="Africa/Porto-Novo"
+["BM"]="Atlantic/Bermuda"
+["BT"]="Asia/Thimphu"
+["BO"]="America/La_Paz"
+["BQ"]="America/Anguilla"
+["BA"]="Europe/Sarajevo"
+["BW"]="Africa/Gaborone"
+["BV"]="Europe/Oslo"
+["BR"]="America/Araguaina
+America/Bahia
+America/Belem
+America/Boa_Vista
+America/Campo_Grande
+America/Cuiaba
+America/Eirunepe
+America/Fortaleza
+America/Maceio
+America/Manaus
+America/Noronha
+America/Porto_Velho
+America/Recife
+America/Rio_Branco
+America/Santarem
+America/Sao_Paulo"
+["IO"]="Indian/Chagos"
+["BN"]="Asia/Brunei"
+["BG"]="Europe/Sofia"
+["BF"]="Africa/Ouagadougou"
+["BI"]="Africa/Bujumbura"
+["KH"]="Asia/Phnom_Penh"
+["CM"]="Africa/Douala"
+["CA"]="America/Atikokan
+America/Blanc-Sablon
+America/Cambridge_Bay
+America/Creston
+America/Dawson
+America/Dawson_Creek
+America/Edmonton
+America/Fort_Nelson
+America/Glace_Bay
+America/Goose_Bay
+America/Halifax
+America/Inuvik
+America/Iqaluit
+America/Moncton
+America/Nipigon
+America/Pangnirtung
+America/Rainy_River
+America/Rankin_Inlet
+America/Regina
+America/Resolute
+America/St_Johns
+America/Swift_Current
+America/Thunder_Bay
+America/Toronto
+America/Vancouver
+America/Whitehorse
+America/Winnipeg
+America/Yellowknife"
+["CV"]="Atlantic/Cape_Verde"
+["KY"]="America/Cayman"
+["CF"]="Africa/Bangui"
+["TD"]="Africa/Ndjamena"
+["CL"]="America/Punta_Arenas
+America/Santiago
+Pacific/Easter"
+["CN"]="Asia/Shanghai
+Asia/Urumqi"
+["CX"]="Indian/Christmas"
+["CC"]="Indian/Cocos"
+["CO"]="America/Bogota"
+["KM"]="Indian/Comoro"
+["CG"]="Africa/Brazzaville"
+["CK"]="Pacific/Rarotonga"
+["CR"]="America/Costa_Rica"
+["CI"]="Africa/Abidjan"
+["HR"]="Europe/Zagreb"
+["CU"]="America/Havana"
+["CW"]="America/Curacao"
+["CY"]="Asia/Famagusta
+Asia/Nicosia"
+["CZ"]="Europe/Prague"
+["CD"]="Africa/Kinshasa
+Africa/Lubumbashi"
+["DK"]="Europe/Copenhagen"
+["DJ"]="Africa/Djibouti"
+["DM"]="America/Dominica"
+["DO"]="America/Santo_Domingo"
+["TL"]="Asia/Dili"
+["EC"]="America/Guayaquil
+Pacific/Galapagos"
+["EG"]="Africa/Cairo"
+["SV"]="America/El_Salvador"
+["GQ"]="Africa/Malabo"
+["ER"]="Africa/Asmara"
+["EE"]="Europe/Tallinn"
+["ET"]="Africa/Addis_Ababa"
+["FK"]="Atlantic/Stanley"
+["FO"]="Atlantic/Faroe"
+["FJ"]="Pacific/Fiji"
+["FI"]="Europe/Helsinki"
+["FR"]="Europe/Paris"
+["GF"]="America/Cayenne"
+["PF"]="Pacific/Gambier
+Pacific/Marquesas
+Pacific/Tahiti"
+["TF"]="Indian/Kerguelen"
+["GA"]="Africa/Libreville"
+["GM"]="Africa/Banjul"
+["GE"]="Asia/Tbilisi"
+["DE"]="Europe/Berlin
+Europe/Busingen"
+["GH"]="Africa/Accra"
+["GI"]="Europe/Gibraltar"
+["GR"]="Europe/Athens"
+["GL"]="America/Danmarkshavn
+America/Nuuk
+America/Scoresbysund
+America/Thule"
+["GD"]="America/Grenada"
+["GP"]="America/Guadeloupe"
+["GU"]="Pacific/Guam"
+["GT"]="America/Guatemala"
+["GG"]="Europe/Guernsey"
+["GN"]="Africa/Conakry"
+["GW"]="Africa/Bissau"
+["GY"]="America/Guyana"
+["HT"]="America/Port-au-Prince"
+["HM"]="Indian/Kerguelen"
+["HN"]="America/Tegucigalpa"
+["HK"]="Asia/Hong_Kong"
+["HU"]="Europe/Budapest"
+["IS"]="Atlantic/Reykjavik"
+["IN"]="Asia/Kolkata"
+["ID"]="Asia/Jakarta
+Asia/Jayapura
+Asia/Makassar
+Asia/Pontianak"
+["IR"]="Asia/Tehran"
+["IQ"]="Asia/Baghdad"
+["IE"]="Europe/Dublin"
+["IL"]="Asia/Jerusalem"
+["IT"]="Europe/Rome"
+["JM"]="America/Jamaica"
+["JP"]="Asia/Tokyo"
+["JE"]="Europe/Jersey"
+["JO"]="Asia/Amman"
+["KZ"]="Asia/Almaty
+Asia/Aqtau
+Asia/Aqtobe
+Asia/Atyrau
+Asia/Oral
+Asia/Qostanay
+Asia/Qyzylorda"
+["KE"]="Africa/Nairobi"
+["KI"]="Pacific/Enderbury
+Pacific/Kiritimati
+Pacific/Tarawa"
+["XK"]="Europe/Belgrade"
+["KW"]="Asia/Kuwait"
+["KG"]="Asia/Bishkek"
+["LA"]="Asia/Vientiane"
+["LV"]="Europe/Riga"
+["LB"]="Asia/Beirut"
+["LS"]="Africa/Maseru"
+["LR"]="Africa/Monrovia"
+["LY"]="Africa/Tripoli"
+["LI"]="Europe/Vaduz"
+["LT"]="Europe/Vilnius"
+["LU"]="Europe/Luxembourg"
+["MO"]="Asia/Macau"
+["MK"]="Europe/Skopje"
+["MG"]="Indian/Antananarivo"
+["MW"]="Africa/Blantyre"
+["MY"]="Asia/Kuala_Lumpur
+Asia/Kuching"
+["MV"]="Indian/Maldives"
+["ML"]="Africa/Bamako"
+["MT"]="Europe/Malta"
+["IM"]="Europe/Isle_of_Man"
+["MH"]="Pacific/Kwajalein
+Pacific/Majuro"
+["MQ"]="America/Martinique"
+["MR"]="Africa/Nouakchott"
+["MU"]="Indian/Mauritius"
+["YT"]="Indian/Mayotte"
+["MX"]="America/Bahia_Banderas
+America/Cancun
+America/Chihuahua
+America/Hermosillo
+America/Matamoros
+America/Mazatlan
+America/Merida
+America/Mexico_City
+America/Monterrey
+America/Ojinaga
+America/Tijuana"
+["FM"]="Pacific/Chuuk
+Pacific/Kosrae
+Pacific/Pohnpei"
+["MD"]="Europe/Chisinau"
+["MC"]="Europe/Monaco"
+["MN"]="Asia/Choibalsan
+Asia/Hovd
+Asia/Ulaanbaatar"
+["ME"]="Europe/Podgorica"
+["MS"]="America/Montserrat"
+["MA"]="Africa/Casablanca"
+["MZ"]="Africa/Maputo"
+["MM"]="Asia/Yangon"
+["NA"]="Africa/Windhoek"
+["NR"]="Pacific/Nauru"
+["NP"]="Asia/Kathmandu"
+["NL"]="Europe/Amsterdam"
+["NC"]="Pacific/Noumea"
+["NZ"]="Pacific/Auckland
+Pacific/Chatham"
+["NI"]="America/Managua"
+["NE"]="Africa/Niamey"
+["NG"]="Africa/Lagos"
+["NU"]="Pacific/Niue"
+["NF"]="Pacific/Norfolk"
+["KP"]="Asia/Pyongyang"
+["MP"]="Pacific/Saipan"
+["NO"]="Europe/Oslo"
+["OM"]="Asia/Muscat"
+["PK"]="Asia/Karachi"
+["PW"]="Pacific/Palau"
+["PS"]="Asia/Gaza
+Asia/Hebron"
+["PA"]="America/Panama"
+["PG"]="Pacific/Bougainville
+Pacific/Port_Moresby"
+["PY"]="America/Asuncion"
+["PE"]="America/Lima"
+["PH"]="Asia/Manila"
+["PN"]="Pacific/Pitcairn"
+["PL"]="Europe/Warsaw"
+["PT"]="Atlantic/Azores
+Atlantic/Madeira
+Europe/Lisbon"
+["PR"]="America/Puerto_Rico"
+["QA"]="Asia/Qatar"
+["RE"]="Indian/Reunion"
+["RO"]="Europe/Bucharest"
+["RU"]="Asia/Anadyr
+Asia/Barnaul
+Asia/Chita
+Asia/Irkutsk
+Asia/Kamchatka
+Asia/Khandyga
+Asia/Krasnoyarsk
+Asia/Magadan
+Asia/Novokuznetsk
+Asia/Novosibirsk
+Asia/Omsk
+Asia/Sakhalin
+Asia/Srednekolymsk
+Asia/Tomsk
+Asia/Ust-Nera
+Asia/Vladivostok
+Asia/Yakutsk
+Asia/Yekaterinburg
+Europe/Astrakhan
+Europe/Kaliningrad
+Europe/Kirov
+Europe/Moscow
+Europe/Samara
+Europe/Saratov
+Europe/Ulyanovsk
+Europe/Volgograd"
+["RW"]="Africa/Kigali"
+["SH"]="Atlantic/St_Helena"
+["KN"]="America/St_Kitts"
+["LC"]="America/St_Lucia"
+["PM"]="America/Miquelon"
+["VC"]="America/St_Vincent"
+["BL"]="America/St_Barthelemy"
+["MF"]="America/Marigot"
+["WS"]="Pacific/Apia"
+["SM"]="Europe/San_Marino"
+["ST"]="Africa/Sao_Tome"
+["SA"]="Asia/Riyadh"
+["SN"]="Africa/Dakar"
+["RS"]="Europe/Belgrade"
+["SC"]="Indian/Mahe"
+["SL"]="Africa/Freetown"
+["SG"]="Asia/Singapore"
+["SX"]="America/Anguilla"
+["SK"]="Europe/Bratislava"
+["SI"]="Europe/Ljubljana"
+["SB"]="Pacific/Guadalcanal"
+["SO"]="Africa/Mogadishu"
+["ZA"]="Africa/Johannesburg"
+["GS"]="Atlantic/South_Georgia"
+["KR"]="Asia/Seoul"
+["SS"]="Africa/Juba"
+["ES"]="Africa/Ceuta
+Atlantic/Canary
+Europe/Madrid"
+["LK"]="Asia/Colombo"
+["SD"]="Africa/Khartoum"
+["SR"]="America/Paramaribo"
+["SJ"]="Arctic/Longyearbyen"
+["SZ"]="Africa/Mbabane"
+["SE"]="Europe/Stockholm"
+["CH"]="Europe/Zurich"
+["SY"]="Asia/Damascus"
+["TW"]="Asia/Taipei"
+["TJ"]="Asia/Dushanbe"
+["TZ"]="Africa/Dar_es_Salaam"
+["TH"]="Asia/Bangkok"
+["BS"]="America/Nassau"
+["TG"]="Africa/Lome"
+["TK"]="Pacific/Fakaofo"
+["TO"]="Pacific/Tongatapu"
+["TT"]="America/Port_of_Spain"
+["TN"]="Africa/Tunis"
+["TR"]="Europe/Istanbul"
+["TM"]="Asia/Ashgabat"
+["TC"]="America/Grand_Turk"
+["TV"]="Pacific/Funafuti"
+["UG"]="Africa/Kampala"
+["UA"]="Europe/Kiev
+Europe/Simferopol
+Europe/Uzhgorod
+Europe/Zaporozhye"
+["AE"]="Asia/Dubai"
+["GB"]="Europe/London"
+["US"]="America/Adak
+America/Anchorage
+America/Boise
+America/Chicago
+America/Denver
+America/Detroit
+America/Indiana/Indianapolis
+America/Indiana/Knox
+America/Indiana/Marengo
+America/Indiana/Petersburg
+America/Indiana/Tell_City
+America/Indiana/Vevay
+America/Indiana/Vincennes
+America/Indiana/Winamac
+America/Juneau
+America/Kentucky/Louisville
+America/Kentucky/Monticello
+America/Los_Angeles
+America/Menominee
+America/Metlakatla
+America/New_York
+America/Nome
+America/North_Dakota/Beulah
+America/North_Dakota/Center
+America/North_Dakota/New_Salem
+America/Phoenix
+America/Sitka
+America/Yakutat
+Pacific/Honolulu"
+["UM"]="Pacific/Midway
+Pacific/Wake"
+["UY"]="America/Montevideo"
+["UZ"]="Asia/Samarkand
+Asia/Tashkent"
+["VU"]="Pacific/Efate"
+["VA"]="Europe/Vatican"
+["VE"]="America/Caracas"
+["VN"]="Asia/Ho_Chi_Minh"
+["VG"]="America/Tortola"
+["VI"]="America/St_Thomas"
+["WF"]="Pacific/Wallis"
+["EH"]="Africa/El_Aaiun"
+["YE"]="Asia/Aden"
+["ZM"]="Africa/Lusaka"
+)
+
+#+### Functions ###
+
+#+b_i18n_getSystemTimezone
+#+Get the system time zone.
+#+returns: The system time zone.
+#+@B_E
+function b_i18n_getSystemTimezone {
+	local ret=
+	ret="$(timedatectl)" || { B_ERR="Failed to execute timedatectl." ; B_E ; }
+	local re='Time zone: ([^ ]+)'
+	[[ "$ret" =~ $re ]] || { B_ERR="Failed to find the timezone info in the following output: $ret" ; B_E ; }
+	echo "${BASH_REMATCH[1]}"
+}
+
+#+b_i18n_setRandomSystemTimezone [country code] [max retries]
+#+Attempt to set the system time zone to a random one. Useful to e.g. fool web trackers.
+#+May require root privileges.
+#+[country code]: ISO 3166-2 country code. If specified, limit the choice to a time zone of that country (default: empty/all countries).
+#+[max retries]: How often to retry before giving up - some Linux systems may not support certain time zones (default: 1).
+#+returns: The timezone that was set. Errors trigger [B_E](#B_E).
+function b_i18n_setRandomSystemTimezone {
+	local country="$1"
+	local maxRetries="${2:-1}"
+
+	local list=
+	[ -n "$country" ] && list="${B_I18N_COUNTRY2TIMEZONE["$country"]}" || printf -v list '%s\n' "${B_I18N_COUNTRY2TIMEZONE[@]}"
+	[ -z "$list" ] && B_ERR="Country not found: $country" && B_E
+
+	local tz i
+	for (( i=0; i < $maxRetries; i++ )); do
+		tz="$(shuf -n1 <<< "$list")" || { B_ERR="Failed to execute shuf." ; B_E ; }
+		if timedatectl set-timezone "$tz" ; then
+			echo "$tz"
+			return 0
+		fi
+	done
+
+	B_ERR="Failed to set a random timezone."
+	B_E
+}
