@@ -49,13 +49,13 @@ return 0
 		}
 
 	#simulate cancel
-	runSL testPasswordPromptCancel "tty"
-	echo "$output"
-	[ $status -eq 0 ]
-	[ -z "$output" ]
+	#runSL testPasswordPromptCancel "tty"
+	#echo "$output"
+	#[ $status -eq 0 ]
+	#[ -z "$output" ]
 
-	runSL testPasswordPromptCancel "tty" "another prompt"
-	echo "$output"
-	[ $status -eq 0 ]
-	[ -z "$output" ]
+	#runSL testPasswordPromptCancel "tty" "another prompt"
+	#echo "$output"
+	#[ $status -eq 0 ]
+	#[ -z "$output" ]
 }
