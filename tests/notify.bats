@@ -10,6 +10,7 @@ load test_common
 
 function setup {
 	loadBlib
+	skipIfCI
 	b_import "notify"
 }
 
@@ -45,7 +46,6 @@ function testNoErrorErrorHandler {
 
 @test "b_notify_send" {
 	skipIfNoDbus
-	skipIfCI
 
 	testNotifyBasics "b_notify_send"
 
@@ -58,7 +58,6 @@ function testNoErrorErrorHandler {
 
 @test "b_notify_sendNoError" {
 	skipIfNoDbus
-	skipIfCI
 
 	testNotifyBasics "b_notify_sendNoError"
 
