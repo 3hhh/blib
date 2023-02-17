@@ -48,7 +48,7 @@ for ts in "${!BLIB_DELAY_CMDS[@]}" ; do
 	if [ $now -ge $ts ] ; then
 		(( B_DELAY_EXECUTED++ ))
 		eval "${BLIB_DELAY_CMDS["$ts"]}" || (( ret++ ))
-		unset BLIB_DELAY_CMDS["$ts"]
+		unset 'BLIB_DELAY_CMDS["$ts"]'
 	fi
 done
 
