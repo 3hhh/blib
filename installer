@@ -65,7 +65,7 @@ local blib="$SCRIPT_DIR/$LIB_NAME"
 
 echo "Installing to ${targetDir} ..."
 mkdir -p "$targetDir" || errorOut "Failed to create $targetDir."
-cp -r "$SCRIPT_DIR/"* "$targetDir" || errorOut "Failed to copy the blib files."
+cp -rT "$SCRIPT_DIR" "$targetDir" || errorOut "Failed to copy the blib files."
 
 echo "Fixing access rights..."
 chmod -R a+r "$targetDir" || errorOut "Failed to modify the access rights of $targetDir."
