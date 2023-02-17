@@ -103,6 +103,18 @@ function skipIfNotRoot {
 return 0
 }
 
+#+skipIfCI [ci]
+#+Skip the test, if it's run inside the given CI pipeline.
+#+[ci]: Disallowed CI pipeline. Leave it empty to match any CI pipeline.
+#+returns: Nothing.
+function skipIfCI {
+local ci="$1"
+[[ "$UTD_CI" == "$ci" ]] && skip "This test is not compatible with the $ci CI pipeline."
+[ -z "$ci" ] && [[ "$UTD_CI" != "no" ]] && skip "This test is not compatible with a CI pipeline."
+
+return 0
+}
+
 #+loadBlibTestState
 #+Load the [TEST_STATE](#TEST_STATE) with the data that was saved last via [saveBlibState](#saveBlibState). If you want to use [TEST_STATE](#TEST_STATE), call this function during test setup.
 #+returns: Nothing.

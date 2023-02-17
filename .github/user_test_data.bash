@@ -25,6 +25,12 @@ UTD_OS="ubuntu"
 #+no|vm|dom0
 UTD_QUBES="no"
 
+#+UTD_CI
+#+Specify whether you are running from a CI pipeline and from what pipeline, possible values:
+#+no|github
+#+May enable or disable pipeline-specific quirks.
+UTD_CI="github"
+
 #+UTD_QUBES_TESTVM
 #+If you're using Qubes OS, please specify a *disposable* virtual machine with a static name to be used for testing here. This test VM may crash, be destroyed or whatever - so please don't use a production VM!
 #+Apart from that, the tests will be conducted with disposable VMs with dynamic names using your default template.

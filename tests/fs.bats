@@ -122,6 +122,7 @@ function teardown {
 
 @test "b_fs_removeRelativelySafely" {
 	skipIfNotRoot
+	skipIfCI "github"
 
 	runSL b_fs_removeRelativelySafely "/tmp/nonexisting"
 	[ $status -ne 0 ]
@@ -169,6 +170,8 @@ function testWriteReconstruction {
 
 @test "b_fs_removeRelativelySafely - make sure that write reconstruction on $HOME doesn't work (slow, may fail)" {
 	skipIfNotRoot
+	skipIfCI "github"
+
 	runSC b_execFuncAs "root" testWriteReconstruction "fs" - - "$HOME"
 	echo "$output"
 	[ $status -eq 0 ]
