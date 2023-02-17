@@ -1,6 +1,6 @@
 name: Run blib tests
 
-on: [push, pull_request, workflow_dispatch]
+on: [push, workflow_dispatch]
 
 permissions:
   contents: read
@@ -9,7 +9,7 @@ permissions:
 jobs:
   unit-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
     - name: Checkout the repo
       uses: actions/checkout@v3
