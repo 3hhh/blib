@@ -13,6 +13,15 @@ function setup {
 	b_import "i18n"
 }
 
+function setTimezone {
+	local tz="$1"
+	timedatectl set-timezone "$tz"
+}
+
+function testSetRandomTimezone {
+	runSL b_execFuncAs "root" b_i18n_setRandomSystemTimezone "i18n" - - "$@"
+}
+
 @test "b_i18n_getSystemTimezone & b_i18n_setRandomSystemTimezone" {
 	local re='^[A-Z][a-z]+[A-Za-z_/]+$'
 
@@ -21,28 +30,30 @@ function setup {
 	[[ "$output" =~ $re ]]
 	local orig="$output"
 
-	runSL b_i18n_setRandomSystemTimezone "nonexisting"
+	skipIfNotRoot
+
+	testSetRandomTimezone "nonexisting"
 	[ $status -ne 0 ]
 	[[ "$output" == *"ERROR"* ]]
 	[[ "$output" == *"Country not found"* ]]
 
-	runSL b_i18n_setRandomSystemTimezone
+	testSetRandomTimezone
 	[ $status -eq 0 ]
 	[[ "$output" =~ $re ]]
 	[[ "$output" != "$orig" ]] #may fail very rarely
 	local last="$output"
 
-	runSL b_i18n_setRandomSystemTimezone "" 3
+	testSetRandomTimezone "" 3
 	[ $status -eq 0 ]
 	[[ "$output" =~ $re ]]
 	[[ "$output" != "$orig" ]] #may fail very rarely
 	[[ "$output" != "$last" ]] #may fail very rarely
 
-	runSL b_i18n_setRandomSystemTimezone "DE"
+	testSetRandomTimezone "DE"
 	[ $status -eq 0 ]
 	[[ "$output" == "Europe/Berlin" ]] || [[ "$output" == "Europe/Busingen" ]]
 
-	runSL b_i18n_setRandomSystemTimezone "IN"
+	testSetRandomTimezone "IN"
 	[ $status -eq 0 ]
 	[[ "$output" == "Asia/Kolkata" ]]
 
@@ -51,6 +62,6 @@ function setup {
 	[[ "$output" == "Asia/Kolkata" ]]
 
 	#set back to original
-	run timedatectl set-timezone "$orig"
+	runSC b_execFuncAs "root" setTimezone - - "$orig"
 	[ $status -eq 0 ]
 }

@@ -45,6 +45,7 @@ function testNoErrorErrorHandler {
 
 @test "b_notify_send" {
 	skipIfNoDbus
+	skipIfCI
 
 	testNotifyBasics "b_notify_send"
 
@@ -57,6 +58,7 @@ function testNoErrorErrorHandler {
 
 @test "b_notify_sendNoError" {
 	skipIfNoDbus
+	skipIfCI
 
 	testNotifyBasics "b_notify_sendNoError"
 

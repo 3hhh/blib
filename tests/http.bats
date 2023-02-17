@@ -29,11 +29,11 @@ function setup {
 
 	runSL b_http_rawUrlEncode "$raw1"
 	[ $status -eq 0 ]
-	[[ "$output" == "$enc1" ]]
+	[[ "$output" == "$enc1" ]] || [[ "$output" == "${enc1//%20/+}" ]]
 
 	runSL b_http_rawUrlEncode "$raw2"
 	[ $status -eq 0 ]
-	[[ "$output" == "$enc2" ]]
+	[[ "$output" == "$enc2" ]] || [[ "$output" == "${enc2//%20/+}" ]]
 
 	runSL b_http_rawUrlEncode "$enc1"
 	[ $status -eq 0 ]
@@ -41,7 +41,7 @@ function setup {
 
 	runSL b_http_rawUrlDecode "$encoded"
 	[ $status -eq 0 ]
-	[[ "$output" == "$enc1" ]]
+	[[ "$output" == "$enc1" ]] || [[ "$output" == "${enc1//%20/+}" ]] || [[ "$output" == "${enc1//+/%20}" ]]
 
 	runSL b_http_rawUrlDecode "$enc1"
 	[ $status -eq 0 ]

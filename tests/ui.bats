@@ -28,7 +28,7 @@ local outvar=
 b_ui_passwordPrompt "outvar" "$@" &> "$tmp" &
 local pid=$!
 sleep 0.3
-kill $pid
+kill $pid || :
 wait $pid 2> /dev/null
 [ $? -ne 0 ] || exit 1
 [ -z "$outvar" ] || exit 2
