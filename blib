@@ -1155,7 +1155,9 @@ if [ -z "$module" ] ; then
 	while IFS= read -r tst ; do
 		echo ""
 		echo "${tst##$testDir/}"
-		bats "$tst"
+		local add=""
+		[ -t 1 ] && [ -t 2 ] && add="-p"
+		bats $add "$tst"
 		ret=$(( $ret + $?))
 		testFiles=$(( $testFiles +1 ))
 	done <<< "$(set -o pipefail ; find "$testDir" -name "*.bats" | sort)" || { B_ERR="Failed to execute find." ; B_E ; }
