@@ -2,8 +2,8 @@
 # 
 #+Bats tests for the ui module.
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.2
+#+Copyright (C) 2022  David Hobach  LGPLv3
+#+0.3
 
 #load common test code
 load test_common
@@ -16,26 +16,16 @@ function setup {
 #testPasswordPrompt [ui mode] [password prompt]
 function testPasswordPrompt {
 local outvar=
-b_ui_passwordPrompt "outvar" "$@" > /dev/null && echo "$outvar"
+local ecode=
+b_ui_passwordPrompt "outvar" "$@" > /dev/null
+ecode=$?
+echo "$outvar"
+return $ecode
 }
 
 #testPasswordPromptCancel [ui mode] [password prompt]
 function testPasswordPromptCancel {
-local expectedPrompt="${2:-"Password: "}"
-local tmp="$(mktemp)"
-
-local outvar=
-b_ui_passwordPrompt "outvar" "$@" &> "$tmp" &
-local pid=$!
-sleep 0.3
-kill $pid &> /dev/null || :
-wait $pid 2> /dev/null
-[ $? -ne 0 ] || exit 1
-[ -z "$outvar" ] || exit 2
-local out="$(<"$tmp")"
-[[ "$out" == "$expectedPrompt" ]] || { echo "output: $out" ; exit 3 ; }
-rm -f "$tmp"
-return 0
+sleep 0.1 | testPasswordPrompt "$@"
 }
 
 @test "b_ui_passwordPrompt" {
@@ -49,13 +39,13 @@ return 0
 		}
 
 	#simulate cancel
-	#runSL testPasswordPromptCancel "tty"
-	#echo "$output"
-	#[ $status -eq 0 ]
-	#[ -z "$output" ]
+	runSL testPasswordPromptCancel "tty"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR:"* ]]
 
-	#runSL testPasswordPromptCancel "tty" "another prompt"
-	#echo "$output"
-	#[ $status -eq 0 ]
-	#[ -z "$output" ]
+	runSL testPasswordPromptCancel "tty" "another prompt"
+	echo "$output"
+	[ $status -ne 0 ]
+	[[ "$output" == *"ERROR:"* ]]
 }
