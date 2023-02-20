@@ -49,7 +49,7 @@ return 0
 function b_fd_closeAll {
 b_fd_closeNonStandard || { B_ERR="Failed to close the non-standard file descriptors." ; B_E ; }
 
-#b_fs_closeNonStandard needs at least stdin inside the while loop, so we close the remaining manually now
+#b_fd_closeNonStandard needs at least stdin inside the while loop, so we close the remaining manually now
 exec 0>&-
 exec 1>&-
 exec 2>&-
