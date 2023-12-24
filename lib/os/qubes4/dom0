@@ -17,7 +17,7 @@ b_import proc
 b_import types
 
 b_deps "qvm-run" "qvm-block" "qvm-ls" "qvm-shutdown" "qvm-check" "qvm-pool" "qvm-volume" "qubes-prefs" "qubesdb-write" "qubesdb-rm" "readlink" \
-"dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "losetup" "setsid" "sort" "tar" "qvm-firewall"
+"dirname" "basename" "mktemp" "ps" "sleep" "cat" "timeout" "dd" "tee" "xxd" "python3" "kill" "setsid" "sort" "tar" "qvm-firewall"
 
 #+### Global Variables ###
 
