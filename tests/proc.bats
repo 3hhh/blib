@@ -48,13 +48,13 @@ function testProcess {
 
 function childTest {
 	testProcess &
-	local pid="$!"
-	b_proc_childExists "$pid" || exit 1
+	local IGNORE_PID="$!"
+	b_proc_childExists "$IGNORE_PID" || exit 1
 	sleep 0.1
-	b_proc_childExists "$pid" || exit 2
+	b_proc_childExists "$IGNORE_PID" || exit 2
 
-	wait "$pid"
-	b_proc_childExists "$pid" && exit 3
+	wait "$IGNORE_PID"
+	b_proc_childExists "$IGNORE_PID" && exit 3
 	exit 0
 }
 
