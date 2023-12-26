@@ -140,9 +140,10 @@ blib_sqlite3_assertValidCommand "$cmd"
 
 	# shellcheck disable=SC2229
 	while IFS= read -r -u ${BLIB_STORE_VOLATILE["BLIB_SQLITE3_OUT_FD"]} $addOpts line ; do
-		#for errors we assume that one line of sqlite3 output looks like "Error: [message]"
+		#for errors we assume that one line of sqlite3 output looks like "Error: [message]" or "[type] error: [message]"
 		#NOTE: since users may queue multiple commands, such lines may occur anywhere in the output
 		[[ "$line" == "Error: "* ]] && err=0
+		[[ "$line" == *" error: "* ]] && err=0
 		[[ "$line" == "${BLIB_STORE["BLIB_SQLITE3_EOF"]}" ]] && break
 		[[ "$line" == "sqlite> .print ${BLIB_STORE["BLIB_SQLITE3_EOF"]}" ]] && continue
 

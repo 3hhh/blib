@@ -69,7 +69,7 @@ text
 	echo "$output"
 	[ $status -ne 0 ]
 	[[ "$output" != *"ERROR"* ]] #no error from B_E
-	[[ "$output" == *"Error: "* ]] #error from sqlite must exist
+	[[ "$output" == *[Ee]"rror: "* ]] #error from sqlite must exist
 
 	#multiline select
 	runSL b_sqlite3_exec "select * "$'\n'"from ttable"$'\n'" order by str;"
