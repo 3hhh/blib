@@ -41,9 +41,9 @@ function b_http_rawUrlEncode {
 #most ideas there don't support non-ASCII characters, but one does it properly:
 local str="$1"
 local ret=""
-ret="$(curl -s -o /dev/null -w '%{url_effective}' --get --data-urlencode "$str" "")"
-[ $? -ne 3 ] && { B_ERR="curl failed to encode $str." ; B_E ; }
-echo -n "${ret:2}"
+ret="$(echo -n "$str" | curl -Gs -w %{url_effective} --data-urlencode @- ./)"
+[ $? -ne 6 ] && { B_ERR="curl failed to encode $str." ; B_E ; }
+echo -n "${ret:10}"
 return 0
 }
 
