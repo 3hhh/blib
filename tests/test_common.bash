@@ -307,9 +307,12 @@ local stateAfter=
 stateBefore="$(mktemp)"
 stateAfter="$(mktemp)"
 runSC runStateSaving "$stateBefore" "$stateAfter" "$@"
-echo "state before: $stateBefore"
-echo "state after: $stateAfter"
-diff --suppress-common-lines "$stateBefore" "$stateAfter"
+#NOTE: the post execution state may include local variables, if execution failed (via exit) --> we can only compare states for variable leakage, if execution succeeded #FIXME
+if [ $status -eq 0 ] ; then
+	echo "state before: $stateBefore"
+	echo "state after: $stateAfter"
+	diff --suppress-common-lines "$stateBefore" "$stateAfter"
+fi
 rm -f "$stateBefore" "$stateAfter"
 }
 
