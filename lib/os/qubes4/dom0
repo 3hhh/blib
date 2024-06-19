@@ -776,6 +776,7 @@ qvm-check "$vm" &> /dev/null
 #+[key file]: Full vm path to the key to use for decryption. If none is specified, password-based decryption is assumed and stdin will be read to obtain the password.
 #+[additional options]: Single string with additional cryptsetup parameters to pass on (default: none). They are passed _as-is_, i.e. you'll have to take care of proper escaping etc. yourself.
 #+[password prompt]: Optional string to use when the user is required to provide a decryption password.
+#+[password]: Optional password to use for decryption. Key files have precedence over this option. Make sure to securely handle passwords in memory!
 #+returns: nothing (except for user interaction prompts if no key file is provided), but sets a non-zero exit code on errors
 #+@B_E
 function b_dom0_openCrypt {
@@ -787,6 +788,7 @@ local mp="$5"
 local keyFile="$6"
 local copt="$7"
 local passPrompt="${8:-"Password for $dev inside the VM $vm: "}"
+local pass="$9"
 
 #escape
 local keyFileEsc=""
@@ -816,13 +818,14 @@ else
 	#NOTES:
 	# - we need stdin & stdout for the password prompt; that's why this function is not just a wrapper using b_dom0_execFuncIn as the others
 	# - we do the prompting ourselves though as an additional security measure: An attacker might display something entirely different, read more than a single line and attempt to lure the user into providing some totally different password or data.
-	local pass=
-	b_ui_passwordPrompt "pass" "auto" "$passPrompt" || B_E
+	if [ -z "$pass" ] ; then
+		b_ui_passwordPrompt "pass" "auto" "$passPrompt" || B_E
+	fi
 	echo -n "$pass" | b_silence b_dom0_qvmRun --stdin "$vm" "$cmd" || { pass="${pass//?/0}" ; pass="" ; B_ERR="Failed to decrypt." ; B_E ; }
-
-	#overwrite the password in memory with zeroes, then free it
-	pass="${pass//?/0}" ; pass=""
 fi
+
+#overwrite the password in memory with zeroes, then free it
+pass="${pass//?/0}" ; pass=""
 #we use the b_dom0_qvmRun exit code as ours
 }
 
