@@ -16,6 +16,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        sudo apt update
         sudo apt -y install pandoc texlive-latex-base texlive-latex-recommended shellcheck curl sqlite3
         bash -version
 
