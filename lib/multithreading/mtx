@@ -7,8 +7,8 @@
 #+
 #+See the [keys](#keys) module source code for an example on how to use this mutex implementation efficiently.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.3
+#+Copyright (C) 2024  David Hobach  LGPLv3
+#+0.4
 
 b_import proc
 b_deps "mkdir" "touch" "sleep" "rm" "rmdir" "cat" "mktemp"
@@ -83,7 +83,7 @@ return 0
 #blib_mtx_getBlockIdFor [mutex]
 #Retrieve the block ID of the process blocking the given mutex (if any). The function is _not_ thread safe.
 #[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create).
-#returns: The block ID of the process blocking the given mutex and sets an exit code of 0. If no process is blocking the given mutex, an exit code of 1 is set. On errors an exit code of 2 is set.
+#returns: The block ID of the process blocking the given mutex and sets an exit code of 0. If no process is found blocking the given mutex, an exit code of 1 is set. On errors an exit code of 2 is set.
 function blib_mtx_getBlockIdFor {
 local mutex="$1"
 
@@ -102,7 +102,8 @@ for file in "$mutex/"* ; do
 	[ $cnt -gt 1 ] && return 2
 done
 
-[ $cnt -ne 1 ] && return 2
+[ $cnt -eq 0 ] && return 1
+[ $cnt -gt 1 ] && return 2
 
 return 0
 }
@@ -210,6 +211,11 @@ else
 
 	#we failed to obtain the other process id
 	if [ $ret -ne 0 ] ; then
+		#empty directory? (NOTE: there is a chance for the other process to not have created the block ID file yet)
+		if [ $ret -eq 1 ] && [ $claimStale -eq 0 ] && rmdir "$mutex" &> /dev/null ; then
+			b_mtx_try "$@"
+			return
+		fi
 		echo "Failed to read the mutex block file ${blockFile}. Another process might be blocking the mutex though."
 		#echo "$mutex $blockId fail: read mutex file" >> /tmp/mtx.log
 		#this may indicate:
