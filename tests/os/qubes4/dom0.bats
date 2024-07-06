@@ -827,11 +827,11 @@ test2:dm-0           desc with spaces                            '
 	[[ "$output" == "()" ]]
 
 	runSL b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "used by" "backend" "sys-usb" "device id" "mmcblk0"
-	[ $status -eq 0 ]
+	[ $status -ne 0 ]
 	[ -z "$output" ]
 
 	runSL b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "frontend-dev" "backend" "sys-usb" "device id" "mmcblk0"
-	[ $status -eq 0 ]
+	[ $status -ne 0 ]
 	[ -z "$output" ]
 
 	runSL b_dom0_getQvmBlockInfo "$test1ExpectedSpec" "frontend-dev" "backend" "sys-nonexisting" "device id" "mmcblk0"

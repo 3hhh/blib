@@ -961,7 +961,7 @@ echo "${ret/declare -A ret/declare -A $outVar}"
 #+[retrieve field]: Name of the field to retrieve.
 #+[filter field i]: Name of any field supported by [b_dom0_parseQvmBlock](#b_dom0_parseQvmBlock).
 #+[filter value i]: The value to search for in \[filter field i\] (equality check).
-#+returns: The value of the requested field and sets a zero exit code on success. Sets a non-zero exit code if no matching value could be found. On errors [B_E](#B_E) is called.
+#+returns: The value of the requested field and sets a zero exit code on success. Sets a non-zero exit code if no matching value could be found or the found value was empty. On errors [B_E](#B_E) is called.
 #+@B_E
 function b_dom0_getQvmBlockInfo {
 local blockinfo="$1"
@@ -1007,8 +1007,10 @@ for ((i=0; i < ${blockinfo["max"]}; i++)) ; do
 	#return matching entry
 	if [ $matching -eq 0 ] ; then
 		if [ "${blockinfo["${i}_$retField"]+exists}" ] ; then
-			echo "${blockinfo["${i}_$retField"]}"
-			return 0
+			local ret="${blockinfo["${i}_$retField"]}"
+			echo "$ret"
+			[ -n "$ret" ] #return value
+			return
 		else
 			B_ERR="Requested a non-existing field $retField."
 			B_E
