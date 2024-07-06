@@ -1139,8 +1139,8 @@ function testSuccAttach {
 
 	#cleanup
 	[[ "${TEST_STATE["DOM0_DETACH_FILE"]}" == "/tmp/"* ]] && rm -f "${TEST_STATE["DOM0_DETACH_FILE"]}"
-	unset TEST_STATE["DOM0_DETACH_FILE"]
-	unset TEST_STATE["DOM0_DETACH_DEVICE"]
+	unset 'TEST_STATE["DOM0_DETACH_FILE"]'
+	unset 'TEST_STATE["DOM0_DETACH_DEVICE"]'
 }
 
 @test "b_dom0_isMountedIn" {
@@ -1682,12 +1682,12 @@ function testSuccEnsureHalted {
 @test "dom0 clean" {
 	if [ -n "${TEST_STATE["DOM0_TESTVM_1"]}" ] ; then
 		runSL qvm-shutdown "${TEST_STATE["DOM0_TESTVM_1"]}"
-		unset TEST_STATE["DOM0_TESTVM_1"]
+		unset 'TEST_STATE["DOM0_TESTVM_1"]'
 	fi
 
 	if [ -n "${TEST_STATE["DOM0_TESTVM_2"]}" ] ; then
 		runSL qvm-shutdown "${TEST_STATE["DOM0_TESTVM_2"]}"
-		unset TEST_STATE["DOM0_TESTVM_2"]
+		unset 'TEST_STATE["DOM0_TESTVM_2"]'
 	fi
 
 	if [ -n "$UTD_QUBES_TESTVM" ] ; then
