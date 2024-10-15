@@ -758,6 +758,75 @@ function testLastPipesFail1 {
 	b_assertLastPipes "$1"
 }
 
+#runSL/runSC execute inside a subshell, i.e. the output variable doesn't persist.
+function readLinePrint {
+	local IGNORE_ret="${1:-B_LINE}"
+	local IGNORE_ecode=
+	b_readLine "$@"
+	IGNORE_ecode=$?
+	#if [ $IGNORE_ecode -eq 0 ] ; then
+	echo "${!IGNORE_ret}"
+	#fi
+	exit $IGNORE_ecode
+}
+
+function testReadLine {
+	local var="${1:-B_LINE}"
+	local text="line 1"$'\n'"line 2"$'\n'"line 3"
+
+	local i=0
+	while b_readLine "$var" ; do
+		i=$(( $i +1 ))
+		[[ "${!var}" == "line $i" ]] || exit 1
+	done <<< "$text"
+	[ $i -eq 3 ] || exit 2
+}
+
+@test "b_readLine" {
+	local text='*single. l*ne with \n weird char!a$tead_rs?!!'
+
+	runSL readLinePrint < /dev/null
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	B_LINE="some old value"
+	runSL readLinePrint < /dev/null
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	runSL readLinePrint "testvar" < /dev/null
+	[ $status -ne 0 ]
+	[ -z "$output" ]
+
+	local testvar2=""
+	b_readLine "testvar2" <<< "$text"
+	[[ "$testvar2" == "$text" ]]
+
+	runSL readLinePrint <<< "$text"
+	[ $status -eq 0 ]
+	[[ "$output" == "$text" ]]
+
+	runSL readLinePrint <<< "$text"$'\n'
+	[ $status -eq 0 ]
+	[[ "$output" == "$text" ]]
+
+	runSL readLinePrint "" -r -n1 <<< "$text"
+	[ $status -eq 0 ]
+	[[ "$output" == '*' ]]
+
+	runSL readLinePrint <<< ""
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSC testReadLine
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+
+	runSC testReadLine "out"
+	[ $status -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "b_assertLastPipes" {
 	runSL b_assertLastPipes
 	[ $status -eq 0 ]

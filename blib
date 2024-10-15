@@ -142,6 +142,9 @@ EOF
 #+B_SCRIPT_DIR
 #+Name of the sourced or executed bash script executing the eval (symlinks are resolved) of [B_SCRIPT](#B_SCRIPT).
 
+#+B_LINE
+#+Default output variable of [b_readLine](#b_readLine).
+
 #+### Global Aliases ###
 
 #+Alias expansion is automatically enabled by blib as it is required for its core functionality. So if you have strange aliases defined in your shell environment, this may cause undefined blib behaviour.
@@ -459,6 +462,27 @@ ret=$?
 b_resetErrorHandler 1
 B_E
 return $ret
+}
+
+#+b_readLine [variable] [read arg 1] .. [read arg r]
+#+Read a line from stdin to the given variable. It should generally be preferred over bash's `read` function as it should be much more readable and robust.
+#+
+#+Contrary to the definition of bash's `read` function, lines may end with newlines _or_ EOF (`read` only accepts newlines).
+#+
+#+Note that bash's `read` and this function are _relatively_ slow, but use little memory. Sometimes it may make sense to use the faster `mapfile -t` instead, which however reads the entire data into memory.
+#+[variable]: Name of the variable to read the line to (default: [B_LINE](#B_LINE)). It's content is only valid on a zero exit code. Otherwise it will be in an undefined state - in particular previous content may not be available anymore.
+#+[read arg r]: An arbitrary number of arguments to pass to the `read` function, which is used internally (default: `-r`).
+#+returns: Sets a zero exit code, if another line could be read. Otherwise a non-zero exit code is set.
+function b_readLine {
+local ret="${1:-B_LINE}"
+shift
+if [ $# -le 0 ] ; then
+	IFS= read -r "${ret?}" && return 0
+else
+	IFS= read "$@" "${ret?}" && return 0
+fi
+#bash's read returns a non-zero exit code for the last line, if it doesn't end with a newline
+[ -n "${!ret}" ]
 }
 
 #+b_assertLastPipes [error message]
