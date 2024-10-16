@@ -22,12 +22,11 @@ local force=${1:-1}
 
 if [ $force -eq 0 ] || [ ${BLIB_STORE_VOLATILE["BLIB_OSID_INITIALIZED"]} -ne 0 ] ; then
 	local fl=
-	local line=
 	for fl in /etc/*release ; do
 		[[ "$fl" == "/etc/*release" ]] && continue
 
-		while IFS= read -r line ; do
-			[[ "$line" =~ ^NAME=(.*)$ ]] && BLIB_STORE_VOLATILE["BLIB_OSID_NAME"]="${BASH_REMATCH[1]}"
+		while b_readLine ; do
+			[[ "$B_LINE" =~ ^NAME=(.*)$ ]] && BLIB_STORE_VOLATILE["BLIB_OSID_NAME"]="${BASH_REMATCH[1]}"
 		done < "$fl"
 	done
 

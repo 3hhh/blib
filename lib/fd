@@ -35,7 +35,7 @@ local fd fds
 local pid="$$"
 fds="$(b_fd_getOpen "$pid")" || { B_ERR="Failed to obtain the open file descriptors for the process $pid." ; B_E ; }
 
-while IFS= read -r fd ; do
+while b_readLine fd ; do
 	[ $fd -gt 2 ] && eval "exec $fd>&-"
 done <<< "$fds"
 

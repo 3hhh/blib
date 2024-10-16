@@ -217,7 +217,7 @@ ${BLIB_STORE["BLIB_CDOC_DOCUMENT_BEGIN_CALLBACK"]} "$outFile" "$outFormat" >> "$
 
 #extract the documentation from the code / generate the raw doc
 local fname=""
-while IFS= read -r fname ; do
+while b_readLine fname ; do
 	local o=""
 
 	#check the file callback
@@ -229,7 +229,7 @@ while IFS= read -r fname ; do
 		local block=""
 		local lastMatched=1
 		local blockCnt=0
-		while IFS= read -r line || [ -n "$block" ] ; do
+		while b_readLine line || [ -n "$block" ] ; do
 			if [[ "$line" =~ ${BLIB_STORE["BLIB_CDOC_EXTRACTION_REGEX"]} ]] ; then
 				[ $lastMatched -eq 0 ] && block="$block"$'\n'"${BASH_REMATCH[1]}" || block="${BASH_REMATCH[1]}"
 				lastMatched=0

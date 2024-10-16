@@ -250,19 +250,18 @@ declare -p | {
 	#filter stuff from the state that we don't want to see because it's very volatile
 	#for simplicity we also drop every line that doesn't look like a declare on a single line
 	#maybe TODO: improve on that, but could be hard as declare -p behaves differently across different bash versions and various separators such as )'" and combinations are all valid depending on the context, i.e. one might have to write an entire parser
-        local line=
-        local reBeginDecl='^declare [-a-zA-Z]+ ([^=]+)=?(.*)$'
-        local reSkip='^(_|IGNORE_.*|BLIB_ERR_.*|B_ERR|RANDOM|SECONDS|BASHPID|FUNCNAME|PIPESTATUS|BASH_.*|BLIB_STORE_VOLATILE|BLIB_IPCM_STORE|BLIB_INI_FILE|B_ARGS|B_ARGS_OPTS|BLIB_ARGS_OPTCNT|B_LINE|B_DELAY_EXECUTED|BLIB_DELAY_CMDS|T_GLOB)$'
+	local reBeginDecl='^declare [-a-zA-Z]+ ([^=]+)=?(.*)$'
+	local reSkip='^(_|IGNORE_.*|BLIB_ERR_.*|B_ERR|RANDOM|SECONDS|BASHPID|FUNCNAME|PIPESTATUS|BASH_.*|BLIB_STORE_VOLATILE|BLIB_IPCM_STORE|BLIB_INI_FILE|B_ARGS|B_ARGS_OPTS|BLIB_ARGS_OPTCNT|B_LINE|B_DELAY_EXECUTED|BLIB_DELAY_CMDS|T_GLOB)$'
 	local name=
-        while IFS= read -r line ; do
-                if [[ "$line" =~ $reBeginDecl ]] ; then
+	while b_readLine ; do
+		if [[ "$B_LINE" =~ $reBeginDecl ]] ; then
 			name="${BASH_REMATCH[1]}"
-                        if [[ "$name" =~ $reSkip ]] ; then
-                                continue
-                        else
-				echo "$line"
+			if [[ "$name" =~ $reSkip ]] ; then
+				continue
+			else
+				echo "$B_LINE"
 			fi
-                fi
+		fi
 	done
 }
 }

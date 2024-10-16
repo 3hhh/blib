@@ -23,7 +23,7 @@ function testSetRandomTimezone {
 }
 
 @test "b_i18n_getSystemTimezone & b_i18n_setRandomSystemTimezone" {
-	local re='^[A-Z][a-z]+[A-Za-z_/]+$'
+	local re='^[A-Z][a-z]+[A-Za-z_/-]+$'
 
 	runSL b_i18n_getSystemTimezone
 	[ $status -eq 0 ]

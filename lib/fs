@@ -98,7 +98,7 @@ if [ -n "$mp" ] ; then
 		#NOTE: we use findmnt as devices and mount points can come in many notations
 		if ! findmnt --source "$dev" --mountpoint "$mp" &> /dev/null ; then
 			local cur=
-			while IFS= read -r cur ; do
+			while b_readLine cur ; do
 				if [ -n "$cur" ] ; then
 					mount --bind "$cur" "$mp" &> /dev/null || { B_ERR="Failed to rebind $cur to $mp." ; B_E ; }
 					ret="$mp"$'\n'"$ret"
@@ -325,7 +325,7 @@ local nonEx="${2:-0}"
 
 local fname=""
 local fnew=
-while IFS= read -r fname ; do
+while b_readLine fname ; do
 	if [ -d "$fname" ] ; then
 		[[ "$fname" == *"/" ]] && fname="${fname::-1}"
 		#recurse dirs

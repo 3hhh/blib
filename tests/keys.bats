@@ -142,7 +142,7 @@ function assertKeyCount {
 	local key=
 	local cnt=0
 	if [ -n "$keys" ] ; then
-		while IFS= read -r key ; do
+		while b_readLine key ; do
 			[ -f "$key" ] || { B_ERR="Not existing: $key" ; B_E }
 			[[ "$key" == "$T_BASE_DIR/mnt/ro/"* ]] || { B_ERR="Unexpected path: $key" ; B_E }
 			cnt=$(( $cnt +1 ))

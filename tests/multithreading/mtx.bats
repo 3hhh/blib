@@ -298,10 +298,9 @@ function assertOutFileOk {
 	local expLines="$2"
 	local str="$3"
 	local i=0
-	local line=""
-	while IFS= read -r line ; do
+	while b_readLine ; do
 		i=$(( i+1 ))
-		[[ "$line" == "$str" ]]
+		[[ "$B_LINE" == "$str" ]]
 	done < "$file"
 
 	[ $i -eq $expLines ]

@@ -94,7 +94,7 @@ function skipIfNoTestVMs {
 	local line=""
 	local testVM1Seen=1
 	local testVM2Seen=1
-	while IFS= read -r line ; do
+	while b_readLine line ; do
 		[[ "$line" == "disp"* ]]
 		[[ "$line" == "${TEST_STATE["DOM0_TESTVM_1"]}" ]] && testVM1Seen=0
 		[[ "$line" == "${TEST_STATE["DOM0_TESTVM_2"]}" ]] && testVM2Seen=0

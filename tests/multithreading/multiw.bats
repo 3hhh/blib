@@ -120,7 +120,7 @@ function runPidReader {
 
 		local cnt=0
 		local first=""
-		while IFS= read -r line ; do
+		while b_readLine line ; do
 			#we want to read slooowly in order to cause simultaneous writes
 			sleep 0.1
 			cnt=$(( $cnt +1))

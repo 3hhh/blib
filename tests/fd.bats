@@ -17,9 +17,8 @@ function isIntegerList {
 	b_import "types"
 
 	local list="$1"
-	local line=
-	while IFS= read -r line ; do
-		b_types_assertInteger "$line"
+	while b_readLine ; do
+		b_types_assertInteger "$B_LINE"
 	done <<< "$list"
 }
 
@@ -48,9 +47,8 @@ function isIntegerList {
 	runSL b_fd_getOpen "$!"
 	[ $status -eq 0 ]
 	echo "$output"
-	local line=
-	while IFS= read -r line ; do
-		[ $line -le 2 ]
+	while b_readLine ; do
+		[ $B_LINE -le 2 ]
 	done <<< "$output"
 }
 

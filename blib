@@ -4,7 +4,7 @@
 #+
 #+The basic functions which are imported by default.
 #+
-#+Copyright (C) 2022  David Hobach  LGPLv3
+#+Copyright (C) 2024  David Hobach  LGPLv3
 #+version: Execute `blib version` or use [b_version](#b_version).
 #+
 #+### Disclaimer ###
@@ -255,7 +255,7 @@ function b_nop {
 function b_version {
 local part="${1:0}"
 local major=1
-local minor=5
+local minor=6
 
 case "$part" in
 	1)
@@ -795,9 +795,8 @@ function b_listContains {
 local list="$1"
 local entry="$2"
 
-local line=""
-while IFS= read -r line ; do
-	[[ "$line" == "$entry" ]] && return 0
+while b_readLine ; do
+	[[ "$B_LINE" == "$entry" ]] && return 0
 done <<< "$list"
 
 return 1
@@ -919,7 +918,7 @@ local mainCnt=0
 local inMain=1
 local main=""
 local line=
-while IFS= read -r line ; do
+while b_readLine line ; do
 	if [ $inMain -eq 0 ] ; then
 		if [[ "$line" == "#BLIB_MAIN_END" ]] ; then
 			main="$main"$'\n'"$line"
@@ -1176,7 +1175,7 @@ if [ -z "$module" ] ; then
 	local testFiles=0
 
 	local tst=""
-	while IFS= read -r tst ; do
+	while b_readLine tst ; do
 		echo ""
 		echo "${tst##$testDir/}"
 		local add=""
@@ -1222,7 +1221,7 @@ local lineNo=0
 local regex='^#\+(.*)$'
 local descriptionSeen=0
 local line=""
-while IFS= read -r line ; do
+while b_readLine line ; do
 
 	#skip after a while
 	[ $lineNo -gt 15 ] && break
@@ -1252,7 +1251,7 @@ function blib_list {
 local mods="$(b_getBlibModules)"
 
 local module=""
-while IFS= read -r module ; do
+while b_readLine module ; do
 	echo "$module"
 	blib_getModuleDescription "$module"
 done <<< "$mods"

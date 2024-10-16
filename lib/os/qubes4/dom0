@@ -152,7 +152,7 @@ local addParams="-p"
 local prefix="\x12\x13\x14\x12\x13\x14\x66"
 local tPrefix depsEsc dep prefixFound
 tPrefix="$(mktemp)" || { B_ERR="Failed to create a temp file." ; B_E ; }
-while IFS= read -r dep ; do
+while b_readLine dep ; do
 	printf -v depsEsc '%s %q' "$depsEsc" "$dep"
 done <<< "${BLIB_STORE["BLIB_DOM0_VM_DEPS"]}"
 cmd="$(declare -f "b_deps") ; ( b_deps $depsEsc &> /dev/null ) && printf '%b' \"$prefix\x66\" || { printf '%b' \"$prefix\x67\" ; exit 127 ; } ; $cmd"
@@ -185,11 +185,10 @@ return $ret
 #+@B_E
 function b_dom0_getDispVMs {
 local all=""
-local line=""
 all="$(qvm-ls -O NAME,CLASS --raw-data)" || { B_ERR="Failed to run qvm-ls." ; B_E ; }
 
-while IFS= read -r line ; do
-	[[ "$line" =~ ^(disp[0-9]+)\|DispVM$ ]] && echo "${BASH_REMATCH[1]}"
+while b_readLine ; do
+	[[ "$B_LINE" =~ ^(disp[0-9]+)\|DispVM$ ]] && echo "${BASH_REMATCH[1]}"
 done <<< "$all"
 
 return 0
@@ -218,7 +217,6 @@ local re='^.*qrexec-client.* -d (disp[0-9]+) .*$'
 local i=0
 local ret=""
 local cmds=""
-local cmd=""
 local interval=1
 
 #wait a bit for qvm-run to get the VM name
@@ -229,8 +227,8 @@ while [ $i -lt ${BLIB_STORE["BLIB_DOM0_QREXEC_TIMEOUT"]} ] ; do
 
 	cmds="$(ps --no-headers -o cmd --ppid $pid)"
 
-	while IFS= read -r cmd ; do
-		[[ "$cmd" =~ $re ]] && echo "${BASH_REMATCH[1]}" && return 0
+	while b_readLine ; do
+		[[ "$B_LINE" =~ $re ]] && echo "${BASH_REMATCH[1]}" && return 0
 	done <<< "$cmds"
 
 	sleep $interval
@@ -377,10 +375,9 @@ out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly retu
 
 #apply some sanity checks to the VM output otherwise as it is entirely untrusted
 #WARNING: a-zA-Z also allows utf-8 characters on many systems --> that's why this more restrictive explicit version was used here --> it may be too restrictive for some users though
-local line=""
 local pathRe='^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /~.+-]+$'
-while IFS= read -r line ; do
-	[[ "$line" =~ $pathRe ]] || { B_ERR="The sanity check for the output of VM $vm failed. Original output: $out" ; B_E ; }
+while b_readLine ; do
+	[[ "$B_LINE" =~ $pathRe ]] || { B_ERR="The sanity check for the output of VM $vm failed. Original output: $out" ; B_E ; }
 done <<< "$out"
 
 echo "$out"
@@ -720,7 +717,7 @@ halted="$(qvm-ls --halted --raw-list)" || { B_ERR="Failed to execute qvm-ls." ; 
 
 local vm=
 declare -A haltedMap
-while IFS= read -r vm ; do
+while b_readLine vm ; do
 	haltedMap["$vm"]=0
 done <<< "$halted"
 
@@ -882,7 +879,7 @@ fi
 declare -A ret=()
 local i=0
 local line=""
-while IFS= read -r line ; do
+while b_readLine line ; do
 	[ -z "$line" ] && continue
 
 	#skip header
@@ -1308,7 +1305,7 @@ local ret=
 #NOTE: setsid ensures that Ctrl-C to a foreground process doesn't kill qwatch (as it's part of the process group), but allows the foreground process to decide what to do
 coproc setsid python3 "$qwatch" $heartbeat 2> /dev/null
 BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]="$COPROC_PID"
-while IFS= read -ru ${COPROC[0]} line ; do
+while b_readLine line -ru ${COPROC[0]} ; do
 
 	case $cnt in
 		0)
@@ -1380,7 +1377,7 @@ local list="$3"
 
 local toExec=""
 local line=
-while IFS= read -r line ; do
+while b_readLine line ; do
 	printf -v toExec '%s\ntest %s %q &> /dev/null ; echo $?' "$toExec" "$op" "$line"
 done <<< "$list"
 
@@ -1390,13 +1387,13 @@ out="$(b_types_parseString <<< "$out")" || { B_ERR="The VM $vm unexpectedly retu
 
 #parse (untrusted!) VM output
 local ret=()
-while IFS= read -r line ; do
+while b_readLine line ; do
 	# shellcheck disable=SC2190
 	ret+=("$line")
 done <<< "$out"
 
 local i=0
-while IFS= read -r line ; do
+while b_readLine line ; do
 	if [[ "${ret[$i]}" == "0" ]] ; then
 		echo "$line"
 	elif [[ "${ret[$i]}" == "1" ]] ; then
@@ -1437,7 +1434,7 @@ local commentRegex='^[[:blank:]]*#.*$'
 #temporarily insert drop-all to avoid excessive permissions during modification
 qvm-firewall --raw "$vm" add --before 0 'action=drop' || { B_ERR="Failed to insert the temporary drop-all firewall rule." ; B_E ; }
 
-while IFS= read -r rule ; do
+while b_readLine rule ; do
 	[[ "$rule" =~ $blankRegex ]] && continue
 	[[ "$rule" =~ $commentRegex ]] && continue
 

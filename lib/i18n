@@ -22,7 +22,7 @@ b_deps "shuf" "timedatectl"
 #countryRe='^.*<iso2>([A-Z]{2})</iso2>.*$'
 #timezoneRe='^.*<zoneName>([^<]+)</zoneName>.*$'
 #last=""
-#while IFS= read -r line ; do
+#while IFS= read -r line || [ -n "$line" ] ; do
 #  if [[ "$line" =~ $countryRe ]] ; then
 #    [ -n "$last" ] && echo "$last"'"' && last=""
 #    last='["'"${BASH_REMATCH[1]}"'"]="'

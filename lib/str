@@ -43,8 +43,7 @@ function b_str_prefixLines {
 local str="$1"
 local prefix="$2"
 
-local line=
-while IFS= read -r line ; do
-	echo "${prefix}$line"
+while b_readLine ; do
+	echo "${prefix}$B_LINE"
 done <<< "$str"
 }

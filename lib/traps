@@ -90,7 +90,7 @@ old="$(b_traps_getCodeFor "$signal")" || { B_ERR="Unexpected error: $old" ; B_E 
 #try to find the commands
 local inRemoveTag=1
 local linesRemoved=1
-while IFS= read -r line ; do
+while b_readLine line ; do
 	if [[ "$line" == "$beginMarker" ]] ; then
 		inRemoveTag=0
 	elif [[ "$line" == "$endMarker" ]] ; then

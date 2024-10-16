@@ -111,7 +111,7 @@ function stripTimestamps {
 	local re='^[^ ]+ [^ ]+ [^ ]+ (.*)$'
 	local line=""
 
-	while IFS= read -r line ; do
+	while b_readLine line ; do
 		[[ "$line" =~ $re ]] && echo "${BASH_REMATCH[1]}" >> "$out" || echo "$line" >> "$out"
 	done < "$file"
 
@@ -399,7 +399,7 @@ function loggingThread {
 	local line=
 	local re='^[^ ]+ [^ ]+ [^ ]+ [^ ]+ 1:([0-9]+) 2:([0-9]+) 3:([0-9]+)$'
 	local lineCnt=0
-	while IFS= read -r line ; do
+	while b_readLine line ; do
 		echo "$line"
 		[[ "$line" =~ $re ]]
 		local pid="${BASH_REMATCH[1]}"

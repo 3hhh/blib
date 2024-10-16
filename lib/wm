@@ -36,7 +36,7 @@ input="$(wmctrl -lpxG)" || { B_ERR="Failed to run wmctrl. Maybe the $(whoami) us
 local line=
 local re='^(0x[0-9a-f]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([0-9]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ].*)$'
 declare -A ret=()
-while IFS= read -r line ; do
+while b_readLine line ; do
 	[ -z "$line" ] && continue
 	if [[ "$line" =~ $re ]] ; then
 		local wid="${BASH_REMATCH[1]}"
