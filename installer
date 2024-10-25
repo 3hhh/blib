@@ -3,10 +3,17 @@
 # blib installer
 #
 # Copyright (C) 2018  David Hobach  LGPLv3
-# 0.5
+# 0.6
+
+function errorOut {
+>&2 echo "ERROR: $1"
+>&2 echo "Aborting..."
+exit 1
+}
 
 #name of the directory this script resides in (hopefully)
-SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+SCRIPT_DIR="$(readlink -f "${BASH_SOURCE[0]}")" || errorOut "Failed to execute readlink."
+SCRIPT_DIR="$(dirname "$SCRIPT_DIR")" || errorOut "Failed to execute dirname."
 
 #name of this script
 SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
@@ -29,12 +36,6 @@ echo ""
 echo "Installer for $LIB_NAME."
 echo ""
 echo "[install dir]: where to install the blib library to or remove it from (a blib subdirectory is created/removed there); default: $DEFAULT_INSTALL_DIR"
-exit 1
-}
-
-function errorOut {
->&2 echo "ERROR: $1"
->&2 echo "Aborting..."
 exit 1
 }
 
