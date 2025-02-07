@@ -799,7 +799,7 @@ printf -v devEsc '%q' "$dev"
 
 #set cryptsetup options
 local mopt=""
-[ $rwFlag -ne 0 ] && copt="$copt -r" && mopt="-o noload"
+[ $rwFlag -ne 0 ] && copt="$copt -r" && mopt="$mopt -r"
 [ -n "$keyFile" ] && copt="$copt --key-file $keyFileEsc"
 
 #run
