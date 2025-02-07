@@ -86,7 +86,7 @@ local dev="$1"
 local mp="$2"
 local enforce="${3:-1}"
 local mopts="$4"
-[ -n "$mopts" ] && [[ "$mopts" != "-o "* ]] && mopts="-o $mopts"
+[ -n "$mopts" ] && [[ "$mopts" != "-"* ]] && mopts="-o $mopts"
 
 local ret=
 ret="$(b_fs_getMountpoints "$dev")"
