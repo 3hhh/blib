@@ -245,7 +245,7 @@ B_ERR="Failed to identify the name of the disposable VM that was just started." 
 #+[vm]: Name of the VM where to execute the given string. The VM is assumed to be started.
 #+[file]: Bash file to execute in the given VM.
 #+[user]: user as which to execute the bash file (default: root)
-#+returns: Whatever the executed Bash code prints in the VM to stderr or stdout; the status code is set to the one of the executed Bash code on success (0). Non-zero exit codes and error messages may come from both this function as well as the code executed in the given VM.
+#+returns: Whatever the executed bash code prints in the VM to stdout; the status code is set to the one of the executed Bash code on success (0). Non-zero exit codes and error messages may come from both this function as well as the code executed in the given VM.
 #+@B_E
 function b_dom0_execIn {
 local vm="$1"
