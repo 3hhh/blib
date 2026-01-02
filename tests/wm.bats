@@ -2,8 +2,8 @@
 # 
 #+Bats tests for the wm module.
 #+
-#+Copyright (C) 2020  David Hobach  LGPLv3
-#+0.1
+#+Copyright (C) 2026  David Hobach  LGPLv3
+#+0.2
 
 #load common test code
 load test_common
@@ -29,7 +29,7 @@ function assertCorrectWindowProperties {
 	[ ${#out[@]} -eq $(( ${#ids[@]} * 10 )) ]
 
 	local id=
-	local dre='^[0-9]+$'
+	local dre='^-?[0-9]+$'
 	for id in "${ids[@]}" ; do
 		echo 2
 		[[ "${out["${id}_id"]}" == "$id" ]]
