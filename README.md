@@ -114,6 +114,6 @@ If you didn't install to `/usr/lib`, you'll have to provide the installer script
 
 ## Copyright
 
-© 2021 David Hobach
+© 2026 David Hobach
 
 blib is released under the LGPLv3 license; see `LICENSE` for details.

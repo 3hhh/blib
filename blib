@@ -4,7 +4,7 @@
 #+
 #+The basic functions which are imported by default.
 #+
-#+Copyright (C) 2024  David Hobach  LGPLv3
+#+Copyright (C) 2026  David Hobach  LGPLv3
 #+version: Execute `blib version` or use [b_version](#b_version).
 #+
 #+### Disclaimer ###
@@ -255,7 +255,7 @@ function b_nop {
 function b_version {
 local part="${1:0}"
 local major=1
-local minor=6
+local minor=7
 
 case "$part" in
 	1)
@@ -1103,7 +1103,7 @@ read -r -d '' header << 'EOF'
 ---
 title: 'blib Code Reference vVERSION'
 author: 'David Hobach'
-rights: '(C) 2020  David Hobach  CC BY-NC'
+rights: '(C) 2026  David Hobach  CC BY-NC'
 lang: 'en'
 header: 'blib Code Reference'
 section: 3
