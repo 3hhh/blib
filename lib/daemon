@@ -9,13 +9,13 @@
 #+Known Issue:
 #+Since the daemon cannot detach from its session via `setsid` in bash, the daemon will remain in the process group of its parent. So killing the parent with e.g. Ctrl-C will cause the parent group including the daemon to terminate. As a workaround, users may either ignore SIGINT requests or make sure the parent exits as soon as possible (recommended).
 #+
-#+Copyright (C) 2019  David Hobach  LGPLv3
+#+Copyright (C) 2026  David Hobach  LGPLv3
 #+0.5
 
 b_import "multithreading/mtx"
 b_import "proc"
 b_import "fd"
-b_deps "kill" "umask" "mkdir" "rm" "mktemp"
+b_deps "kill" "umask" "mkdir" "chmod" "rm" "mktemp"
 
 BLIB_STORE["BLIB_DAEMON_QUIET"]=
 BLIB_STORE["BLIB_DAEMON_MAIN"]=
@@ -94,6 +94,7 @@ printf -v stderr '%q' "${BLIB_STORE["BLIB_DAEMON_STDERR"]}"
 
 #block the mutex with our own block id
 mkdir -p "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}" || { B_ERR="Failed to create ${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}." ; B_E ; }
+chmod 1777 "${BLIB_STORE["BLIB_DAEMON_MTX_DIR"]}" &> /dev/null || : #make it readable & writable for everyone, if possible
 b_mtx_try "$mtx" "$$" 0 1 &> /dev/null || { B_ERR="The daemon $id appears to be running already." ; B_E ; }
 
 #start daemon

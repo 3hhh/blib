@@ -7,7 +7,7 @@
 #+
 #+See the [keys](#keys) module source code for an example on how to use this mutex implementation efficiently.
 #+
-#+Copyright (C) 2024  David Hobach  LGPLv3
+#+Copyright (C) 2026  David Hobach  LGPLv3
 #+0.4
 
 b_import proc
@@ -135,7 +135,7 @@ return 0
 
 #+b_mtx_try [mutex] [block ID] [claim stale] [claim own]
 #+Attempt to obtain the given mutex. Return immediately even if it cannot be obtained.
-#+[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create). You may also use a static and otherwise unused directory path as mutex and share it across all relevant processes.
+#+[mutex]: A mutex obtained via [b_mtx_create](#b_mtx_create). You may also use a static and otherwise unused directory path as mutex and share it across all relevant processes. Make sure that the parent directory is accessible to all processes (e.g. via `chmod 1777 [parent directory]`).
 #+[block ID]: The ID to use by which to block (default: running (sub)shell process id $$). This should be the process ID of the process attempting to obtain the mutex or you should know what you're doing. If you're in a subshell that should deploy a mutex against other subshells, store their $BASHPID and call the function with that.
 #+[claim stale]: If set to 0, claim the mutex even if it is still blocked by some other process, but that process isn't running anymore. If set to 1 (default), the function returns without obtaining the mutex. In general this should only be used in situations where a mutex has a high probability of being stale (e.g. application start).
 #+[claim own]: If set to 0 (default), claim the mutex if it appears to be blocked by the provided block ID. If set to 1, consider it blocked even then.
