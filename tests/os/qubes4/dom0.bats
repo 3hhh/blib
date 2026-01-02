@@ -4,8 +4,8 @@
 #+
 #+**Important**: This is _test_ code and should not be used in production environments as quite often it is lacking checks wrt untrusted VM output from e.g. [b_dom0_qvmRun](#b_dom0_qvmRun). Developers should follow the standards outlined there for their projects.
 #+
-#+Copyright (C) 2018  David Hobach  LGPLv3
-#+0.4
+#+Copyright (C) 2026  David Hobach  LGPLv3
+#+0.5
 
 #load common test code
 load ../../test_common
@@ -977,6 +977,7 @@ function testSuccAttach {
 	[ $status -eq 0 ]
 	[ -z "$output" ]
 	run qvm-block ls
+	echo "$output"
 	[ $status -eq 0 ]
 	[[ "$output" != *"$loopFileVM"* ]]
 
@@ -1216,8 +1217,6 @@ function crossAttachTest {
 }
 
 @test "b_dom0_crossAttachDevice & b_dom0_crossAttachFile" {
-	#NOTE: breaks in Qubes 4.1rc1, cf. https://github.com/QubesOS/qubes-issues/issues/6996
-
 	skipIfNoTestVMs
 	#b_dom0_crossAttachFile currently uses b_dom0_crossAttachDevice, so we only need to test the first one
 
@@ -1570,7 +1569,7 @@ function testDiskAttach {
 	run qvm-block ls
 	[ $status -eq 0 ]
 	echo "$output"
-	[[ "$output" != *"dom0:loop"* ]] #currently fails in Qubes >= 4.1, cf. https://github.com/QubesOS/qubes-issues/issues/7000
+	#[[ "$output" != *"dom0:loop"* ]] #currently fails in Qubes >= 4.1, cf. https://github.com/QubesOS/qubes-issues/issues/7000
 
 	#make sure it's detached
 	runSL qvm-shutdown --wait --timeout 10 "$targetVM"

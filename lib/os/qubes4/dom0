@@ -4,8 +4,8 @@
 #+
 #+**Important**: Whenever you parse output from VMs to dom0, you **must** be extra careful and assume it totally untrusted as parsing bugs are a plausible attack vector for compromised VMs. Passing data to potentially compromised VMs of course also exposes that data's confidentiality.
 #+
-#+Copyright (C) 2022  David Hobach  LGPLv3
-#+0.7
+#+Copyright (C) 2026  David Hobach  LGPLv3
+#+0.8
 
 # s.check gets confused by the ret variable a lot --> we disable the two warnings which that one generates:
 # shellcheck disable=SC2178
@@ -875,6 +875,7 @@ fi
 # - columns are separated by at least 2 space characters
 # - the format of the description is somewhat unclear: for simplicity I'll assume that it may contain at most 1 space
 # - read-only and frontend-dev may be swapped
+# - the above output is from Qubes 4.2; Qubes 4.3 introduced some `Block_Storage: hosted by vm ` prefix in the description
 
 declare -A ret=()
 local i=0
@@ -915,6 +916,10 @@ while b_readLine line ; do
 				fi
 			fi
 		done
+		#remove useless description prefix introduced by 4.3
+		#this provides backwards compatibility to 4.2
+		regex='^Block_Storage: hosted by ([^[:blank:]]+) (.*)$'
+		[[ "$desc" =~ $regex ]] && desc="${BASH_REMATCH[2]}"
 		ret["${i}_description"]="$desc"
 
 		#parse used by
