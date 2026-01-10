@@ -49,7 +49,8 @@ def main():
     parser.add_argument('interval', nargs='?', default=-1, type=int, help='Heartbeat interval in ms: Can be used to make sure that an event is sent every few ms (default: no heartbeat).')
     args = parser.parse_args()
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         events = qubesadmin.events.EventsDispatcher(args.app)
         events.add_handler('*', printing_handler)
         events_listener = asyncio.ensure_future(events.listen_for_events())
