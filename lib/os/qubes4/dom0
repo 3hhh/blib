@@ -1308,7 +1308,7 @@ local eventInfo=
 local ret=
 
 #NOTE: setsid ensures that Ctrl-C to a foreground process doesn't kill qwatch (as it's part of the process group), but allows the foreground process to decide what to do
-coproc setsid python3 "$qwatch" $heartbeat 2> /dev/null
+coproc setsid python3 "$qwatch" $heartbeat
 BLIB_STORE_VOLATILE["BLIB_DOM0_EVENT_LOOP_PID"]="$COPROC_PID"
 while b_readLine line -ru ${COPROC[0]} ; do
 
